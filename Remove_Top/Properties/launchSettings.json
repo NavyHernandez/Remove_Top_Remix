@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Remove_Top (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Remove_Top (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

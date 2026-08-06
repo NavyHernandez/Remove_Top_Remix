@@ -1,0 +1,10 @@
+## .NET build artifacts
+bin/
+obj/
+
+## Visual Studio
+.vs/
+*.user
+
+## Misc
+nul

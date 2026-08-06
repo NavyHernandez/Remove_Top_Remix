@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Remove_Top.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Remove_Top"
+    xmlns:ic="using:FluentIcons.WinUI"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Top Remix">
+
+    <NavigationView x:Name="NavView"
+                    PaneDisplayMode="LeftCompact"
+                    IsSettingsVisible="False"
+                    ItemInvoked="NavView_ItemInvoked"
+                    Loaded="NavView_Loaded">
+
+        <!-- Logo / Header personalizado en la parte superior del panel -->
+        <NavigationView.PaneHeader>
+            <Grid Height="48" Margin="4,8,4,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size20"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Top Remix" FontSize="14" FontWeight="SemiBold" />
+                        <TextBlock Text="Mejorador de Audio" FontSize="10"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </NavigationView.PaneHeader>
+
+        <NavigationView.MenuItems>
+            <NavigationViewItem x:Name="NavGain" Tag="gain" Content="Normalizar"
+                                ToolTipService.ToolTip="Normalizar volumen de archivos de audio">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#5B9BD5"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#5B9BD5"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Speaker2" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavRename" Tag="rename" Content="Renombrar"
+                                ToolTipService.ToolTip="Renombrar archivos en lote">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#70AD47"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#70AD47"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Edit" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavEdit" Tag="edit" Content="Editar nombres"
+                                ToolTipService.ToolTip="Editar nombres de archivos rápidamente">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#E67E22"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#E67E22"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Rename" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavStems" Tag="stems" Content="Stems"
+                                ToolTipService.ToolTip="Extraer voz del instrumental">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#9B59B6"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#9B59B6"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Mic" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavDuplicates" Tag="duplicates" Content="Duplicados"
+                                ToolTipService.ToolTip="Detectar y eliminar archivos duplicados">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#E74C3C"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#E74C3C"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Copy" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <Frame x:Name="ContentFrame" />
+    </NavigationView>
+</Window>

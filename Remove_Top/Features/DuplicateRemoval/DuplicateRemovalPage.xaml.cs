@@ -1,0 +1,519 @@
+using FluentIcons.Common;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Remove_Top.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.Storage.Pickers;
+
+namespace Remove_Top.Features.DuplicateRemoval
+{
+    /// <summary>
+    /// Página de Eliminación de Duplicados: selecciona una carpeta (se escanea
+    /// de forma recursiva, incluidas las subcarpetas, hasta
+    /// DuplicateScanner.MaxFilesToScan archivos), agrupa los duplicados en
+    /// pestañas numeradas (exactos y posibles) y envía los confirmados a la
+    /// Papelera de Windows.
+    /// </summary>
+    public sealed partial class DuplicateRemovalPage : Page
+    {
+        private string _folderPath = "";
+        private readonly ObservableCollection<DuplicateItem> _exactItems = [];
+        private readonly ObservableCollection<DuplicateItem> _possibleItems = [];
+        private readonly ObservableCollection<DuplicateItem> _damagedItems = [];
+        private readonly ObservableCollection<DeletionResult> _deletionResults = [];
+        private CancellationTokenSource? _cts;
+        private DeletionMode _lastDeletionMode = DeletionMode.RecycleBin;
+        private bool _isScanning;
+        private bool _isProcessing;
+        private bool _scanPerformed;
+        private bool _deletionCompleted;
+
+        public DuplicateRemovalPage()
+        {
+            InitializeComponent();
+            ExactListView.ItemsSource = _exactItems;
+            PossibleListView.ItemsSource = _possibleItems;
+            DamagedListView.ItemsSource = _damagedItems;
+            DeletionResultsListView.ItemsSource = _deletionResults;
+            BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
+            ScanButton.Content = UiHelpers.Content(Icon.Search, "Escanear duplicados", foreground: ScanButton.Foreground);
+            SelectAllButton.Content = UiHelpers.Content(Icon.Checkmark, "Borrar todos", semibold: false, foreground: SelectAllButton.Foreground);
+            DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle, "Eliminar seleccionados", foreground: DeleteButton.Foreground);
+            DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
+            CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
+            UpdateUI();
+        }
+
+        // ================================================================
+        // SELECCIÓN DE CARPETA DE ORIGEN
+        // ================================================================
+
+        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new FolderPicker
+            {
+                ViewMode = PickerViewMode.List,
+                SuggestedStartLocation = PickerLocationId.MusicLibrary
+            };
+            picker.FileTypeFilter.Add("*");
+
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder == null) return;
+
+            _folderPath = folder.Path;
+            FolderPathBox.Text = _folderPath;
+
+            ResetResults();
+            UpdateUI();
+        }
+
+        /// <summary>Limpia los resultados y devuelve la UI al estado inicial.</summary>
+        private void ResetResults()
+        {
+            UnsubscribeItems();
+            _exactItems.Clear();
+            _possibleItems.Clear();
+            _damagedItems.Clear();
+            _deletionResults.Clear();
+            _scanPerformed = false;
+            _deletionCompleted = false;
+            ResultsSection.Visibility = Visibility.Collapsed;
+            ProgressSection.Visibility = Visibility.Collapsed;
+            DeletionResultsSection.Visibility = Visibility.Collapsed;
+            ScanStatusText.Text = "";
+            UpdateTabHeaders();
+        }
+
+        private void UnsubscribeItems()
+        {
+            foreach (var item in _exactItems.Concat(_possibleItems).Concat(_damagedItems))
+                item.PropertyChanged -= Item_PropertyChanged;
+        }
+
+        /// <summary>
+        /// Re-asigna el ItemsSource de las tres ListView de resultados. Si el
+        /// contenido de una pestaña del TabView aún no se materializó (pestaña
+        /// no seleccionada durante el escaneo), la lista puede quedar vacía
+        /// pese a que el contador de la pestaña muestre ítems; esto la fuerza
+        /// a re-leer la colección.
+        /// </summary>
+        private void RefreshListBindings()
+        {
+            ExactListView.ItemsSource = null;
+            ExactListView.ItemsSource = _exactItems;
+            PossibleListView.ItemsSource = null;
+            PossibleListView.ItemsSource = _possibleItems;
+            DamagedListView.ItemsSource = null;
+            DamagedListView.ItemsSource = _damagedItems;
+        }
+
+        private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not DuplicateItem item) return;
+
+            if (e.PropertyName == nameof(DuplicateItem.IsMarkedForDeletion))
+            {
+                UpdateSelectionSummary();
+            }
+        }
+
+        /// <summary>
+        /// Al cambiar de pestaña se fuerza que la ListView de la pestaña recién
+        /// seleccionada re-lea su colección. El contenido de las pestañas no
+        /// seleccionadas puede no estar materializado/conectado al árbol visual
+        /// del TabView, así que el ItemsSource asignado al escanear no basta:
+        /// sin este refresco el contador de la pestaña muestra ítems pero la
+        /// lista puede quedar vacía (bug de "Posibles").
+        /// </summary>
+        private void ResultsTabView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (PossibleTab.IsSelected)
+            {
+                PossibleListView.ItemsSource = null;
+                PossibleListView.ItemsSource = _possibleItems;
+            }
+            else if (ExactTab.IsSelected)
+            {
+                ExactListView.ItemsSource = null;
+                ExactListView.ItemsSource = _exactItems;
+            }
+            else if (DamagedTab.IsSelected)
+            {
+                DamagedListView.ItemsSource = null;
+                DamagedListView.ItemsSource = _damagedItems;
+            }
+        }
+
+        // ================================================================
+        // ESCANEO
+        // ================================================================
+
+        private async void ScanButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Si ya está escaneando, el botón funciona como "Cancelar"
+            if (_isScanning)
+            {
+                _cts?.Cancel();
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_folderPath))
+            {
+                ScanStatusText.Text = "Selecciona una carpeta primero.";
+                return;
+            }
+
+            ResetResults();
+            _isScanning = true;
+            ScanButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: ScanButton.Foreground);
+            BrowseButton.IsEnabled = false;
+            ScanLoader.IsActive = true;
+            ScanLoader.Visibility = Visibility.Visible;
+            ScanStatusText.Text = "Enumerando archivos...";
+
+            _cts = new CancellationTokenSource();
+            var scanner = new DuplicateScanner();
+            var progress = new Progress<ScanProgress>(p =>
+            {
+                ScanStatusText.Text = p.IsIndeterminate
+                    ? p.Phase
+                    : $"{p.Phase} ({p.Current}/{p.Total})";
+            });
+
+            try
+            {
+                var result = await scanner.ScanAsync(_folderPath, progress, _cts.Token);
+
+                foreach (var item in result.ExactGroups.SelectMany(g => g.Duplicates))
+                {
+                    item.PropertyChanged += Item_PropertyChanged;
+                    _exactItems.Add(item);
+                }
+                foreach (var item in result.PossibleGroups.SelectMany(g => g.Duplicates))
+                {
+                    item.PropertyChanged += Item_PropertyChanged;
+                    _possibleItems.Add(item);
+                }
+                foreach (var item in result.DamagedFiles)
+                {
+                    item.PropertyChanged += Item_PropertyChanged;
+                    _damagedItems.Add(item);
+                }
+
+                // Fuerza que las ListView (sobre todo la de "Posibles", cuyo
+                // contenido puede no estar materializado si su pestaña no está
+                // seleccionada) re-lean la colección y rendericen los ítems.
+                RefreshListBindings();
+
+                _scanPerformed = true;
+                UpdateTabHeaders();
+                UpdateSelectionSummary();
+
+                if (_exactItems.Count == 0 && _possibleItems.Count == 0 && _damagedItems.Count == 0)
+                {
+                    ScanStatusText.Text = "No se encontraron duplicados.";
+                    ResultsSection.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    string truncated = result.TotalFilesFound > result.ScannedFiles
+                        ? $" (se analizaron los primeros {result.ScannedFiles} de {result.TotalFilesFound})"
+                        : "";
+                    string damagedNote = _damagedItems.Count > 0
+                        ? $" · {_damagedItems.Count} archivo(s) dañado(s) (< 6 KB)"
+                        : "";
+                    int unmarkedDifferentSize = _possibleItems.Count(i => !i.SameSize && !i.IsMarkedForDeletion);
+                    string possibleNote = unmarkedDifferentSize > 0
+                        ? $" · {unmarkedDifferentSize} posible(s) de tamaño distinto y duración no verificada vienen desmarcados: revísalos antes de borrar"
+                        : "";
+                    ScanStatusText.Text = $"Escaneo completado{truncated}. Revisa las pestañas y confirma con los checks.{damagedNote}{possibleNote}";
+                    ResultsSection.Visibility = Visibility.Visible;
+
+                    // Muestra directamente la pestaña que tenga resultados
+                    ResultsTabView.SelectedItem = _exactItems.Count > 0
+                        ? ExactTab
+                        : _possibleItems.Count > 0
+                            ? PossibleTab
+                            : DamagedTab;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // El usuario canceló: se reinicia todo desde cero (ruta incluida)
+                ResetAll();
+                ScanStatusText.Text = "Escaneo cancelado. Selecciona una carpeta para volver a empezar.";
+            }
+            catch (Exception ex)
+            {
+                ScanStatusText.Text = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                _isScanning = false;
+                ScanLoader.IsActive = false;
+                ScanLoader.Visibility = Visibility.Collapsed;
+                BrowseButton.IsEnabled = true;
+                _cts?.Dispose();
+                _cts = null;
+                UpdateUI();
+            }
+        }
+
+        /// <summary>
+        /// Reinicia la página desde cero: limpia la ruta seleccionada, los
+        /// resultados y la UI. Se usa al cancelar el escaneo.
+        /// </summary>
+        private void ResetAll()
+        {
+            _folderPath = "";
+            FolderPathBox.Text = "";
+            ResetResults();
+            UpdateUI();
+        }
+
+        private void UpdateTabHeaders()
+        {
+            ExactTabHeader.Text = $"1 · Duplicados exactos ({_exactItems.Count})";
+            PossibleTabHeader.Text = $"2 · Posibles ({_possibleItems.Count})";
+            DamagedTabHeader.Text = $"3 · Archivos dañados ({_damagedItems.Count})";
+
+            int unmarkedDifferentSize = _possibleItems.Count(i => !i.SameSize && !i.IsMarkedForDeletion);
+            string sizeNote = unmarkedDifferentSize > 0
+                ? $" · {unmarkedDifferentSize} desmarcados"
+                : "";
+            long wasted = _exactItems.Concat(_possibleItems).Concat(_damagedItems)
+                .Where(i => i.IsMarkedForDeletion).Sum(i => i.Size);
+            SummaryText.Text = $"{_exactItems.Count} exacto(s) · {_possibleItems.Count} posible(s){sizeNote} · " +
+                DuplicateItem.FormatSize(wasted) + " liberables";
+        }
+
+        // ================================================================
+        // SELECCIÓN
+        // ================================================================
+
+        private int SelectedCount => _exactItems.Concat(_possibleItems).Concat(_damagedItems)
+            .Count(i => i.IsMarkedForDeletion);
+
+        private long SelectedBytes => _exactItems.Concat(_possibleItems).Concat(_damagedItems)
+            .Where(i => i.IsMarkedForDeletion).Sum(i => i.Size);
+
+        private void UpdateSelectionSummary()
+        {
+            int selected = SelectedCount;
+            SelectionCountText.Text = $"{selected} seleccionado(s) · liberará {DuplicateItem.FormatSize(SelectedBytes)} · " +
+                $"límite {DuplicateRemover.MaxDeletionsPerRun} por ejecución";
+            bool hasItems = _exactItems.Count + _possibleItems.Count + _damagedItems.Count > 0;
+            SelectAllButton.IsEnabled = hasItems && !_isProcessing;
+            DeleteButton.IsEnabled = selected > 0 && !_isProcessing;
+            DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle,
+                selected > 0 ? $"Eliminar seleccionados ({selected})" : "Eliminar seleccionados",
+                foreground: DeleteButton.Foreground);
+            DeletePermanentButton.IsEnabled = selected > 0 && !_isProcessing;
+            DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool,
+                selected > 0 ? $"Eliminar definitivamente ({selected})" : "Eliminar definitivamente",
+                foreground: DeletePermanentButton.Foreground);
+        }
+        private void SelectAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            // "Borrar todos": marca todos los archivos de las tres pestañas.
+            foreach (var item in _exactItems.Concat(_possibleItems).Concat(_damagedItems))
+            {
+                item.IsMarkedForDeletion = true;
+            }
+            UpdateSelectionSummary();
+        }
+
+        // ================================================================
+        // ELIMINACIÓN (Papelera o definitiva)
+        // ================================================================
+
+        private async void DeleteButton_Click(object sender, RoutedEventArgs e)
+            => await RunDeletionAsync(DeletionMode.RecycleBin);
+
+        private async void DeletePermanentButton_Click(object sender, RoutedEventArgs e)
+            => await RunDeletionAsync(DeletionMode.Permanent);
+
+        private async Task RunDeletionAsync(DeletionMode mode)
+        {
+            if (_isProcessing) return;
+
+            var marked = _exactItems.Concat(_possibleItems).Concat(_damagedItems)
+                .Where(i => i.IsMarkedForDeletion).ToList();
+            if (marked.Count == 0) return;
+
+            if (!await ConfirmDeletionAsync(marked, mode)) return;
+
+            _lastDeletionMode = mode;
+            _deletionResults.Clear();
+            _isProcessing = true;
+            DeleteButton.IsEnabled = false;
+            DeletePermanentButton.IsEnabled = false;
+            BrowseButton.IsEnabled = false;
+            ScanButton.IsEnabled = false;
+            SelectAllButton.IsEnabled = false;
+            ProgressSection.Visibility = Visibility.Visible;
+            DeletionResultsSection.Visibility = Visibility.Visible;
+            DeleteProgressBar.Value = 0;
+
+            _cts = new CancellationTokenSource();
+            var remover = new DuplicateRemover();
+            var progress = new Progress<DeletionProgress>(p =>
+            {
+                DeleteProgressBar.Value = p.Percentage;
+                DeleteProgressCountText.Text = $"{p.CurrentIndex}/{p.TotalCount}";
+                DeleteProgressText.Text = p.CurrentFile;
+
+                if (p.Result != null)
+                {
+                    _deletionResults.Add(p.Result);
+                    DeletionResultsListView.ScrollIntoView(p.Result);
+                    UpdateDeletionSummary();
+                }
+            });
+
+            try
+            {
+                await remover.RemoveFilesAsync(marked, mode, progress, _cts.Token);
+
+                // Quita de la lista los archivos que se eliminaron correctamente
+                foreach (var item in marked.Where(i => i.IsMarkedForDeletion).ToList())
+                {
+                    item.PropertyChanged -= Item_PropertyChanged;
+                    _exactItems.Remove(item);
+                    _possibleItems.Remove(item);
+                    _damagedItems.Remove(item);
+                }
+
+                UpdateTabHeaders();
+                UpdateSelectionSummary();
+
+                // Tras la eliminación, la fila de botones ya no debe mostrarse:
+                // solo quedan visibles los resultados de la operación.
+                _deletionCompleted = true;
+
+                if (_exactItems.Count == 0 && _possibleItems.Count == 0 && _damagedItems.Count == 0)
+                    ResultsSection.Visibility = Visibility.Collapsed;
+            }
+            catch (OperationCanceledException)
+            {
+                _deletionResults.Add(new DeletionResult
+                {
+                    FileName = "---",
+                    Success = false,
+                    Message = "Proceso cancelado por el usuario"
+                });
+                UpdateDeletionSummary();
+            }
+            finally
+            {
+                _isProcessing = false;
+                ProgressSection.Visibility = Visibility.Collapsed;
+                BrowseButton.IsEnabled = true;
+                ScanButton.IsEnabled = true;
+                _cts?.Dispose();
+                _cts = null;
+                UpdateUI();
+            }
+        }
+
+        /// <summary>
+        /// Muestra un diálogo de confirmación con el conteo exacto y el
+        /// espacio liberable. Para el borrado definitivo el aviso es más
+        /// explícito porque la acción NO se puede deshacer.
+        /// </summary>
+        private async Task<bool> ConfirmDeletionAsync(IReadOnlyList<DuplicateItem> items, DeletionMode mode)
+        {
+            bool permanent = mode == DeletionMode.Permanent;
+            var dialog = new ContentDialog
+            {
+                Title = permanent ? "Eliminación definitiva" : "Confirmar eliminación",
+                Content = permanent
+                    ? $"Se ELIMINARÁN DEFINITIVAMENTE {items.Count} archivo(s) " +
+                      $"({DuplicateItem.FormatSize(items.Sum(i => i.Size))}).\n" +
+                      "Esta acción NO se puede deshacer y no pasarán por la Papelera.\n" +
+                      "Se conservará 1 copia de cada grupo."
+                    : $"Se enviarán a la Papelera {items.Count} archivo(s) " +
+                      $"({DuplicateItem.FormatSize(items.Sum(i => i.Size))}).\n" +
+                      "Se conservará 1 copia de cada grupo.",
+                PrimaryButtonText = permanent ? "Eliminar definitivamente" : "Eliminar",
+                CloseButtonText = "Cancelar",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+
+        private void UpdateDeletionSummary()
+        {
+            int ok = _deletionResults.Count(r => r.Success);
+            int fail = _deletionResults.Count(r => !r.Success);
+            string action = _lastDeletionMode == DeletionMode.Permanent ? "eliminados" : "en Papelera";
+            DeletionSummaryText.Text = $"{ok} {action} · {fail} errores · {_deletionResults.Count} total";
+        }
+
+        // ================================================================
+        // ESTADO DE LA UI
+        // ================================================================
+
+        private void UpdateUI()
+        {
+            // Durante el escaneo el botón queda activo como "Cancelar"
+            ScanButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
+            ScanButton.Content = UiHelpers.Content(
+                _isScanning ? Icon.Dismiss : Icon.Search,
+                _isScanning ? "Cancelar" : "Escanear duplicados",
+                foreground: ScanButton.Foreground);
+
+            // "Cancelar" está activo mientras haya una carpeta cargada (o un escaneo en curso)
+            CancelButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
+
+            // Fila de acciones: al cargar una carpeta solo aparece "Cancelar".
+            // La fila completa (Borrar todos / Eliminar...) solo tras un escaneo
+            // con resultados. Si no hay duplicados ni dañados, no aparece nada.
+            // Tras una eliminación, los botones desaparecen y solo quedan los resultados.
+            bool folderLoaded = !string.IsNullOrEmpty(_folderPath);
+            bool hasItems = _exactItems.Count + _possibleItems.Count + _damagedItems.Count > 0;
+
+            if (_deletionCompleted || !folderLoaded || (!hasItems && _scanPerformed))
+            {
+                ActionsSection.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                ActionsSection.Visibility = Visibility.Visible;
+                SelectionCountText.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+                SelectAllButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+                DeleteButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+                DeletePermanentButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+                CancelButton.Visibility = Visibility.Visible;
+            }
+
+            UpdateSelectionSummary();
+        }
+
+        /// <summary>
+        /// "Cancelar": si hay un escaneo en curso lo cancela (el catch reinicia
+        /// todo desde cero); si no, limpia los resultados y la ruta seleccionada.
+        /// </summary>
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isScanning)
+            {
+                _cts?.Cancel();
+                return;
+            }
+            if (_isProcessing) return;
+            ResetAll();
+        }
+    }
+}
