@@ -10,12 +10,14 @@ namespace Remove_Top.Features.DuplicateRemoval
 {
     /// <summary>
     /// Servicio de detección de archivos duplicados.
-    /// Escanea de forma recursiva una o varias carpetas (máx. MaxFilesToScan),
-    /// calcula el hash SHA-256 solo de los archivos con tamaño repetido (en
-    /// paralelo) y agrupa el resultado ejecutando los detectores por prioridad:
-    /// exactos (hash) → mismos nombre normalizado → misma palabra clave.
-    /// Cada archivo cae en un único grupo. Mantiene separada la detección de
-    /// archivos dañados (&lt; MinValidFileSizeBytes).
+    /// Escanea de forma recursiva una o varias carpetas (máx. MaxFilesToScan)
+    /// y agrupa el resultado ejecutando los detectores por prioridad:
+    /// misma canción por nombre normalizado (SameName) → exactos por hash →
+    /// palabra clave. Cada archivo cae en un único grupo. El hash SHA-256 solo
+    /// se calcula (en paralelo) para los archivos NO reclamados por nombre y
+    /// con tamaño repetido, lo que reduce mucho el trabajo en bibliotecas
+    /// musicales (la mayoría de los duplicados comparten nombre).
+    /// Mantiene separada la detección de archivos dañados (&lt; MinValidFileSizeBytes).
     /// </summary>
     public class DuplicateScanner
     {
@@ -72,13 +74,13 @@ namespace Remove_Top.Features.DuplicateRemoval
 
         /// <summary>
         /// Escanea la carpeta (incluyendo subcarpetas), analiza hasta
-        /// MaxFilesToScan archivos y agrupa los duplicados: exactos por hash,
-        /// posibles por nombre normalizado y posibles por 1.ª/2.ª palabra.
-        /// Los posibles se verifican después con la duración real de los
-        /// archivos de audio (DurationVerifier) para descartar falsos positivos.
-        /// Por rendimiento solo calcula el hash SHA-256 de los archivos cuyo
-        /// tamaño se repite (los únicos que pueden ser duplicados exactos) y
-        /// lo hace en paralelo. Reporta fases y avance mediante IProgress y
+        /// MaxFilesToScan archivos y agrupa los duplicados: misma canción por
+        /// nombre normalizado (SameName, marcados), exactos por hash y posibles
+        /// por palabra clave. Los grupos por nombre y por palabra se verifican
+        /// después con la duración real de los archivos de audio
+        /// (DurationVerifier). Por rendimiento el hash SHA-256 solo se calcula
+        /// para los archivos cuyo tamaño se repite entre los no reclamados por
+        /// nombre, y en paralelo. Reporta fases y avance mediante IProgress y
         /// soporta cancelación.
         /// </summary>
         public async Task<DuplicateScanResult> ScanAsync(
@@ -117,9 +119,25 @@ namespace Remove_Top.Features.DuplicateRemoval
 
             var valid = records.Where(r => r.Size >= MinValidFileSizeBytes).ToArray();
 
-            // Fase 2: solo se hashean los archivos cuyo tamaño se repite,
-            // porque un archivo único en tamaño no puede tener un duplicado exacto.
-            var toHash = valid
+            // Detección por prioridad, optimizada para bibliotecas musicales:
+            //   1) MISMA CANCIÓN por NOMBRE NORMALIZADO (barato: compara strings,
+            //      sin hashear). "Pipe Bueno   Te Parece Poco" vs "PIPE BUENO -
+            //      TE PARECE POCO" o "JESSI URIBE - SOBREVIVIRE" vs "Jessi Uribe
+            //      Sobreviviré" caen aquí y quedan marcados como exactos.
+            //   2) Exactos por HASH entre lo NO reclamado por nombre (solo tamaños
+            //      repetidos, en paralelo). Captura duplicados byte-idénticos con
+            //      nombres distintos.
+            //   3) Posibles por PALABRA CLAVE entre lo restante.
+            // Como el nombre explica la mayoría de los duplicados de una biblioteca
+            // musical, se reduce drásticamente el número de hashes a calcular.
+            var byNameGroups = new NormalizedNameDetector().Detect(valid).ToList();
+            var used = CollectPaths(byNameGroups);
+
+            var remainingForHash = valid.Where(r => !used.Contains(r.FilePath)).ToArray();
+
+            // Solo se hashean los archivos cuyo tamaño se repite, porque un
+            // archivo único en tamaño no puede tener un duplicado exacto.
+            var toHash = remainingForHash
                 .GroupBy(r => r.Size)
                 .Where(g => g.Count() > 1)
                 .SelectMany(g => g)
@@ -153,26 +171,28 @@ namespace Remove_Top.Features.DuplicateRemoval
                 }, cancellationToken);
             }
 
-            // Detección por prioridad: exactos → mismo nombre → misma palabra.
-            // Los archivos reclamados por un detector se excluyen del siguiente.
-            var exactGroups = new ExactHashDetector().Detect(valid).ToList();
-
-            var used = CollectPaths(exactGroups);
-
-            var remainingByName = valid.Where(r => !used.Contains(r.FilePath)).ToArray();
-            var byNameGroups = new NormalizedNameDetector().Detect(remainingByName).ToList();
-            used.UnionWith(CollectPaths(byNameGroups));
+            var exactByHashGroups = new ExactHashDetector().Detect(remainingForHash).ToList();
+            used.UnionWith(CollectPaths(exactByHashGroups));
 
             var remainingByKeyword = valid.Where(r => !used.Contains(r.FilePath)).ToArray();
             var keywordGroups = new KeywordDetector().Detect(remainingByKeyword).ToList();
 
-            // Verificación por duración de audio: elimina falsos positivos por
-            // palabra clave (duración muy distinta) y confirma por duración los
-            // "posibles por nombre" de tamaño distinto (misma canción).
-            var possibleGroups = await DurationVerifier.VerifyAsync(
+            // Verificación por duración de audio:
+            //   - SameName (misma canción por nombre): adjunta la duración para
+            //     mostrar y aplica una salvaguarda (duración MUY distinta > 2x
+            //     degrade el ítem a desmarcado para evitar títulos idénticos de
+            //     canciones distintas).
+            //   - Keyword: elimina falsos positivos por duración muy distinta.
+            var verified = await DurationVerifier.VerifyAsync(
                 byNameGroups.Concat(keywordGroups).ToList(),
                 progress,
                 cancellationToken);
+
+            var exactGroups = exactByHashGroups.Concat(
+                verified.Where(g => g.Duplicates.Count > 0 &&
+                    g.Duplicates[0].MatchKind == DuplicateMatchKind.SameName)).ToList();
+            var possibleGroups = verified.Where(g => g.Duplicates.Count > 0 &&
+                g.Duplicates[0].MatchKind != DuplicateMatchKind.SameName).ToList();
 
             return new DuplicateScanResult
             {

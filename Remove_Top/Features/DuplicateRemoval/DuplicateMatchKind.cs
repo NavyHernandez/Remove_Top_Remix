@@ -7,9 +7,17 @@ namespace Remove_Top.Features.DuplicateRemoval
         Exact,
 
         /// <summary>
-        /// Mismo nombre normalizado (sin extensión; se ignoran mayúsculas,
-        /// acentos, guiones, espacios e incluso guiones iniciales), pero
-        /// contenido distinto.
+        /// Misma canción por nombre: mismo nombre normalizado (sin extensión;
+        /// se ignoran mayúsculas, acentos, guiones, espacios e incluso guiones
+        /// iniciales). Es la misma canción aunque el contenido/tamaño difiera
+        /// (re-codificación o descarga distinta). Se marca por defecto.
+        /// </summary>
+        SameName,
+
+        /// <summary>
+        /// Mismo nombre normalizado pero contenido claramente distinto (mantenido
+        /// por compatibilidad; los grupos por nombre actuales se clasifican como
+        /// <see cref="SameName"/>).
         /// </summary>
         ProbableByName,
 

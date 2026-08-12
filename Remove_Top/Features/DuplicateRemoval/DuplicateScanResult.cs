@@ -4,18 +4,21 @@ using System.Linq;
 namespace Remove_Top.Features.DuplicateRemoval
 {
     /// <summary>
-    /// Resultado del escaneo: grupos de duplicados exactos y posibles
-    /// (por nombre y por palabra clave), archivos dañados y totales.
+    /// Resultado del escaneo: grupos de duplicados exactos (por hash y por
+    /// nombre normalizado / misma canción), posibles (por palabra clave),
+    /// archivos dañados y totales.
     /// </summary>
     public class DuplicateScanResult
     {
-        /// <summary>Grupos con contenido idéntico (mismo hash).</summary>
+        /// <summary>
+        /// Grupos con contenido idéntico (mismo hash, Exact) o con el mismo
+        /// nombre normalizado (misma canción, SameName). Ambos quedan marcados.
+        /// </summary>
         public List<DuplicateGroup> ExactGroups { get; set; } = [];
 
         /// <summary>
-        /// Grupos con mismo nombre normalizado (ProbableByName) o con
-        /// coincidencia de 1.ª/2.ª palabra (ProbableByKeyword) pero contenido
-        /// distinto.
+        /// Grupos con coincidencia de pares de palabras del título
+        /// (ProbableByKeyword) pero contenido distinto; se verifican por duración.
         /// </summary>
         public List<DuplicateGroup> PossibleGroups { get; set; } = [];
 

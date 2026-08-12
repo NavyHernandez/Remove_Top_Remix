@@ -48,6 +48,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle, "Eliminar seleccionados", foreground: DeleteButton.Foreground);
             DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
+            RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
             UpdateUI();
         }
 
@@ -90,6 +91,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             ResultsSection.Visibility = Visibility.Collapsed;
             ProgressSection.Visibility = Visibility.Collapsed;
             DeletionResultsSection.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
             ScanStatusText.Text = "";
             UpdateTabHeaders();
         }
@@ -232,9 +234,9 @@ namespace Remove_Top.Features.DuplicateRemoval
                     string damagedNote = _damagedItems.Count > 0
                         ? $" · {_damagedItems.Count} archivo(s) dañado(s) (< 6 KB)"
                         : "";
-                    int unmarkedDifferentSize = _possibleItems.Count(i => !i.SameSize && !i.IsMarkedForDeletion);
-                    string possibleNote = unmarkedDifferentSize > 0
-                        ? $" · {unmarkedDifferentSize} posible(s) de tamaño distinto y duración no verificada vienen desmarcados: revísalos antes de borrar"
+                    int unmarkedPossible = _possibleItems.Count(i => !i.IsMarkedForDeletion);
+                    string possibleNote = unmarkedPossible > 0
+                        ? $" · {unmarkedPossible} posible(s) desmarcado(s): revísalos antes de borrar"
                         : "";
                     ScanStatusText.Text = $"Escaneo completado{truncated}. Revisa las pestañas y confirma con los checks.{damagedNote}{possibleNote}";
                     ResultsSection.Visibility = Visibility.Visible;
@@ -287,13 +289,13 @@ namespace Remove_Top.Features.DuplicateRemoval
             PossibleTabHeader.Text = $"2 · Posibles ({_possibleItems.Count})";
             DamagedTabHeader.Text = $"3 · Archivos dañados ({_damagedItems.Count})";
 
-            int unmarkedDifferentSize = _possibleItems.Count(i => !i.SameSize && !i.IsMarkedForDeletion);
-            string sizeNote = unmarkedDifferentSize > 0
-                ? $" · {unmarkedDifferentSize} desmarcados"
+            int unmarkedPossible = _possibleItems.Count(i => !i.IsMarkedForDeletion);
+            string possibleNote = unmarkedPossible > 0
+                ? $" · {unmarkedPossible} desmarcados"
                 : "";
             long wasted = _exactItems.Concat(_possibleItems).Concat(_damagedItems)
                 .Where(i => i.IsMarkedForDeletion).Sum(i => i.Size);
-            SummaryText.Text = $"{_exactItems.Count} exacto(s) · {_possibleItems.Count} posible(s){sizeNote} · " +
+            SummaryText.Text = $"{_exactItems.Count} exacto(s) · {_possibleItems.Count} posible(s){possibleNote} · " +
                 DuplicateItem.FormatSize(wasted) + " liberables";
         }
 
@@ -422,6 +424,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                 ScanButton.IsEnabled = true;
                 _cts?.Dispose();
                 _cts = null;
+                RestartButton.Visibility = Visibility.Visible;
                 UpdateUI();
             }
         }
@@ -459,6 +462,16 @@ namespace Remove_Top.Features.DuplicateRemoval
             int fail = _deletionResults.Count(r => !r.Success);
             string action = _lastDeletionMode == DeletionMode.Permanent ? "eliminados" : "en Papelera";
             DeletionSummaryText.Text = $"{ok} {action} · {fail} errores · {_deletionResults.Count} total";
+        }
+
+        /// <summary>
+        /// "Iniciar de nuevo": vuelve la página a su estado inicial tras la
+        /// eliminación. Limpia la ruta seleccionada y todos los resultados.
+        /// </summary>
+        private void RestartButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing) return;
+            ResetAll();
         }
 
         // ================================================================

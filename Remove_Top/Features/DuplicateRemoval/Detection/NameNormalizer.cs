@@ -113,6 +113,60 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         }
 
         /// <summary>
+        /// Divide el nombre base completo (sin extensión) en TODAS sus palabras:
+        /// minúsculas y sin acentos. A diferencia de <see cref="GetSignificantWords"/>,
+        /// aquí se conservan los dígitos y las stop-words (p.ej. "Mosaico 1" →
+        /// ["mosaico", "1"]). Sirve para validar la coincidencia "1 letra de
+        /// diferencia" a nivel de palabra (solo palabras de longitud suficiente).
+        /// </summary>
+        public static string[] GetAllNameWords(string filePath)
+        {
+            var words = new List<string>();
+            var token = new StringBuilder(32);
+            string name = Path.GetFileNameWithoutExtension(filePath);
+
+            foreach (char c in name)
+            {
+                if (char.IsLetterOrDigit(c))
+                {
+                    token.Append(c);
+                    continue;
+                }
+
+                if (token.Length > 0)
+                {
+                    string w = CleanKeepAll(token.ToString());
+                    if (w.Length > 0) words.Add(w);
+                    token.Clear();
+                }
+            }
+
+            if (token.Length > 0)
+            {
+                string w = CleanKeepAll(token.ToString());
+                if (w.Length > 0) words.Add(w);
+            }
+
+            return words.ToArray();
+        }
+
+        /// <summary>
+        /// Quita acentos (FormD) y pasa a minúsculas, sin descartar stop-words ni
+        /// tokens numéricos. Devuelve "" solo si queda vacío.
+        /// </summary>
+        private static string CleanKeepAll(string raw)
+        {
+            var sb = new StringBuilder(raw.Length);
+            foreach (char c in raw.Normalize(NormalizationForm.FormD))
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark)
+                    continue;
+                sb.Append(char.ToLowerInvariant(c));
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Divide un nombre en bloques usando los separadores habituales
         /// (guion, guion en/em largo, pleca, punto medio y viñeta). Los bloques
         /// quedan sin espacios iniciales/finales y se ignoran los vacíos.

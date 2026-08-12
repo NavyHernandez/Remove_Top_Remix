@@ -11,14 +11,16 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
     /// <summary>
     /// Verifica los grupos "posibles" con la duración real de los archivos de
     /// audio (NAudio MediaFoundationReader), leída en paralelo y solo para los
-    /// archivos que caen en un grupo posible.
+    /// archivos que caen en un grupo.
     ///
-    /// - Grupos por palabra clave: elimina los miembros cuya duración difiere
-    ///   mucho de la referencia del grupo (falso positivo: canciones distintas
-    ///   que comparten palabras). Si el grupo se queda sin duplicados, se
-    ///   descarta.
-    /// - Grupos por nombre: marca los miembros de tamaño distinto cuando su
-    ///   duración coincide con la referencia (misma canción re-codificada).
+    /// - Grupos por palabra clave (ProbableByKeyword): elimina los miembros cuya
+    ///   duración difiere mucho de la referencia del grupo (falso positivo:
+    ///   canciones distintas que comparten palabras). Si el grupo se queda sin
+    ///   duplicados, se descarta.
+    /// - Grupos por nombre (SameName): ya vienen marcados; aquí solo se adjunta
+    ///   la duración para mostrar y se aplica una salvaguarda: si un miembro
+    ///   tiene una duración MUY distinta a la referencia (&gt; SameNameMaxDurationRatio),
+    ///   se desmarca (posible título idéntico de otra canción).
     ///
     /// Los archivos que no son audio o cuya duración no se puede leer (null)
     /// no son verificables y se conservan con la lógica de detección original.
@@ -27,6 +29,13 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
     {
         /// <summary>Tolerancia relativa máxima de duración entre copias de un mismo tema.</summary>
         public const double DurationTolerance = 0.30;
+
+        /// <summary>
+        /// Razón máxima (duración mayor / menor) para mantener marcado un miembro
+        /// "misma canción por nombre". Por encima se considera otro tema y se
+        /// desmarca (salvaguarda frente a títulos idénticos de canciones distintas).
+        /// </summary>
+        public const double SameNameMaxDurationRatio = 2.0;
 
         /// <summary>Piso (segundos): por debajo no se descarta/marca por duración (ruido en pistas cortas).</summary>
         private const double MinRelevantSeconds = 5.0;
@@ -106,8 +115,11 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         /// </summary>
         private static DuplicateGroup? VerifyGroup(DuplicateGroup group, IReadOnlyDictionary<string, double> durations)
         {
-            bool isKeyword = group.Duplicates.Count > 0 &&
-                group.Duplicates[0].MatchKind == DuplicateMatchKind.ProbableByKeyword;
+            DuplicateMatchKind kind = group.Duplicates.Count > 0
+                ? group.Duplicates[0].MatchKind
+                : DuplicateMatchKind.ProbableByName;
+            bool isKeyword = kind == DuplicateMatchKind.ProbableByKeyword;
+            bool isSameName = kind == DuplicateMatchKind.SameName;
 
             // Referencia de duración del grupo: el keeper o cualquier duplicado conocido.
             double? reference = GetDuration(group.KeeperPath, durations);
@@ -136,10 +148,22 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
                     // un falso positivo (canciones distintas que comparten palabras).
                     if (itemDur.HasValue && reference.HasValue && !durationMatches) continue;
                 }
+                else if (isSameName)
+                {
+                    // Misma canción por nombre: ya viene marcada. Salvaguarda:
+                    // si ambas duraciones se conocen y difieren MUCHO (otro tema
+                    // con título idéntico), se desmarca para que el usuario revise.
+                    item.DurationMatches = durationMatches;
+                    if (itemDur.HasValue && reference.HasValue &&
+                        TooDifferent(itemDur.Value, reference.Value))
+                    {
+                        item.IsMarkedForDeletion = false;
+                    }
+                }
                 else
                 {
-                    // Por nombre: se marca si comparte tamaño O si la duración
-                    // coincide (misma canción con otra codificación).
+                    // Por nombre (legacy): se marca si comparte tamaño O si la
+                    // duración coincide (misma canción con otra codificación).
                     item.DurationMatches = durationMatches;
                     item.IsMarkedForDeletion = item.SameSize || durationMatches;
                 }
@@ -164,6 +188,13 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
             double max = Math.Max(a, b);
             if (max < MinRelevantSeconds) return true;
             return Math.Abs(a - b) / max <= DurationTolerance;
+        }
+
+        /// <summary>Indica si dos duraciones difieren de forma inequívoca (otro tema).</summary>
+        private static bool TooDifferent(double a, double b)
+        {
+            double min = Math.Min(a, b);
+            return min > 0 && Math.Max(a, b) / min > SameNameMaxDurationRatio;
         }
 
         private static bool IsAudioPath(string path) => AudioExtensions.Contains(Path.GetExtension(path));

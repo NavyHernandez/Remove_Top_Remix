@@ -66,6 +66,12 @@ namespace Remove_Top.Features.Normalization
         /// <summary>Límite de archivos analizados/procesados por ejecución (versión gratuita).</summary>
         public const int MaxFilesToScan = 1000;
 
+        /// <summary>
+        /// Límite mostrado en la UI (versión gratuita). El procesamiento real
+        /// sigue usando <see cref="MaxFilesToScan"/>.
+        /// </summary>
+        public const int FreeLimitDisplay = 50;
+
         /// <summary>Nombre de la subcarpeta donde se guardan los archivos procesados.</summary>
         public const string OutputFolderName = "RemoveTop_Normalized";
 
@@ -116,7 +122,8 @@ namespace Remove_Top.Features.Normalization
             return Path.Combine(
                 Path.GetDirectoryName(sourcePath)!,
                 OutputFolderName,
-                Path.GetFileNameWithoutExtension(sourcePath) + "_normalized.wav");
+                //Path.GetFileNameWithoutExtension(sourcePath) + "_top-remix_normalized.wav");
+                Path.GetFileNameWithoutExtension(sourcePath) + ".wav");
         }
 
         /// <summary>
@@ -339,7 +346,8 @@ namespace Remove_Top.Features.Normalization
                 OutputFolderName);
             Directory.CreateDirectory(outputDir);
 
-            var outputName = Path.GetFileNameWithoutExtension(inputPath) + "_normalized.wav";
+            //var outputName = Path.GetFileNameWithoutExtension(inputPath) + "_normalized.wav";
+            var outputName = Path.GetFileNameWithoutExtension(inputPath) + ".wav";
             var outputPath = Path.Combine(outputDir, outputName);
 
             using var reader = new MediaFoundationReader(inputPath);

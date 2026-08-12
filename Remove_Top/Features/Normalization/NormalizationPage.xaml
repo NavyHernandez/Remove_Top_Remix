@@ -48,8 +48,8 @@
                          Severity="Informational"
                          IsOpen="True"
                          IsClosable="False"
-                         Title="Versión gratuita: hasta 1.000 archivos"
-                         Message="El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de 1.000 archivos, se analizan los primeros 1.000." />
+                         Title="Versión gratuita: hasta 50 archivos"
+                         Message="El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de 50 archivos." />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Selección de carpeta de origen              -->

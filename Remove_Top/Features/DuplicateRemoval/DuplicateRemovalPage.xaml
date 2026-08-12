@@ -33,7 +33,7 @@
             </Border>
             <TextBlock Text="Eliminación de Duplicados"
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Escanea una carpeta (incluye subcarpetas), detecta duplicados exactos y posibles, luego envíalos a la Papelera. Los 'posibles' se verifican por duración de audio para descartar falsos positivos; los de tamaño distinto sin duración verificada vienen desmarcados para que los revises."
+            <TextBlock Text="Escanea una carpeta (incluye subcarpetas), detecta duplicados y luego envíalos a la Papelera. Se consideran EXACTOS los archivos con el mismo contenido (hash), el mismo nombre de canción cambiando solo el formato (mayúsculas, guiones, espacios, acentos) o nombres que difieren en una sola letra (falta ortográfica); los 'posibles' se verifican por duración de audio para descartar falsos positivos."
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -158,7 +158,7 @@
                                         <ic:FluentIcon Icon="CheckmarkCircle" IconVariant="Regular" IconSize="Size16"
                                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                        VerticalAlignment="Center" />
-                                        <TextBlock x:Name="ExactTabHeader" Text="1 · Duplicados exactos" VerticalAlignment="Center"
+                                        <TextBlock x:Name="ExactTabHeader" Text="· Duplicados exactos" VerticalAlignment="Center"
                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                     </StackPanel>
                                 </TabViewItem.Header>
@@ -201,9 +201,14 @@
                                                         Padding="8,2"
                                                         Background="{ThemeResource ControlFillColorDefaultBrush}"
                                                         VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding MatchDisplay}"
-                                                               FontSize="12"
-                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding MatchDisplay}"
+                                                                   FontSize="12" FontWeight="SemiBold"
+                                                                   Foreground="#E74C3C" />
+                                                        <TextBlock Text="{Binding MatchDetailDisplay}"
+                                                                   FontSize="11"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    </StackPanel>
                                                 </Border>
                                             </Grid>
                                         </DataTemplate>
@@ -217,7 +222,7 @@
                                         <ic:FluentIcon Icon="Warning" IconVariant="Regular" IconSize="Size16"
                                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                        VerticalAlignment="Center" />
-                                        <TextBlock x:Name="PossibleTabHeader" Text="2 · Posibles" VerticalAlignment="Center"
+                                        <TextBlock x:Name="PossibleTabHeader" Text="· Posibles" VerticalAlignment="Center"
                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                     </StackPanel>
                                 </TabViewItem.Header>
@@ -281,7 +286,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="ErrorCircle" IconVariant="Regular" IconSize="Size16"
                                                        Foreground="#C0392B" VerticalAlignment="Center" />
-                                        <TextBlock x:Name="DamagedTabHeader" Text="3 · Archivos dañados" VerticalAlignment="Center"
+                                        <TextBlock x:Name="DamagedTabHeader" Text="· Archivos dañados" VerticalAlignment="Center"
                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                     </StackPanel>
                                 </TabViewItem.Header>
@@ -462,6 +467,18 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
+                        <Button x:Name="RestartButton"
+                                Content="Iniciar de nuevo"
+                                Click="RestartButton_Click"
+                                CornerRadius="4"
+                                HorizontalAlignment="Center"
+                                MinWidth="220"
+                                Margin="0,4,0,0"
+                                Visibility="Collapsed"
+                                Background="Transparent"
+                                BorderBrush="#E67E22"
+                                Foreground="#E67E22"
+                                BorderThickness="1.5" />
                     </StackPanel>
                 </Border>
 

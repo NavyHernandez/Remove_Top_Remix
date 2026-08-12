@@ -157,11 +157,16 @@
                             </ItemsControl>
                         </Border>
 
-                        <TextBlock x:Name="PatternsHelpText"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                            <Run Text="Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." />
-                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border CornerRadius="4" Padding="8,2" Background="#70AD47">
+                                <TextBlock Text="Versión Gratuita" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                            </Border>
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center">
+                                <Run Text="Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." />
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -433,11 +438,23 @@
                                                    Foreground="{ThemeResource AccentFillColorDefaultBrush}"
                                                    VerticalAlignment="Center" />
                                     </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </StackPanel>
-                </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        <Button x:Name="RestartButton"
+                                Content="Iniciar de nuevo"
+                                Click="RestartButton_Click"
+                                CornerRadius="4"
+                                HorizontalAlignment="Center"
+                                MinWidth="220"
+                                Margin="0,4,0,0"
+                                Visibility="Collapsed"
+                                Background="Transparent"
+                                BorderBrush="#70AD47"
+                                Foreground="#70AD47"
+                                BorderThickness="1.5" />
+                        </StackPanel>
+                    </Border>
 
             </StackPanel>
         </ScrollViewer>

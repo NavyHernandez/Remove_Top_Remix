@@ -16,11 +16,14 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         /// Construye el grupo. <paramref name="keepLargest"/> selecciona como
         /// keeper la copia de mayor tamaño (mejor calidad); en caso contrario se
         /// conserva la ruta más superficial y, en empate, la más corta.
+        /// <paramref name="nearName"/> indica que la coincidencia es por nombre
+        /// "casi idéntico" (difiere en una letra), para mostrarlo en el detalle.
         /// </summary>
         public static DuplicateGroup Build(
             IEnumerable<FileRecord> members,
             DuplicateMatchKind kind,
-            bool keepLargest)
+            bool keepLargest,
+            bool nearName = false)
         {
             var arr = members.ToArray();
 
@@ -59,9 +62,12 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
                         RepeatCount = arr.Length,
                         MatchKind = kind,
                         SameSize = sameSize,
+                        NameNearMatch = nearName,
                         IsMarkedForDeletion = kind switch
                         {
+                            // Exacto (hash) y Misma canción (mismo nombre) se marcan siempre.
                             DuplicateMatchKind.Exact => true,
+                            DuplicateMatchKind.SameName => true,
                             DuplicateMatchKind.ProbableByName => sameSize,
                             _ => false
                         }

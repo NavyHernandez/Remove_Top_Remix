@@ -36,6 +36,13 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// </summary>
         public bool SameSize { get; set; }
 
+        /// <summary>
+        /// Indica que la coincidencia por nombre es "casi idéntica": los nombres
+        /// normalizados difieren en una sola letra (falta ortográfica). Se muestra
+        /// en el detalle del ítem para explicar por qué quedó marcado.
+        /// </summary>
+        public bool NameNearMatch { get; set; }
+
         /// <summary>Duración del archivo en segundos, si es audio y se pudo leer; null en otro caso.</summary>
         public double? DurationSeconds { get; set; }
 
@@ -68,21 +75,34 @@ namespace Remove_Top.Features.DuplicateRemoval
         public string MatchDisplay => MatchKind switch
         {
             DuplicateMatchKind.Exact => "Exacto",
+            DuplicateMatchKind.SameName => "Exacto",
             DuplicateMatchKind.ProbableByName or DuplicateMatchKind.ProbableByKeyword => "Posible",
             _ => "Dañado"
         };
 
         /// <summary>
-        /// Detalle adicional del tipo de coincidencia: tamaño para los
-        /// "posibles por nombre" (y duración cuando esta confirma el emparejado)
-        /// y palabra clave + duración para los "posibles por palabra".
+        /// Detalle adicional del tipo de coincidencia: nombre (y duración cuando
+        /// está disponible) para los "misma canción por nombre", tamaño para los
+        /// "posibles por nombre" y palabra clave + duración para los "posibles
+        /// por palabra".
         /// </summary>
         public string MatchDetailDisplay => MatchKind switch
         {
+            DuplicateMatchKind.SameName => BuildSameNameDetail(),
             DuplicateMatchKind.ProbableByName => BuildNameDetail(),
             DuplicateMatchKind.ProbableByKeyword => BuildKeywordDetail(),
             _ => ""
         };
+
+        private string BuildSameNameDetail()
+        {
+            if (NameNearMatch) return "mismo nombre · 1 letra distinta";
+            if (SameSize) return "mismo nombre · mismo tamaño";
+            if (DurationMatches) return $"mismo nombre · dura similar ({DurationDisplay})";
+            if (DurationSeconds is double d)
+                return $"mismo nombre · duración muy distinta ({FormatDuration(d)})";
+            return "mismo nombre";
+        }
 
         private string BuildNameDetail()
         {
@@ -100,7 +120,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Icono visual del tipo de coincidencia.</summary>
         public Icon MatchIcon => MatchKind switch
         {
-            DuplicateMatchKind.Exact => Icon.CheckmarkCircle,
+            DuplicateMatchKind.Exact or DuplicateMatchKind.SameName => Icon.CheckmarkCircle,
             DuplicateMatchKind.ProbableByName or DuplicateMatchKind.ProbableByKeyword => Icon.Warning,
             _ => Icon.ErrorCircle
         };

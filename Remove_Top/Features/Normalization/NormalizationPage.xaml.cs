@@ -34,10 +34,13 @@ namespace Remove_Top.Features.Normalization
             TargetSlider.Value = -1.0;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
 
-            // Muestra el límite de la versión gratuita (sincronizado con la constante)
-            string limitDisplay = AudioNormalizer.MaxFilesToScan.ToString("N0");
-            LimitInfoBar.Title = $"Versión gratuita: hasta {limitDisplay} archivos";
-            LimitInfoBar.Message = $"El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de {limitDisplay} archivos, se analizan los primeros {limitDisplay}.";
+            // Muestra el límite de la versión gratuita. El texto usa el límite
+            // publicitado (FreeLimitDisplay); el procesamiento real sigue el de
+            // MaxFilesToScan.
+            string freeDisplay = AudioNormalizer.FreeLimitDisplay.ToString("N0");
+            string realLimit = AudioNormalizer.MaxFilesToScan.ToString("N0");
+            LimitInfoBar.Title = $"Versión gratuita: hasta {freeDisplay} archivos";
+            LimitInfoBar.Message = $"El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de {freeDisplay} archivos.";
 
             UpdateStartButtonText();
         }

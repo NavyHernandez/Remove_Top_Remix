@@ -44,6 +44,7 @@ namespace Remove_Top.Features.BatchRename
             AddPatternButton.Content = UiHelpers.Content(Icon.Add, "Agregar", semibold: false, foreground: AddPatternButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Delete, "Eliminar patrones de los nombres", foreground: StartButton.Foreground);
             SuggestPatternsButton.Content = UiHelpers.Content(Icon.Sparkle, "Sugerir patrones con IA", foreground: SuggestPatternsButton.Foreground);
+            RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
             ProviderComboBox.SelectedIndex = 0;
             LoadPatterns();
             UpdateUI();
@@ -252,6 +253,7 @@ namespace Remove_Top.Features.BatchRename
             _results.Clear();
             PreviewListView.ItemsSource = null;
             PreviewSection.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
             _isProcessing = true;
             UpdateAiStatus();
             CompleteBadge.Visibility = Visibility.Collapsed;
@@ -320,6 +322,7 @@ namespace Remove_Top.Features.BatchRename
                 AddPatternButton.IsEnabled = true;
                 _cts?.Dispose();
                 _cts = null;
+                RestartButton.Visibility = Visibility.Visible;
                 UpdateUI();
             }
         }
@@ -329,6 +332,34 @@ namespace Remove_Top.Features.BatchRename
             int ok = _results.Count(r => r.Success);
             int fail = _results.Count(r => !r.Success);
             SummaryText.Text = $"{ok} correctos · {fail} errores · {_results.Count} total";
+        }
+
+        /// <summary>
+        /// "Iniciar de nuevo": vuelve la página a su estado inicial tras un
+        /// renombrado. Limpia la ruta, los resultados, la vista previa, el
+        /// progreso y las sugerencias de IA. Los patrones se conservan porque
+        /// son preferencias persistentes (patterns.json).
+        /// </summary>
+        private void RestartButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing) return;
+
+            FolderPathBox.Text = "";
+            _results.Clear();
+
+            PreviewListView.ItemsSource = null;
+            PreviewSection.Visibility = Visibility.Collapsed;
+            ProgressSection.Visibility = Visibility.Collapsed;
+            ResultsSection.Visibility = Visibility.Collapsed;
+            CompleteBadge.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
+
+            ProgressBar.Value = 0;
+            ProgressText.Text = "";
+            ProgressCountText.Text = "";
+
+            ClearSuggestions();
+            UpdateUI();
         }
 
         // ================================================================
