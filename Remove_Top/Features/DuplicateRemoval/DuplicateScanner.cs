@@ -82,14 +82,32 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// para los archivos cuyo tamaño se repite entre los no reclamados por
         /// nombre, y en paralelo. Reporta fases y avance mediante IProgress y
         /// soporta cancelación.
+        ///
+        /// TODO el pipeline (enumeración, tamaños, detectores, hashes y
+        /// duraciones) se ejecuta en un HILO DE FONDO: la UI queda responsive y
+        /// el Progress&lt;T&gt; (que captura el SynchronizationContext de la UI)
+        /// actualiza el texto de fase en vivo. Antes la enumeración y la
+        /// detección corrían en el hilo de la UI, por lo que una carpeta
+        /// grande/lenta dejaba la interfaz congelada en "Leyendo tamaños...".
         /// </summary>
-        public async Task<DuplicateScanResult> ScanAsync(
+        public Task<DuplicateScanResult> ScanAsync(
             string folderPath,
             IProgress<ScanProgress> progress,
             CancellationToken cancellationToken = default)
         {
             progress.Report(new ScanProgress { Phase = "Enumerando archivos..." });
+            return Task.Run(() => ScanCoreAsync(folderPath, progress, cancellationToken), cancellationToken);
+        }
 
+        /// <summary>
+        /// Núcleo del escaneo, ejecutado en un hilo de fondo por
+        /// <see cref="ScanAsync"/>. Contiene el pipeline completo de detección.
+        /// </summary>
+        private static async Task<DuplicateScanResult> ScanCoreAsync(
+            string folderPath,
+            IProgress<ScanProgress> progress,
+            CancellationToken cancellationToken)
+        {
             var allFiles = GetAllFiles(folderPath);
             int totalFound = allFiles.Length;
             var files = allFiles.Take(MaxFilesToScan).ToArray();
@@ -130,6 +148,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             //   3) Posibles por PALABRA CLAVE entre lo restante.
             // Como el nombre explica la mayoría de los duplicados de una biblioteca
             // musical, se reduce drásticamente el número de hashes a calcular.
+            progress.Report(new ScanProgress { Phase = "Agrupando por nombre..." });
             var byNameGroups = new NormalizedNameDetector().Detect(valid).ToList();
             var used = CollectPaths(byNameGroups);
 
@@ -147,6 +166,10 @@ namespace Remove_Top.Features.DuplicateRemoval
             {
                 int totalHash = toHash.Length;
                 int processed = 0;
+                progress.Report(new ScanProgress
+                {
+                    Phase = "Calculando hashes (solo tamaños repetidos)..."
+                });
                 await Task.Run(() =>
                 {
                     Parallel.For(0, totalHash, new ParallelOptions
@@ -175,6 +198,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             used.UnionWith(CollectPaths(exactByHashGroups));
 
             var remainingByKeyword = valid.Where(r => !used.Contains(r.FilePath)).ToArray();
+            progress.Report(new ScanProgress { Phase = "Agrupando por palabras clave..." });
             var keywordGroups = new KeywordDetector().Detect(remainingByKeyword).ToList();
 
             // Verificación por duración de audio:
