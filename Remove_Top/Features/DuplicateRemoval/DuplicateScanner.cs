@@ -1,4 +1,5 @@
 using Remove_Top.Features.DuplicateRemoval.Detection;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,16 +22,20 @@ namespace Remove_Top.Features.DuplicateRemoval
     /// </summary>
     public class DuplicateScanner
     {
-        /// <summary>Límite de archivos analizados por ejecución (versión gratuita).</summary>
-        public const int MaxFilesToScan = 1000;
+        /// <summary>
+        /// Límite de archivos analizados por ejecución (versión gratuita).
+        /// Valor centralizado en <see cref="AppLimits.DuplicatesMaxFilesToScan"/>.
+        /// </summary>
+        public const int MaxFilesToScan = AppLimits.DuplicatesMaxFilesToScan;
 
         /// <summary>
         /// Tamaño mínimo (en bytes) para considerar un archivo válido.
         /// Archivos menores se consideran probablemente dañados y se excluyen
         /// de la agrupación de duplicados (evita falsos positivos por hash de
-        /// archivos vacíos).
+        /// archivos vacíos). Valor centralizado en
+        /// <see cref="AppLimits.DuplicatesMinValidFileSizeBytes"/>.
         /// </summary>
-        public const int MinValidFileSizeBytes = 6 * 1024;
+        public const int MinValidFileSizeBytes = (int)AppLimits.DuplicatesMinValidFileSizeBytes;
 
         /// <summary>Paso de notificación de progreso (archivos) para no saturar la UI.</summary>
         private const int ProgressStep = 25;

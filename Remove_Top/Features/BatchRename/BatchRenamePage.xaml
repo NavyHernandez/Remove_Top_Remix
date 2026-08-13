@@ -31,9 +31,11 @@
                     <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Renombrado Masivo"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Elimina texto específico del nombre de archivos. Soporta audio, video, imagen y documentos."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -159,13 +161,14 @@
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Border CornerRadius="4" Padding="8,2" Background="#70AD47">
-                                <TextBlock Text="Versión Gratuita" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                                <TextBlock x:Name="FreeBadgeText"
+                                           Text=""
+                                           FontSize="11" FontWeight="SemiBold" Foreground="White" />
                             </Border>
-                            <TextBlock FontSize="12"
+                            <TextBlock x:Name="LimitInfoText"
+                                       FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center">
-                                <Run Text="Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." />
-                            </TextBlock>
+                                       VerticalAlignment="Center" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -180,33 +183,9 @@
                         Padding="16"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         Visibility="Collapsed">
-                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="12">
                         <TextBlock Text="Mejorar patrones con IA"
                                    FontSize="16" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                            <TextBlock Text="Proveedor:"
-                                       FontSize="13"
-                                       VerticalAlignment="Center" />
-                            <ComboBox Grid.Column="1"
-                                      x:Name="ProviderComboBox"
-                                      HorizontalAlignment="Stretch"
-                                      CornerRadius="4"
-                                      SelectionChanged="ProviderComboBox_SelectionChanged">
-                                <ComboBoxItem x:Name="ProviderMockItem"
-                                              Content="Prueba local (Mock)"
-                                              Tag="mock" />
-                                <ComboBoxItem x:Name="ProviderGroqItem"
-                                              Content="Groq (API real)"
-                                              Tag="groq" />
-                            </ComboBox>
-                            <PasswordBox Grid.Column="2"
-                                         x:Name="ApiKeyBox"
-                                         PlaceholderText="API Key de Groq"
-                                         Width="220"
-                                         CornerRadius="4"
-                                         IsEnabled="False"
-                                         PasswordChanged="ApiKeyBox_PasswordChanged" />
-                        </Grid>
                         <TextBlock x:Name="AiStatusText"
                                    FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"

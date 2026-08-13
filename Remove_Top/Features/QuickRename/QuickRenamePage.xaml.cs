@@ -17,29 +17,27 @@ namespace Remove_Top.Features.QuickRename
     /// <summary>
     /// Página de Edición Rápida: lista los .mp3/.wav de la carpeta principal y
     /// permite editar cada nombre en una caja de texto inline (con extensión).
-    /// Incluye corrección de nombres con IA vía INameCorrectionProvider.
+    /// Aplica los cambios con File.Move directamente sobre los originales.
     /// </summary>
     public sealed partial class QuickRenamePage : Page
     {
         private readonly ObservableCollection<QuickRenameItem> _items = [];
         private readonly ObservableCollection<QuickRenameResult> _results = [];
-        private readonly ObservableCollection<CorrectionSuggestion> _suggestions = [];
         private CancellationTokenSource? _cts;
         private bool _isProcessing;
-        private bool _isCorrecting;
 
         public QuickRenamePage()
         {
             InitializeComponent();
             FilesListView.ItemsSource = _items;
             ResultsListView.ItemsSource = _results;
-            SuggestionsListView.ItemsSource = _suggestions;
-            ProviderComboBox.SelectedIndex = 0;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             ResetButton.Content = UiHelpers.Content(Icon.ArrowUndo, "Restaurar originales", semibold: false, foreground: ResetButton.Foreground);
-            ApplyApprovedButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar aprobados", semibold: false, foreground: ApplyApprovedButton.Foreground);
-            CorrectButton.Content = UiHelpers.Content(Icon.Sparkle, "Corregir nombres con IA", foreground: CorrectButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar cambios", foreground: StartButton.Foreground);
+
+            // Título y subtítulo del encabezado, centralizados en AppLimits.
+            PageTitleText.Text = AppLimits.QuickRenamePageTitle;
+            PageSubtitleText.Text = AppLimits.QuickRenamePageSubtitle;
         }
 
         private async void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -69,12 +67,9 @@ namespace Remove_Top.Features.QuickRename
 
             _items.Clear();
             _results.Clear();
-            _suggestions.Clear();
             ResultsSection.Visibility = Visibility.Collapsed;
             ProgressSection.Visibility = Visibility.Collapsed;
             CompleteBadge.Visibility = Visibility.Collapsed;
-            SuggestionsSection.Visibility = Visibility.Collapsed;
-            ApproveAllCheckBox.IsChecked = false;
 
             var files = QuickRenamer.GetAudioFiles(folderPath);
             foreach (var f in files)
@@ -93,8 +88,6 @@ namespace Remove_Top.Features.QuickRename
             FileCountText.Text = $"{_items.Count} archivo(s) .mp3/.wav encontrado(s)";
             FileCountText.Visibility = Visibility.Visible;
             ListSection.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            AiSection.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            UpdateAiStatus();
             UpdateUI();
         }
 
@@ -199,123 +192,6 @@ namespace Remove_Top.Features.QuickRename
             int ok = _results.Count(r => r.Success);
             int fail = _results.Count(r => !r.Success);
             SummaryText.Text = $"{ok} correctos \u00b7 {fail} errores \u00b7 {_results.Count} total";
-        }
-
-        // ================================================================
-        // CORRECCIÓN CON IA
-        // ================================================================
-
-        private bool IsGroqProvider =>
-            (ProviderComboBox.SelectedItem as ComboBoxItem)?.Tag as string == "groq";
-
-        private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            ApiKeyBox.IsEnabled = IsGroqProvider;
-            ApiKeyBox.Password = "";
-            UpdateAiStatus();
-        }
-
-        private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            UpdateAiStatus();
-        }
-
-        private void UpdateAiStatus()
-        {
-            bool hasFiles = _items.Count > 0 && !_isProcessing && !_isCorrecting;
-
-            if (IsGroqProvider)
-            {
-                bool hasKey = !string.IsNullOrEmpty(ApiKeyBox.Password);
-                AiStatusText.Text = hasKey
-                    ? "Se usar\u00e1 la API de Groq para corregir los nombres."
-                    : "Ingresa tu API Key de Groq para habilitar la correcci\u00f3n con IA.";
-                CorrectButton.IsEnabled = hasFiles && hasKey;
-            }
-            else
-            {
-                AiStatusText.Text = "Modo de pruebas: la correcci\u00f3n se simula localmente sin red ni API Key.";
-                CorrectButton.IsEnabled = hasFiles;
-            }
-        }
-
-        private async void CorrectButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isCorrecting) return;
-
-            var fileNames = _items.Select(i => i.CurrentName).ToArray();
-            if (fileNames.Length == 0) return;
-
-            _isCorrecting = true;
-            CorrectButton.IsEnabled = false;
-            BrowseButton.IsEnabled = false;
-            FolderPathBox.IsEnabled = false;
-            AiProgressBar.Visibility = Visibility.Visible;
-            AiStatusText.Text = "Enviando nombres a la IA...";
-
-            INameCorrectionProvider provider = IsGroqProvider
-                ? new GroqNameCorrector(ApiKeyBox.Password)
-                : new MockNameCorrector();
-
-            try
-            {
-                var suggestions = await provider.CorrectNamesAsync(fileNames);
-
-                _suggestions.Clear();
-                foreach (var s in suggestions)
-                    _suggestions.Add(s);
-
-                ApproveAllCheckBox.IsChecked = false;
-                SuggestionsSection.Visibility = _suggestions.Count > 0
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-                UpdateApprovedCount();
-
-                AiStatusText.Text = $"{_suggestions.Count} sugerencia(s) generadas. Marca las que quieras aprobar.";
-            }
-            catch (Exception ex)
-            {
-                AiStatusText.Text = $"Error: {ex.Message}";
-            }
-            finally
-            {
-                _isCorrecting = false;
-                AiProgressBar.Visibility = Visibility.Collapsed;
-                BrowseButton.IsEnabled = true;
-                FolderPathBox.IsEnabled = true;
-                UpdateAiStatus();
-            }
-        }
-
-        private void ApproveAllCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            bool approve = ApproveAllCheckBox.IsChecked == true;
-            foreach (var s in _suggestions)
-                s.IsApproved = approve;
-            UpdateApprovedCount();
-        }
-
-        private void ApplyApprovedButton_Click(object sender, RoutedEventArgs e)
-        {
-            int count = Math.Min(_items.Count, _suggestions.Count);
-            for (int i = 0; i < count; i++)
-            {
-                if (_suggestions[i].IsApproved)
-                    _items[i].CurrentName = _suggestions[i].SuggestedFull;
-            }
-
-            _suggestions.Clear();
-            ApproveAllCheckBox.IsChecked = false;
-            SuggestionsSection.Visibility = Visibility.Collapsed;
-            UpdateApprovedCount();
-            UpdateUI();
-        }
-
-        private void UpdateApprovedCount()
-        {
-            int approved = _suggestions.Count(s => s.IsApproved);
-            ApprovedCountText.Text = $"{approved} de {_suggestions.Count} aprobadas";
-            ApplyApprovedButton.IsEnabled = approved > 0;
         }
     }
 }

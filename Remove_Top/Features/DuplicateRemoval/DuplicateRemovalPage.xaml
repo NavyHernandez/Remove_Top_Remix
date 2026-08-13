@@ -31,9 +31,11 @@
                     <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Eliminación de Duplicados"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Escanea una carpeta (incluye subcarpetas), detecta duplicados y luego envíalos a la Papelera. Se consideran EXACTOS los archivos con el mismo contenido (hash), el mismo nombre de canción cambiando solo el formato (mayúsculas, guiones, espacios, acentos) o nombres que difieren en una sola letra (falta ortográfica); los 'posibles' se verifican por duración de audio para descartar falsos positivos."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -52,8 +54,8 @@
                          Severity="Informational"
                          IsOpen="True"
                          IsClosable="False"
-                         Title="Versión gratuita: hasta 1.000 archivos"
-                         Message="El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de 1.000 archivos, se analizan los primeros 1.000." />
+                         Title=""
+                         Message="" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Selección de la carpeta de origen           -->
@@ -152,14 +154,20 @@
                                  TabWidthMode="SizeToContent"
                                  IsAddTabButtonVisible="False"
                                  SelectionChanged="ResultsTabView_SelectionChanged">
+                            <TabView.Resources>
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33E67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelectedPressed" Color="#33E67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#1AE67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOverPressed" Color="#1AE67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#1AE67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="#E67E22" />
+                            </TabView.Resources>
                             <TabViewItem x:Name="ExactTab" IsClosable="False">
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="CheckmarkCircle" IconVariant="Regular" IconSize="Size16"
-                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                        VerticalAlignment="Center" />
-                                        <TextBlock x:Name="ExactTabHeader" Text="· Duplicados exactos" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="ExactTabHeader" Text="Duplicados exactos" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                                 <ListView x:Name="ExactListView" SelectionMode="None" MaxHeight="260">
@@ -220,10 +228,8 @@
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="Warning" IconVariant="Regular" IconSize="Size16"
-                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                        VerticalAlignment="Center" />
-                                        <TextBlock x:Name="PossibleTabHeader" Text="· Posibles" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="PossibleTabHeader" Text="Posibles" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                                 <ListView x:Name="PossibleListView" SelectionMode="None" MaxHeight="260">
@@ -286,8 +292,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="ErrorCircle" IconVariant="Regular" IconSize="Size16"
                                                        Foreground="#C0392B" VerticalAlignment="Center" />
-                                        <TextBlock x:Name="DamagedTabHeader" Text="· Archivos dañados" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="DamagedTabHeader" Text="Archivos dañados" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                                 <ListView x:Name="DamagedListView" SelectionMode="None" MaxHeight="260">
@@ -422,6 +427,55 @@
                         <TextBlock x:Name="DeleteProgressText"
                                    FontSize="13"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Upgrade a la versión premium                -->
+                <!-- Solo aparece cuando el escaneo se truncó (la carpeta  -->
+                <!-- tenía más de DuplicateScanner.MaxFilesToScan archivos) -->
+                <!-- y la limpieza terminó correctamente (se gestiona en   -->
+                <!-- DuplicateRemovalPage.UpdateUI). Colocada antes de la  -->
+                <!-- sección de resultados de la eliminación para quedar   -->
+                <!-- al final, justo encima del botón "Iniciar de nuevo".  -->
+                <!-- ==================================================== -->
+                <Border x:Name="PremiumSection"
+                        BorderBrush="#2ECC71"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Width="40" Height="40"
+                                    CornerRadius="20"
+                                    Background="#332ECC71"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Star" IconVariant="Filled" IconSize="Size20"
+                                               Foreground="#2ECC71"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Adquiere la versión premium"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="PremiumMessageText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="UpgradeButton"
+                                Content="Adquiere la versión premium"
+                                Click="UpgradeButton_Click"
+                                Height="40"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                CornerRadius="6"
+                                Background="#2ECC71"
+                                Foreground="White"
+                                BorderThickness="0" />
                     </StackPanel>
                 </Border>
 

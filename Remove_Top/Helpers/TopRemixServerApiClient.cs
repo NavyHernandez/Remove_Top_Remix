@@ -10,22 +10,24 @@ using System.Threading.Tasks;
 namespace Remove_Top.Helpers
 {
     /// <summary>
-    /// Cliente HTTP compartido para la API de Groq (OpenAI-compatible).
+    /// Cliente HTTP compartido para el servidor Topremix (compatible con OpenAI).
     /// Centraliza endpoint, modelo, autenticación y parseo de respuestas para
     /// que las features (QuickRename, BatchRename) no dupliquen el plumbing.
     /// </summary>
-    public static class GroqApiClient
+    public static class TopRemixServerApiClient
     {
         // ================================================================
-        // CONFIGURACIÓN DE CONEXIÓN A GROQ
+        // CONFIGURACIÓN DE CONEXIÓN AL SERVIDOR TOPREMIX
         // ================================================================
-        // 1) API KEY: se ingresa en la UI (PasswordBox) por sesión; no se persiste.
-        //    Si prefieres fijarla aquí para pruebas, reemplaza el parámetro apiKey
-        //    de los métodos por una constante local (¡no la subas a git!).
-        // 2) Si cambias de proveedor (otro endpoint compatible con OpenAI),
-        //    ajusta Endpoint y Model aquí. No hace falta tocar las features.
-        private const string Endpoint = "https://api.groq.com/openai/v1/chat/completions";
-        private const string Model = "llama-3.3-70b-versatile";
+        // 1) ENDPOINT: URL del servidor Topremix (placeholder).
+        //    Cambia esto por la URL real de tu servidor.
+        // 2) MODEL: modelo del servidor (placeholder).
+        //    Cambia esto por el modelo real que uses.
+        // 3) API KEY: constante interna. ¡No la subas a git!
+        // ================================================================
+        private const string Endpoint = "https://api.topremix.example/v1/chat/completions";
+        private const string Model = "topremix-model";
+        private const string ApiKey = "TU_API_KEY_TOPREMIX_AQUI";
         // ================================================================
 
         private static readonly HttpClient Http = new()
@@ -35,18 +37,19 @@ namespace Remove_Top.Helpers
 
         /// <summary>
         /// Envía un chat de una sola vuelta (system + user) y devuelve el texto
-        /// crudo del campo "content" de la respuesta. Lanza si falta la API Key
-        /// o si la API responde con error.
+        /// crudo del campo "content" de la respuesta. Si <paramref name="apiKey"/>
+        /// es null, usa la constante interna definida en esta clase.
         /// </summary>
         public static async Task<string> CompleteAsync(
             string systemPrompt,
             string userContent,
-            string apiKey,
+            string? apiKey = null,
             CancellationToken cancellationToken = default,
             double temperature = 0.2)
         {
-            if (string.IsNullOrWhiteSpace(apiKey))
-                throw new InvalidOperationException("Se requiere una API Key de Groq.");
+            var key = !string.IsNullOrWhiteSpace(apiKey) ? apiKey : ApiKey;
+            if (string.IsNullOrWhiteSpace(key))
+                throw new InvalidOperationException("Se requiere una API Key para el servidor Topremix.");
 
             var body = new
             {
@@ -60,7 +63,7 @@ namespace Remove_Top.Helpers
             };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
             request.Content = new StringContent(
                 JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
@@ -68,7 +71,7 @@ namespace Remove_Top.Helpers
             if (!response.IsSuccessStatusCode)
             {
                 var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new HttpRequestException($"Groq API error {(int)response.StatusCode}: {errBody}");
+                throw new HttpRequestException($"TopRemix Server error {(int)response.StatusCode}: {errBody}");
             }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -76,7 +79,7 @@ namespace Remove_Top.Helpers
         }
 
         /// <summary>
-        /// Extrae un array de strings del "content" de la respuesta de Groq.
+        /// Extrae un array de strings del "content" de la respuesta del servidor.
         /// El content puede venir como JSON plano o envuelto en ```json ... ```,
         /// y como array directo o como objeto con una propiedad de tipo array.
         /// Devuelve un array vacío si no puede interpretarlo.

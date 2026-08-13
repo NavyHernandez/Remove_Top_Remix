@@ -10,25 +10,18 @@ using System.Threading.Tasks;
 namespace Remove_Top.Features.BatchRename
 {
     /// <summary>
-    /// Proveedor real mediante la API de Groq (OpenAI-compatible).
-    /// Envía los patrones actuales + los nombres de archivos afectados (ligeros:
-    /// sin extensión, truncados y con tope) y pide NUEVOS patrones a eliminar.
+    /// Proveedor real mediante el servidor Topremix (compatible con OpenAI).
+    /// Envía los patrones actuales + los primeros 10 nombres de archivos afectados
+    /// (ligeros: sin extensión) y pide NUEVOS patrones a eliminar.
     ///
-    /// NOTA: La API Key se ingresa en la UI por sesión; no se persiste.
-    /// La conexión (endpoint/modelo) se configura en Helpers/GroqApiClient.cs.
+    /// NOTA: La conexión (endpoint/modelo/apiKey) se configura en
+    /// Helpers/TopRemixServerApiClient.cs.
     /// </summary>
     public class GroqPatternSuggester : IPatternSuggestionProvider
     {
-        private const int MaxFileNames = 250;
+        private const int MaxFileNames = 10;
         private const int MaxFileNameLength = 80;
         private const int MaxSuggestions = 10;
-
-        private readonly string _apiKey;
-
-        public GroqPatternSuggester(string apiKey)
-        {
-            _apiKey = apiKey;
-        }
 
         public async Task<IReadOnlyList<PatternSuggestion>> SuggestPatternsAsync(
             IReadOnlyList<string> patterns,
@@ -60,8 +53,8 @@ namespace Remove_Top.Features.BatchRename
                 archivos = names
             });
 
-            var content = await GroqApiClient.CompleteAsync(system, user, _apiKey, cancellationToken);
-            var raw = GroqApiClient.ParseStringArray(content, maxItems: MaxSuggestions);
+            var content = await TopRemixServerApiClient.CompleteAsync(system, user, cancellationToken: cancellationToken);
+            var raw = TopRemixServerApiClient.ParseStringArray(content, maxItems: MaxSuggestions);
 
             var suggestions = new List<PatternSuggestion>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

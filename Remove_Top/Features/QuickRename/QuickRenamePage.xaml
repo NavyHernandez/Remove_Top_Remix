@@ -26,9 +26,11 @@
                     <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Edición Rápida de Nombres"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Lista los archivos .mp3 y .wav de la carpeta y edita sus nombres de forma rápida."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -134,136 +136,6 @@
                             <Run FontWeight="Bold" Text="Aplicar cambios" />
                             <Run Text=". La extensión se puede modificar." />
                         </TextBlock>
-                    </StackPanel>
-                </Border>
-
-                <!-- ==================================================== -->
-                <!-- SECCIÓN: Corrección con IA                            -->
-                <!-- ==================================================== -->
-                <Border x:Name="AiSection"
-                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        Visibility="Collapsed">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Corrección con IA"
-                                   FontSize="16" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                            <TextBlock Text="Proveedor:"
-                                       FontSize="13"
-                                       VerticalAlignment="Center" />
-                            <ComboBox Grid.Column="1"
-                                      x:Name="ProviderComboBox"
-                                      HorizontalAlignment="Stretch"
-                                      CornerRadius="4"
-                                      SelectionChanged="ProviderComboBox_SelectionChanged">
-                                <ComboBoxItem x:Name="ProviderMockItem"
-                                              Content="Prueba local (Mock)"
-                                              Tag="mock" />
-                                <ComboBoxItem x:Name="ProviderGroqItem"
-                                              Content="Groq (API real)"
-                                              Tag="groq" />
-                            </ComboBox>
-                            <PasswordBox Grid.Column="2"
-                                         x:Name="ApiKeyBox"
-                                         PlaceholderText="API Key de Groq"
-                                         Width="220"
-                                         CornerRadius="4"
-                                         IsEnabled="False"
-                                         PasswordChanged="ApiKeyBox_PasswordChanged" />
-                        </Grid>
-                        <TextBlock x:Name="AiStatusText"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap" />
-                        <ProgressBar x:Name="AiProgressBar"
-                                     IsIndeterminate="True"
-                                     CornerRadius="2"
-                                     Visibility="Collapsed" />
-                        <Button x:Name="CorrectButton"
-                                FontSize="14" FontWeight="SemiBold"
-                                Height="40"
-                                HorizontalAlignment="Stretch"
-                                CornerRadius="6"
-                                Click="CorrectButton_Click"
-                                IsEnabled="False"
-                                Background="Transparent"
-                                BorderBrush="#E67E22"
-                                Foreground="#E67E22"
-                                BorderThickness="1.5" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ==================================================== -->
-                <!-- SECCIÓN: Sugerencias de IA con checkboxes             -->
-                <!-- ==================================================== -->
-                <Border x:Name="SuggestionsSection"
-                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        Visibility="Collapsed">
-                    <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                            <CheckBox x:Name="ApproveAllCheckBox"
-                                      Content="Aprobar todos"
-                                      Click="ApproveAllCheckBox_Click"
-                                      VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1"
-                                       x:Name="ApprovedCountText"
-                                       FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center" />
-                            <Button Grid.Column="2"
-                                    x:Name="ApplyApprovedButton"
-                                    Content="Aplicar aprobados"
-                                    Click="ApplyApprovedButton_Click"
-                                    CornerRadius="4"
-                                    IsEnabled="False"
-                                    Background="Transparent"
-                                    BorderBrush="#E67E22"
-                                    Foreground="#E67E22"
-                                    BorderThickness="1.5" />
-                        </Grid>
-                        <ListView x:Name="SuggestionsListView"
-                                  SelectionMode="None"
-                                  MaxHeight="320">
-                            <ListView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto,Auto,*,Auto,*,Auto"
-                                          ColumnSpacing="8"
-                                          Margin="0,2">
-                                        <CheckBox IsChecked="{Binding IsApproved, Mode=TwoWay}"
-                                                  VerticalAlignment="Center" />
-                                        <ic:FluentIcon Grid.Column="1"
-                                                       Icon="{Binding StatusIcon}"
-                                                       IconVariant="Regular" IconSize="Size16"
-                                                       VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding OriginalFull}"
-                                                       FontSize="12"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                       TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                        <ic:FluentIcon Grid.Column="3"
-                                                       Icon="ArrowRight"
-                                                       IconVariant="Regular" IconSize="Size12"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <StackPanel Grid.Column="4" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding SuggestedFull}"
-                                                       FontWeight="SemiBold"
-                                                       TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
                     </StackPanel>
                 </Border>
 

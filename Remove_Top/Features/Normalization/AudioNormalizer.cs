@@ -1,6 +1,7 @@
 using FluentIcons.Common;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -63,14 +64,18 @@ namespace Remove_Top.Features.Normalization
             return ext != null && AudioExtensions.Contains(ext);
         }
 
-        /// <summary>Límite de archivos analizados/procesados por ejecución (versión gratuita).</summary>
-        public const int MaxFilesToScan = 1000;
+        /// <summary>
+        /// Límite de archivos analizados/procesados por ejecución (versión gratuita).
+        /// Valor centralizado en <see cref="AppLimits.NormalizationMaxFilesToScan"/>.
+        /// </summary>
+        public const int MaxFilesToScan = AppLimits.NormalizationMaxFilesToScan;
 
         /// <summary>
         /// Límite mostrado en la UI (versión gratuita). El procesamiento real
-        /// sigue usando <see cref="MaxFilesToScan"/>.
+        /// sigue usando <see cref="MaxFilesToScan"/>. Valor centralizado en
+        /// <see cref="AppLimits.NormalizationFreeLimitDisplay"/>.
         /// </summary>
-        public const int FreeLimitDisplay = 50;
+        public const int FreeLimitDisplay = AppLimits.NormalizationFreeLimitDisplay;
 
         /// <summary>Nombre de la subcarpeta donde se guardan los archivos procesados.</summary>
         public const string OutputFolderName = "RemoveTop_Normalized";
@@ -115,42 +120,71 @@ namespace Remove_Top.Features.Normalization
         /// <summary>
         /// Calcula la ruta donde se guardaría la salida procesada de un archivo:
         /// la subcarpeta "RemoveTop_Normalized" junto al origen, con el nombre
-        /// base del archivo y el sufijo "_normalized.wav".
+        /// base del archivo y extensión .wav.
         /// </summary>
         private static string GetExpectedOutputPath(string sourcePath)
         {
             return Path.Combine(
                 Path.GetDirectoryName(sourcePath)!,
                 OutputFolderName,
-                //Path.GetFileNameWithoutExtension(sourcePath) + "_top-remix_normalized.wav");
                 Path.GetFileNameWithoutExtension(sourcePath) + ".wav");
         }
 
         /// <summary>
+        /// Calcula la ruta corregida (ortografía) donde se guardaría la salida
+        /// procesada de un archivo, aplicando SpanishNameCorrector al nombre base.
+        /// </summary>
+        private static string GetCorrectedOutputPath(string sourcePath)
+        {
+            var baseName = Path.GetFileNameWithoutExtension(sourcePath);
+            var corrected = SpanishNameCorrector.CorrectTitle(baseName);
+            return Path.Combine(
+                Path.GetDirectoryName(sourcePath)!,
+                OutputFolderName,
+                corrected + ".wav");
+        }
+
+        /// <summary>
         /// Indica si un archivo ya fue procesado. Para considerarlo procesado,
-        /// la salida esperada debe existir y ser un WAV válido (cabecera RIFF/WAVE
-        /// y tamaño mínimo). Si el WAV está parcial o corrupto (p.ej. por un
-        /// proceso cortado), devuelve false para que se reprocese.
+        /// la salida esperada (con nombre original o corregido ortográficamente)
+        /// debe existir y ser un WAV válido (cabecera RIFF/WAVE y tamaño mínimo).
+        /// Si el WAV está parcial o corrupto (p.ej. por un proceso cortado),
+        /// devuelve false para que se reprocese.
         /// </summary>
         private static bool HasProcessedOutput(string sourcePath)
         {
+            // Verificar salida con nombre original
             var outputPath = GetExpectedOutputPath(sourcePath);
-            if (!File.Exists(outputPath))
+            if (IsValidWav(outputPath))
+                return true;
+
+            // Verificar salida con nombre corregido ortográficamente
+            var correctedPath = GetCorrectedOutputPath(sourcePath);
+            if (string.Equals(outputPath, correctedPath, StringComparison.OrdinalIgnoreCase))
+                return false; // No hay variante corregida distinta
+
+            return IsValidWav(correctedPath);
+        }
+
+        /// <summary>
+        /// Verifica si un archivo existe y es un WAV válido (cabecera RIFF/WAVE).
+        /// </summary>
+        private static bool IsValidWav(string path)
+        {
+            if (!File.Exists(path))
                 return false;
 
             try
             {
-                var info = new FileInfo(outputPath);
-                // Un WAV mínimo con cabecera RIFF tiene al menos 44 bytes.
+                var info = new FileInfo(path);
                 if (info.Length < 44)
                     return false;
 
-                using var stream = File.OpenRead(outputPath);
+                using var stream = File.OpenRead(path);
                 Span<byte> header = stackalloc byte[12];
                 if (stream.Read(header) != 12)
                     return false;
 
-                // La firma RIFF: bytes 0-3 "RIFF" y bytes 8-11 "WAVE".
                 return header[0] == (byte)'R' && header[1] == (byte)'I' &&
                        header[2] == (byte)'F' && header[3] == (byte)'F' &&
                        header[8] == (byte)'W' && header[9] == (byte)'A' &&
@@ -413,6 +447,57 @@ namespace Remove_Top.Features.Normalization
                 AppliedGainDb = gainDb,
                 OutputPath = outputPath
             };
+        }
+
+        /// <summary>
+        /// Corrige ortográficamente los nombres de las salidas procesadas.
+        /// Por cada resultado exitoso, calcula el nombre corregido con
+        /// <see cref="SpanishNameCorrector.CorrectTitle"/> y renombra el archivo
+        /// en disco si difiere del actual. Si el destino ya existe, agrega
+        /// sufijo " (1)", "(2)", etc.
+        /// Actualiza FileName, OutputPath y Message del resultado.
+        /// </summary>
+        public static void CorrectOutputNames(IReadOnlyList<NormalizationResult> results)
+        {
+            foreach (var result in results)
+            {
+                if (!result.Success || string.IsNullOrEmpty(result.OutputPath))
+                    continue;
+
+                var currentDir = Path.GetDirectoryName(result.OutputPath)!;
+                var currentNameWithoutExt = Path.GetFileNameWithoutExtension(result.OutputPath);
+                var ext = Path.GetExtension(result.OutputPath);
+
+                var correctedNameWithoutExt = SpanishNameCorrector.CorrectTitle(currentNameWithoutExt);
+
+                // Si el nombre ya es correcto, no hacer nada
+                if (string.Equals(currentNameWithoutExt, correctedNameWithoutExt, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var correctedPath = Path.Combine(currentDir, correctedNameWithoutExt + ext);
+
+                // Si el destino corregido ya existe, agregar sufijo numérico
+                if (File.Exists(correctedPath))
+                {
+                    var baseName = correctedNameWithoutExt;
+                    int counter = 1;
+                    while (File.Exists(Path.Combine(currentDir, baseName + $" ({counter})" + ext)))
+                        counter++;
+                    correctedPath = Path.Combine(currentDir, baseName + $" ({counter})" + ext);
+                }
+
+                try
+                {
+                    File.Move(result.OutputPath, correctedPath);
+                    result.FileName = Path.GetFileNameWithoutExtension(result.OutputPath) + ext;
+                    result.OutputPath = correctedPath;
+                    result.Message += " · nombre corregido";
+                }
+                catch
+                {
+                    // Si falla el renombrado, se deja el nombre original
+                }
+            }
         }
     }
 

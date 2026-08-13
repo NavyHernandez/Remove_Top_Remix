@@ -34,13 +34,16 @@ namespace Remove_Top.Features.Normalization
             TargetSlider.Value = -1.0;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
 
-            // Muestra el límite de la versión gratuita. El texto usa el límite
-            // publicitado (FreeLimitDisplay); el procesamiento real sigue el de
-            // MaxFilesToScan.
-            string freeDisplay = AudioNormalizer.FreeLimitDisplay.ToString("N0");
-            string realLimit = AudioNormalizer.MaxFilesToScan.ToString("N0");
-            LimitInfoBar.Title = $"Versión gratuita: hasta {freeDisplay} archivos";
-            LimitInfoBar.Message = $"El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de {freeDisplay} archivos.";
+            // Título y subtítulo del encabezado, centralizados en AppLimits.
+            PageTitleText.Text = AppLimits.NormalizationPageTitle;
+            PageSubtitleText.Text = AppLimits.NormalizationPageSubtitle;
+
+            // Muestra el límite de la versión gratuita. El texto (título y
+            // mensaje) se genera a partir de AppLimits: usa el límite publicitado
+            // (NormalizationFreeLimitDisplay); el procesamiento real sigue el de
+            // NormalizationMaxFilesToScan.
+            LimitInfoBar.Title = AppLimits.NormalizationInfoBarTitle;
+            LimitInfoBar.Message = AppLimits.NormalizationInfoBarMessage;
 
             UpdateStartButtonText();
         }
@@ -222,11 +225,22 @@ namespace Remove_Top.Features.Normalization
             {
                 await normalizer.ProcessFilesAsync(files, targetDb, progress, _cts.Token);
 
+                // Corrección ortográfica de nombres de salida
+                ProgressText.Text = "Corrigiendo nombres...";
+                AudioNormalizer.CorrectOutputNames(_results);
+
+                // Reconstruir la colección para refrescar el ListView
+                var corrected = _results.ToList();
+                _results.Clear();
+                foreach (var r in corrected)
+                    _results.Add(r);
+
                 // Terminó el procesamiento: muestra el estado "Completado"
                 ProgressBar.Value = 100;
                 ProcessingRing.IsActive = false;
                 int ok = _results.Count(r => r.Success);
                 int fail = _results.Count(r => !r.Success);
+                int correctedCount = _results.Count(r => r.Success && r.Message.Contains("nombre corregido"));
 
                 // Icono profesional de estado: check verde si todo salió bien,
                 // advertencia ámbar si hubo errores.
@@ -237,9 +251,12 @@ namespace Remove_Top.Features.Normalization
                 CompletedIcon.Visibility = Visibility.Visible;
 
                 ProgressTitleText.Text = "Completado";
-                ProgressText.Text = fail > 0
+                var completionMsg = fail > 0
                     ? $"Completado \u2014 {ok} de {files.Length} archivo(s) procesado(s) correctamente, {fail} con error"
                     : $"Completado \u2014 {ok} de {files.Length} archivo(s) procesado(s) correctamente";
+                if (correctedCount > 0)
+                    completionMsg += $" \u00b7 {correctedCount} nombre(s) corregido(s)";
+                ProgressText.Text = completionMsg;
 
                 // Solo si TODO terminó correctamente se ofrece limpiar y empezar de nuevo
                 if (fail == 0)

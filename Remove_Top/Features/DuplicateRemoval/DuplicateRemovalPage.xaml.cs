@@ -35,6 +35,14 @@ namespace Remove_Top.Features.DuplicateRemoval
         private bool _scanPerformed;
         private bool _deletionCompleted;
 
+        // Control de la tarjeta premium: se muestra solo si el escaneo se
+        // truncó (la carpeta tenía más de MaxFilesToScan archivos) y la
+        // limpieza terminó correctamente. Se guardan los contadores del
+        // escaneo para construir el mensaje informativo.
+        private bool _scanTruncated;
+        private int _scannedFiles;
+        private int _totalFound;
+
         public DuplicateRemovalPage()
         {
             InitializeComponent();
@@ -49,6 +57,17 @@ namespace Remove_Top.Features.DuplicateRemoval
             DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
             RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
+
+            // Título y subtítulo del encabezado, centralizados en AppLimits.
+            PageTitleText.Text = AppLimits.DuplicatesPageTitle;
+            PageSubtitleText.Text = AppLimits.DuplicatesPageSubtitle;
+
+            // Muestra el límite de la versión gratuita. El texto se genera a
+            // partir de AppLimits para que coincida siempre con el límite real
+            // de escaneo (DuplicatesMaxFilesToScan).
+            LimitInfoBar.Title = AppLimits.DuplicatesInfoBarTitle;
+            LimitInfoBar.Message = AppLimits.DuplicatesInfoBarMessage;
+
             UpdateUI();
         }
 
@@ -88,6 +107,9 @@ namespace Remove_Top.Features.DuplicateRemoval
             _deletionResults.Clear();
             _scanPerformed = false;
             _deletionCompleted = false;
+            _scanTruncated = false;
+            _scannedFiles = 0;
+            _totalFound = 0;
             ResultsSection.Visibility = Visibility.Collapsed;
             ProgressSection.Visibility = Visibility.Collapsed;
             DeletionResultsSection.Visibility = Visibility.Collapsed;
@@ -218,6 +240,14 @@ namespace Remove_Top.Features.DuplicateRemoval
                 RefreshListBindings();
 
                 _scanPerformed = true;
+
+                // El escaneo se truncó si la carpeta tenía más archivos de los
+                // que se analizaron (MaxFilesToScan). Esto habilita la tarjeta
+                // premium, que solo se muestra al terminar la limpieza.
+                _scanTruncated = result.TotalFilesFound > result.ScannedFiles;
+                _scannedFiles = result.ScannedFiles;
+                _totalFound = result.TotalFilesFound;
+
                 UpdateTabHeaders();
                 UpdateSelectionSummary();
 
@@ -285,9 +315,9 @@ namespace Remove_Top.Features.DuplicateRemoval
 
         private void UpdateTabHeaders()
         {
-            ExactTabHeader.Text = $"1 · Duplicados exactos ({_exactItems.Count})";
-            PossibleTabHeader.Text = $"2 · Posibles ({_possibleItems.Count})";
-            DamagedTabHeader.Text = $"3 · Archivos dañados ({_damagedItems.Count})";
+            ExactTabHeader.Text = $"Duplicados exactos ({_exactItems.Count})";
+            PossibleTabHeader.Text = $"Posibles ({_possibleItems.Count})";
+            DamagedTabHeader.Text = $"Archivos dañados ({_damagedItems.Count})";
 
             int unmarkedPossible = _possibleItems.Count(i => !i.IsMarkedForDeletion);
             string possibleNote = unmarkedPossible > 0
@@ -313,7 +343,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         {
             int selected = SelectedCount;
             SelectionCountText.Text = $"{selected} seleccionado(s) · liberará {DuplicateItem.FormatSize(SelectedBytes)} · " +
-                $"límite {DuplicateRemover.MaxDeletionsPerRun} por ejecución";
+                $"límite {AppLimits.DuplicatesMaxDeletionsPerRun} por ejecución";
             bool hasItems = _exactItems.Count + _possibleItems.Count + _damagedItems.Count > 0;
             SelectAllButton.IsEnabled = hasItems && !_isProcessing;
             DeleteButton.IsEnabled = selected > 0 && !_isProcessing;
@@ -403,8 +433,10 @@ namespace Remove_Top.Features.DuplicateRemoval
                 // solo quedan visibles los resultados de la operación.
                 _deletionCompleted = true;
 
-                if (_exactItems.Count == 0 && _possibleItems.Count == 0 && _damagedItems.Count == 0)
-                    ResultsSection.Visibility = Visibility.Collapsed;
+                // Se oculta el TabView de resultados: aunque queden ítems sin
+                // seleccionar (p. ej. "Posibles"), tras el borrado solo debe
+                // verse el resultado de lo que se eliminó.
+                ResultsSection.Visibility = Visibility.Collapsed;
             }
             catch (OperationCanceledException)
             {
@@ -475,6 +507,29 @@ namespace Remove_Top.Features.DuplicateRemoval
         }
 
         // ================================================================
+        // VERSIÓN PREMIUM
+        // ================================================================
+
+        /// <summary>
+        /// Abre en el navegador la URL de la versión premium. El destino se
+        /// centraliza en <see cref="PremiumLinks.UpgradeUrl"/> para poder
+        /// cambiarlo manualmente en un solo lugar. Si la apertura falla se
+        /// muestra el motivo en la línea de estado del escaneo.
+        /// </summary>
+        private async void UpgradeButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var uri = new Uri(PremiumLinks.UpgradeUrl);
+                await Windows.System.Launcher.LaunchUriAsync(uri);
+            }
+            catch (Exception ex)
+            {
+                ScanStatusText.Text = $"No se pudo abrir el enlace premium: {ex.Message}";
+            }
+        }
+
+        // ================================================================
         // ESTADO DE LA UI
         // ================================================================
 
@@ -509,6 +564,22 @@ namespace Remove_Top.Features.DuplicateRemoval
                 DeleteButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
                 DeletePermanentButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
                 CancelButton.Visibility = Visibility.Visible;
+            }
+
+            // La tarjeta premium solo aparece si el escaneo se truncó (carpeta
+            // con más de AppLimits.DuplicatesMaxFilesToScan archivos) y la
+            // limpieza ya terminó correctamente. En cualquier otro momento
+            // permanece oculta.
+            if (_deletionCompleted && _scanTruncated)
+            {
+                PremiumMessageText.Text = $"Se analizaron solo los primeros {_scannedFiles} de {_totalFound} " +
+                    "archivos encontrados. Con la versión premium podrás escanear carpetas completas " +
+                    "sin límites y eliminar todos los duplicados de una sola vez.";
+                PremiumSection.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                PremiumSection.Visibility = Visibility.Collapsed;
             }
 
             UpdateSelectionSummary();

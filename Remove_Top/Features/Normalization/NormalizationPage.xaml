@@ -27,9 +27,11 @@
                     <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Normalización de Audio"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Ajusta el nivel de pico de todos los archivos de audio a un objetivo común (dBFS)."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -48,8 +50,8 @@
                          Severity="Informational"
                          IsOpen="True"
                          IsClosable="False"
-                         Title="Versión gratuita: hasta 50 archivos"
-                         Message="El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de 50 archivos." />
+                         Title=""
+                         Message="" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Selección de carpeta de origen              -->

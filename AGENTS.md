@@ -8,11 +8,11 @@ Aplicación WinUI 3 (Windows App SDK) para procesamiento de audio.
 
 | Módulo | Descripción |
 |--------|-------------|
-| **Normalización** (`NormalizationPage`) | Ajusta el nivel de pico de archivos de audio a un dBFS objetivo usando NAudio y exporta a WAV en subcarpeta `RemoveTop_Normalized`. Sobre el audio ya normalizado aplica una masterización ligera (paso alto → EQ → compresor → limitador a −0.3 dB). Límite gratuito PUBLICADO de **50 archivos** (`AudioNormalizer.FreeLimitDisplay`, solo texto); el límite REAL de escaneo es de **1.000 archivos** (`MaxFilesToScan`). El texto del InfoBar se monta en runtime con ambos valores. Omite los que ya tienen una salida procesada válida (firma RIFF/WAVE). Muestra un loader (`ProgressRing`) durante el procesamiento y, al terminar, el estado "Completado" con icono de estado (check verde si todo salió bien, advertencia ámbar si hubo errores). Si todo terminó correctamente, aparece un botón "Limpiar" (centrado) que borra los resultados y resetea la página. |
-| **Renombrado Masivo** (`BatchRenamePage`) | Elimina texto específico de los nombres de archivos en una carpeta (audio, video, imagen, documentos). Opera directamente sobre los archivos originales. Persiste hasta **20 patrones** (`MaxPatterns`) en `%LOCALAPPDATA%\Remove_Top\patterns.json`. Etiqueta "Versión Gratuita" (badge verde) junto al mensaje de límite. Botón **"Iniciar de nuevo"** al final: resetea ruta, resultados, vista previa, progreso y sugerencias IA **conservando los patrones**. |
-| **Edición Rápida** (`QuickRenamePage`) | Lista los `.mp3`/`.wav` de la carpeta principal y permite editar cada nombre en una caja de texto inline (nombre completo, incluida la extensión). Aplica los cambios con `File.Move` directamente sobre los originales. Incluye corrección de nombres con IA vía proveedor desacoplado (`INameCorrectionProvider`): Mock local (pruebas) o Groq API (real, requiere API Key). |
-| **Extracción de Stems** (`VocalRemovalPage`) | Separa la voz del instrumental usando IA (modelo HT-Demucs FT en ONNX). Exporta vocal mono en subcarpeta `RemoveTop_Vocals`. Máximo 5 canciones estéreo por lote. |
-| **Eliminación de Duplicados** (`DuplicateRemovalPage`) | Escanea una carpeta (recursivo, incluye subcarpetas, máx. 1.000 archivos `DuplicateScanner.MaxFilesToScan`). Pipeline de detección por prioridad: **nombre normalizado → hash → palabra clave**. La MISMA CANCIÓN por nombre normalizado (`SameName`) se clasifica como **exacta** y se marca por defecto; también se detectan nombres que difieren en **una sola letra** (falta ortográfica). Exactos por hash SHA-256 solo sobre los no reclamados por nombre con tamaño repetido (en paralelo). Los "posibles" por palabra clave se verifican por duración de audio. Eliminación con dos opciones: Papelera de Windows (recuperable) o borrado definitivo, ambas con confirmación. Detecta además archivos < 6 KB como "dañados" en una 3.ª pestaña. Botón **"Iniciar de nuevo"** al final de los resultados de eliminación (resetea ruta + resultados). |
+| **Normalización** (`NormalizationPage`) | Ajusta el nivel de pico de archivos de audio a un dBFS objetivo usando NAudio y exporta a WAV en subcarpeta `RemoveTop_Normalized`. Sobre el audio ya normalizado aplica una masterización ligera (paso alto → EQ → compresor → limitador a −0.3 dB). Al finalizar, corrige la ortografía de los nombres de salida (tildes) con un diccionario local (`SpanishNameCorrector`). Límite gratuito PUBLICADO de **50 archivos** (`AppLimits.NormalizationFreeLimitDisplay`, solo texto); el límite REAL de escaneo es de **1.000 archivos** (`AppLimits.NormalizationMaxFilesToScan`). El texto del InfoBar se monta en runtime desde `AppLimits`. Omite los que ya tienen una salida procesada válida (firma RIFF/WAVE) — reconoce tanto el nombre original como el corregido. Muestra un loader (`ProgressRing`) durante el procesamiento y, al terminar, el estado "Completado" con icono de estado (check verde si todo salió bien, advertencia ámbar si hubo errores). Si todo terminó correctamente, aparece un botón "Limpiar" (centrado) que borra los resultados y resetea la página. |
+| **Renombrado Masivo** (`BatchRenamePage`) | Elimina texto específico de los nombres de archivos en una carpeta (audio, video, imagen, documentos). Opera directamente sobre los archivos originales. Persiste hasta **20 patrones** (`AppLimits.BatchRenameMaxPatterns`) en `%LOCALAPPDATA%\Remove_Top\patterns.json`. Etiqueta "Versión Gratuita" (badge verde) junto al mensaje de límite (generado desde `AppLimits`). Botón **"Iniciar de nuevo"** al final: resetea ruta, resultados, vista previa, progreso y sugerencias IA **conservando los patrones**. |
+| **Edición Rápida** (`QuickRenamePage`) | Lista los `.mp3`/`.wav` de la carpeta principal y permite editar cada nombre en una caja de texto inline (nombre completo, incluida la extensión). Aplica los cambios con `File.Move` directamente sobre los originales. |
+| **Extracción de Stems** (`VocalRemovalPage`) | Separa la voz del instrumental usando IA (modelo HT-Demucs FT en ONNX). Exporta vocal mono en subcarpeta `RemoveTop_Vocals`. Máximo **5 canciones** estéreo por lote (`AppLimits.VocalRemovalMaxFilesPerBatch`). |
+| **Eliminación de Duplicados** (`DuplicateRemovalPage`) | Escanea una carpeta (recursivo, incluye subcarpetas, máx. **1.000 archivos** `AppLimits.DuplicatesMaxFilesToScan`). Pipeline de detección por prioridad: **nombre normalizado → hash → palabra clave**. La MISMA CANCIÓN por nombre normalizado (`SameName`) se clasifica como **exacta** y se marca por defecto; también se detectan nombres que difieren en **una sola letra** (falta ortográfica). Exactos por hash SHA-256 solo sobre los no reclamados por nombre con tamaño repetido (en paralelo). Los "posibles" por palabra clave se verifican por duración de audio. Eliminación con dos opciones: Papelera de Windows (recuperable) o borrado definitivo, ambas con confirmación. Detecta además archivos < **6 KB** (`AppLimits.DuplicatesMinValidFileSizeBytes`) como "dañados" en una 3.ª pestaña. Botón **"Iniciar de nuevo"** al final de los resultados de eliminación (resetea ruta + resultados). |
 
 ## Stack Tecnológico
 
@@ -40,20 +40,17 @@ Remove_Top/
         │   ├── Normalization/
         │   │   ├── NormalizationPage.xaml / .cs   # Normalización de audio (UI + ViewModel inline)
         │   │   ├── AudioNormalizer.cs             # Servicio de normalización con NAudio (MaxFilesToScan, FreeLimitDisplay)
+        │   │   ├── SpanishNameCorrector.cs        # Corrección ortográfica de nombres (diccionario local de tildes)
         │   │   ├── MasteringDsp.cs                # DSP managed (BiQuad, compresor, limitador)
         │   │   └── MasteringChain.cs              # Cadena de masterización ligera (settings + build)
         │   ├── BatchRename/
         │   │   ├── BatchRenamePage.xaml / .cs     # Renombrado masivo (patrones, botón "Iniciar de nuevo")
         │   │   ├── FileRenamer.cs                 # Servicio de renombrado en lote
         │   │   ├── PatternSuggestion.cs           # Interfaz IPatternSuggestionProvider + PatternSuggestion
-        │   │   ├── MockPatternSuggester.cs        # Proveedor local de sugerencias (pruebas, sin red)
-        │   │   └── GroqPatternSuggester.cs        # Proveedor real de sugerencias (Groq API, requiere key)
+        │   │   └── GroqPatternSuggester.cs        # Proveedor real de sugerencias (servidor Topremix)
         │   ├── QuickRename/
         │   │   ├── QuickRenamePage.xaml / .cs     # Edición rápida de nombres (.mp3/.wav)
-        │   │   ├── QuickRenamer.cs                # Servicio de edición rápida de nombres
-        │   │   ├── NameCorrection.cs              # Interfaz INameCorrectionProvider + CorrectionSuggestion
-        │   │   ├── MockNameCorrector.cs           # Proveedor de corrección local (pruebas, sin red)
-        │   │   └── GroqNameCorrector.cs           # Proveedor de corrección real (Groq API, requiere key)
+        │   │   └── QuickRenamer.cs                # Servicio de edición rápida de nombres
         │   ├── VocalRemoval/
         │   │   ├── VocalRemovalPage.xaml / .cs    # Extracción de stems con IA
         │   │   ├── VocalSeparator.cs              # Separación de voz con modelo ONNX
@@ -78,10 +75,12 @@ Remove_Top/
         │           ├── FileRecord.cs                # Registro con tamaño/hash/nombre/palabras precalculados
         │           └── DamagedFileDetector.cs       # Archivos < 6 KB ("dañados")
         ├── Helpers/
+        │   ├── AppLimits.cs              # LÍMITES centralizados de la versión gratuita (cambiar aquí)
+        │   ├── PremiumLinks.cs           # Enlace premium centralizado (UpgradeUrl, cambiar aquí)
         │   ├── UiHelpers.cs              # Iconos/contenido de botones con FluentIcons
         │   ├── FileTypeIconConverter.cs  # Icono según tipo de archivo (audio/video/imagen/documento)
         │   ├── RecycleBinHelper.cs       # Envía archivos a la Papelera de Windows (SHFileOperationW)
-        │   └── GroqApiClient.cs          # Cliente HTTP compartido de Groq (endpoint, modelo, parseo)
+        │   └── TopRemixServerApiClient.cs  # Cliente HTTP compartido del servidor Topremix (endpoint, modelo, parseo)
         ├── Assets/                      # Iconos y recursos visuales
         └── Properties/
             ├── launchSettings.json      # Perfiles de ejecución (Package/Unpackaged)
@@ -93,9 +92,9 @@ Remove_Top/
 ```
 App.xaml.cs (Application)
   └── MainWindow (NavigationView)
-        ├── NormalizationPage → AudioNormalizer (NAudio)
+        ├── NormalizationPage → AudioNormalizer (NAudio) + SpanishNameCorrector
         ├── BatchRenamePage   → FileRenamer
-        ├── QuickRenamePage   → QuickRenamer + INameCorrectionProvider
+        ├── QuickRenamePage   → QuickRenamer
         ├── VocalRemovalPage  → VocalSeparator (ONNX) + ModelDownloader
         └── DuplicateRemovalPage → DuplicateScanner + DuplicateRemover + RecycleBinHelper
 ```
@@ -135,30 +134,37 @@ Además del nombre exacto, detecta nombres "casi idénticos" (falta ortográfica
 
 ## Renombrado masivo (detalle)
 
-- Máximo **20 patrones** (`MaxPatterns`), persistidos en `%LOCALAPPDATA%\Remove_Top\patterns.json`.
-- Etiqueta **"Versión Gratuita"** (badge #70AD47) junto al mensaje "Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas."
+- Máximo **20 patrones** (`AppLimits.BatchRenameMaxPatterns`), persistidos en `%LOCALAPPDATA%\Remove_Top\patterns.json`.
+- Etiqueta **"Versión Gratuita"** (badge #70AD47) junto al mensaje "Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." (texto generado desde `AppLimits.BatchRenameLimitMessage`).
 - Botón **"Iniciar de nuevo"** (`RestartButton`) al final de los resultados: resetea ruta, resultados, vista previa, progreso, badge y sugerencias IA, pero **CONSERVA los patrones**.
 
 ## Normalización (límite gratuito)
 
-- `AudioNormalizer.MaxFilesToScan = 1000` → límite REAL de archivos analizados.
-- `AudioNormalizer.FreeLimitDisplay = 50` → límite PUBLICADO en la UI (solo texto de marketing; el escaneo real sigue el límite real).
-- El `InfoBar` de la página se construye en runtime (`NormalizationPage` constructor) usando ambos valores.
+- `AppLimits.NormalizationMaxFilesToScan = 1000` → límite REAL de archivos analizados.
+- `AppLimits.NormalizationFreeLimitDisplay = 50` → límite PUBLICADO en la UI (solo texto de marketing; el escaneo real sigue el límite real).
+- El `InfoBar` de la página se construye en runtime (`NormalizationPage` constructor) usando `AppLimits.NormalizationInfoBarTitle/Message`.
 
-## Proveedores de corrección de nombres (IA)
+## Límites de la versión gratuita (componente central)
 
-- `QuickRenamePage` usa `INameCorrectionProvider` (interfaz en `Features/QuickRename/NameCorrection.cs`), desacoplada de la UI para poder cambiar de proveedor sin tocar la página.
-- **`MockNameCorrector`** (predeterminado): simula correcciones localmente (separa palabras unidas, capitaliza, conserva extensión). Sin red ni API Key. Útil para pruebas.
-- **`GroqNameCorrector`**: llama a `https://api.groq.com/openai/v1/chat/completions` (modelo `llama-3.3-70b-versatile`). Queda deshabilitado en la UI hasta que el usuario ingrese su API Key en el campo correspondiente.
-- El flujo: la página envía la lista de nombres → el proveedor devuelve `CorrectionSuggestion` (original vs. sugerido) → el usuario aprueba con CheckBox (individual o "Aprobar todos") → "Aplicar aprobados" rellena las cajas de texto editables → "Aplicar cambios" renombra.
+**Todos los límites de las funcionalidades se definen en `Helpers/AppLimits.cs`** y se cambian manualmente ahí:
+
+| Funcionalidad | Constante | Valor |
+|---------------|-----------|-------|
+| Normalización | `NormalizationFreeLimitDisplay` (publicado) · `NormalizationMaxFilesToScan` (real) | 50 · 1.000 |
+| Renombrado masivo | `BatchRenameMaxPatterns` | 20 |
+| Stems | `VocalRemovalMaxFilesPerBatch` | 5 |
+| Duplicados | `DuplicatesMaxFilesToScan` · `DuplicatesMaxDeletionsPerRun` · `DuplicatesMinValidFileSizeBytes` | 1.000 · 1.000 · 6 KB |
+
+Las funcionalidades **consumen la lógica y los textos de UI desde `AppLimits`**: los servicios los usan en sus `Take(n)`/topes reales y las páginas montan los InfoBars, contadores y descripciones en runtime desde las propiedades de texto (`AppLimits.NormalizationInfoBar*`, `DuplicatesInfoBar*`, `BatchRenameLimitMessage`, `VocalRemovalPageDescription`). Así los textos nunca se desincronizan de los límites reales. Para cambiar un límite, editar el valor aquí y recompilar.
+
+Además de los límites, `AppLimits` centraliza los **textos del encabezado de cada página** (título, subtítulo) y el badge **"Versión Gratuita"** (`AppLimits.FreeBadgeText`): `NormalizationPageTitle/Subtitle`, `BatchRenamePageTitle/Subtitle`, `QuickRenamePageTitle/Subtitle`, `VocalRemovalPageTitle/Subtitle`, `DuplicatesPageTitle/Subtitle`. Cada página los monta en su constructor desde estas propiedades, por lo que todos los textos de las funcionalidades se cambian en un solo lugar.
 
 ## Sugerencia de patrones con IA (BatchRename)
 
-- `BatchRenamePage` usa `IPatternSuggestionProvider` (interfaz en `Features/BatchRename/PatternSuggestion.cs`): dado los patrones actuales + los nombres de archivos afectados, sugiere NUEVOS patrones a eliminar.
-- **`MockPatternSuggester`** (predeterminado): heurísticas locales (variantes de separadores, tokens recurrentes). Sin red ni API Key. Para pruebas.
-- **`GroqPatternSuggester`**: envía `{ patrones, archivos }` (solo nombres base sin extensión de los archivos afectados, truncados y con tope para ser ligeros) y pide hasta 10 patrones nuevos. Requiere API Key por sesión.
-- Ambos proveedores (y `GroqNameCorrector`) comparten el cliente HTTP `Helpers/GroqApiClient.cs` (endpoint/modelo/configuración de conexión ahí).
-- El flujo: la página envía patrones + nombres → el proveedor devuelve `PatternSuggestion` → el usuario aprueba con CheckBox → "Agregar aprobados" los incorpora a los patrones (persistiendo y recalculando la vista previa).
+- `BatchRenamePage` usa `IPatternSuggestionProvider` (interfaz en `Features/BatchRename/PatternSuggestion.cs`): dado los patrones actuales + los primeros 10 nombres de archivos afectados, sugiere NUEVOS patrones a eliminar.
+- **`GroqPatternSuggester`**: envía `{ patrones, archivos }` (solo los primeros 10 nombres base sin extensión de los archivos afectados) y pide hasta 10 patrones nuevos. La API key se configura en el cliente compartido.
+- El proveedor usa el cliente HTTP `Helpers/TopRemixServerApiClient.cs` (endpoint/modelo/apiKey/configuración de conexión ahí).
+- El flujo: la página envía patrones + primeros 10 nombres → el proveedor devuelve `PatternSuggestion` → el usuario aprueba con CheckBox → "Agregar aprobados" los incorpora a los patrones (persistiendo y recalculando la vista previa).
 
 ## Cómo ejecutar
 

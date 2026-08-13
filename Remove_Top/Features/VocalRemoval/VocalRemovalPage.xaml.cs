@@ -21,8 +21,6 @@ namespace Remove_Top.Features.VocalRemoval
     /// </summary>
     public sealed partial class VocalRemovalPage : Page
     {
-        private const int MaxFiles = 5;
-
         private readonly ObservableCollection<string> _queue = [];
         private readonly ObservableCollection<StemResult> _results = [];
         private CancellationTokenSource? _cts;
@@ -36,6 +34,12 @@ namespace Remove_Top.Features.VocalRemoval
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             DownloadButton.Content = UiHelpers.Content(Icon.ArrowDownload, "Descargar modelo", semibold: false, foreground: DownloadButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Mic, "Extraer voces (stems)", foreground: StartButton.Foreground);
+
+            // Título y descripción del encabezado, centralizados en AppLimits
+            // para que el máximo de canciones por lote coincida siempre con el real.
+            PageTitleText.Text = AppLimits.VocalRemovalPageTitle;
+            PageDescriptionText.Text = AppLimits.VocalRemovalPageSubtitle;
+
             InitializePage();
         }
 
@@ -144,7 +148,7 @@ namespace Remove_Top.Features.VocalRemoval
             {
                 FolderPathBox.Text = folder.Path;
                 var files = VocalSeparator.GetAudioFiles(folder.Path);
-                var stereoFiles = files.Where(f => IsStereo(f)).Take(MaxFiles).ToArray();
+                var stereoFiles = files.Where(f => IsStereo(f)).Take(AppLimits.VocalRemovalMaxFilesPerBatch).ToArray();
 
                 _queue.Clear();
                 foreach (var f in stereoFiles)
@@ -153,7 +157,7 @@ namespace Remove_Top.Features.VocalRemoval
                 if (_queue.Count > 0)
                 {
                     QueueSection.Visibility = Visibility.Visible;
-                    QueueCountText.Text = $"{_queue.Count}/{MaxFiles}";
+                    QueueCountText.Text = $"{_queue.Count}/{AppLimits.VocalRemovalMaxFilesPerBatch}";
                     FileCountText.Text = $"{files.Length} archivo(s) de audio encontrado(s) · {_queue.Count} compatible(s)";
                 }
                 else

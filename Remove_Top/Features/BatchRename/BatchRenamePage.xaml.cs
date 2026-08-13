@@ -22,7 +22,6 @@ namespace Remove_Top.Features.BatchRename
     /// </summary>
     public sealed partial class BatchRenamePage : Page
     {
-        private const int MaxPatterns = 20;
         private static readonly string PatternsFile =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Remove_Top", "patterns.json");
@@ -45,7 +44,16 @@ namespace Remove_Top.Features.BatchRename
             StartButton.Content = UiHelpers.Content(Icon.Delete, "Eliminar patrones de los nombres", foreground: StartButton.Foreground);
             SuggestPatternsButton.Content = UiHelpers.Content(Icon.Sparkle, "Sugerir patrones con IA", foreground: SuggestPatternsButton.Foreground);
             RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
-            ProviderComboBox.SelectedIndex = 0;
+
+            // Título y subtítulo del encabezado, centralizados en AppLimits.
+            PageTitleText.Text = AppLimits.BatchRenamePageTitle;
+            PageSubtitleText.Text = AppLimits.BatchRenamePageSubtitle;
+            FreeBadgeText.Text = AppLimits.FreeBadgeText;
+
+            // Aviso de límite de patrones, generado desde AppLimits para que
+            // coincida siempre con el máximo real (BatchRenameMaxPatterns).
+            LimitInfoText.Text = AppLimits.BatchRenameLimitMessage;
+
             LoadPatterns();
             UpdateUI();
         }
@@ -77,7 +85,7 @@ namespace Remove_Top.Features.BatchRename
                 var texts = JsonSerializer.Deserialize<string[]>(json);
                 if (texts != null)
                 {
-                    foreach (var t in texts.Take(MaxPatterns))
+                    foreach (var t in texts.Take(AppLimits.BatchRenameMaxPatterns))
                         _patterns.Add(new RenamePattern { Text = t });
                 }
             }
@@ -117,7 +125,7 @@ namespace Remove_Top.Features.BatchRename
         private void PatternInput_TextChanged(object sender, TextChangedEventArgs e)
         {
             AddPatternButton.IsEnabled = !string.IsNullOrWhiteSpace(PatternInput.Text)
-                                         && _patterns.Count < MaxPatterns;
+                                         && _patterns.Count < AppLimits.BatchRenameMaxPatterns;
         }
 
         private void PatternInput_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -148,7 +156,7 @@ namespace Remove_Top.Features.BatchRename
         private bool TryAddPattern(string? rawText)
         {
             var text = (rawText ?? "").Trim();
-            if (string.IsNullOrEmpty(text) || _patterns.Count >= MaxPatterns) return false;
+            if (string.IsNullOrEmpty(text) || _patterns.Count >= AppLimits.BatchRenameMaxPatterns) return false;
             if (_patterns.Any(p => p.Text.Equals(text, StringComparison.OrdinalIgnoreCase))) return false;
 
             _patterns.Add(new RenamePattern { Text = text });
@@ -222,10 +230,10 @@ namespace Remove_Top.Features.BatchRename
 
         private void UpdateUI()
         {
-            PatternCountText.Text = $"{_patterns.Count}/{MaxPatterns}";
+            PatternCountText.Text = $"{_patterns.Count}/{AppLimits.BatchRenameMaxPatterns}";
             PatternsContainer.Visibility = _patterns.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             AddPatternButton.IsEnabled = !string.IsNullOrWhiteSpace(PatternInput.Text)
-                                         && _patterns.Count < MaxPatterns;
+                                         && _patterns.Count < AppLimits.BatchRenameMaxPatterns;
             StartButton.IsEnabled = !string.IsNullOrEmpty(FolderPathBox.Text)
                                     && _patterns.Count > 0 && !_isProcessing;
             AiSection.Visibility = !string.IsNullOrEmpty(FolderPathBox.Text) && _patterns.Count > 0
@@ -366,39 +374,15 @@ namespace Remove_Top.Features.BatchRename
         // MEJORA DE PATRONES CON IA
         // ================================================================
 
-        private bool IsGroqProvider =>
-            (ProviderComboBox.SelectedItem as ComboBoxItem)?.Tag as string == "groq";
-
-        private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            ApiKeyBox.IsEnabled = IsGroqProvider;
-            ApiKeyBox.Password = "";
-            UpdateAiStatus();
-        }
-
-        private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            UpdateAiStatus();
-        }
-
         private void UpdateAiStatus()
         {
             bool ready = !string.IsNullOrEmpty(FolderPathBox.Text)
                          && _patterns.Count > 0 && !_isProcessing && !_isSuggesting;
 
-            if (IsGroqProvider)
-            {
-                bool hasKey = !string.IsNullOrEmpty(ApiKeyBox.Password);
-                AiStatusText.Text = hasKey
-                    ? "Se enviarán los patrones actuales y los nombres de archivos afectados a Groq."
-                    : "Ingresa tu API Key de Groq para habilitar la sugerencia de patrones.";
-                SuggestPatternsButton.IsEnabled = ready && hasKey;
-            }
-            else
-            {
-                AiStatusText.Text = "Modo de pruebas: las sugerencias se generan localmente sin red ni API Key.";
-                SuggestPatternsButton.IsEnabled = ready;
-            }
+            AiStatusText.Text = ready
+                ? "Se enviarán los patrones y los primeros 10 nombres de archivos afectados al servidor Topremix."
+                : "Selecciona una carpeta y agrega patrones para habilitar la sugerencia de IA.";
+            SuggestPatternsButton.IsEnabled = ready;
         }
 
         private async void SuggestPatternsButton_Click(object sender, RoutedEventArgs e)
@@ -410,6 +394,7 @@ namespace Remove_Top.Features.BatchRename
                 .Select(Path.GetFileNameWithoutExtension)
                 .Where(n => !string.IsNullOrEmpty(n))
                 .Cast<string>()
+                .Take(10)
                 .ToArray();
 
             if (patterns.Length == 0 || fileNames.Length == 0)
@@ -425,11 +410,9 @@ namespace Remove_Top.Features.BatchRename
             PatternInput.IsEnabled = false;
             AddPatternButton.IsEnabled = false;
             AiProgressBar.Visibility = Visibility.Visible;
-            AiStatusText.Text = "Enviando datos a la IA...";
+            AiStatusText.Text = "Enviando datos al servidor Topremix...";
 
-            IPatternSuggestionProvider provider = IsGroqProvider
-                ? new GroqPatternSuggester(ApiKeyBox.Password)
-                : new MockPatternSuggester();
+            var provider = new GroqPatternSuggester();
 
             try
             {
