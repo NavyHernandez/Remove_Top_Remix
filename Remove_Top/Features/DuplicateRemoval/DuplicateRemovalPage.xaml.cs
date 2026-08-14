@@ -56,11 +56,13 @@ namespace Remove_Top.Features.DuplicateRemoval
             DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle, "Eliminar seleccionados", foreground: DeleteButton.Foreground);
             DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
-            RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
+            RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.DuplicatesPageTitle;
             PageSubtitleText.Text = AppLimits.DuplicatesPageSubtitle;
+            BrandText.Text = AppLimits.AppName;
+            BrandSiteRun.Text = AppLimits.AppBrandSite;
 
             // Muestra el límite de la versión gratuita. El texto se genera a
             // partir de AppLimits para que coincida siempre con el límite real
@@ -112,6 +114,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             _totalFound = 0;
             ResultsSection.Visibility = Visibility.Collapsed;
             ProgressSection.Visibility = Visibility.Collapsed;
+            NoDuplicatesIcon.Visibility = Visibility.Collapsed;
             DeletionResultsSection.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
             ScanStatusText.Text = "";
@@ -204,6 +207,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             ScanLoader.IsActive = true;
             ScanLoader.Visibility = Visibility.Visible;
             ScanStatusText.Text = "Enumerando archivos...";
+            NoDuplicatesIcon.Visibility = Visibility.Collapsed;
 
             _cts = new CancellationTokenSource();
             var scanner = new DuplicateScanner();
@@ -253,16 +257,18 @@ namespace Remove_Top.Features.DuplicateRemoval
 
                 if (_exactItems.Count == 0 && _possibleItems.Count == 0 && _damagedItems.Count == 0)
                 {
+                    NoDuplicatesIcon.Visibility = Visibility.Visible;
                     ScanStatusText.Text = "No se encontraron duplicados.";
                     ResultsSection.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
+                    NoDuplicatesIcon.Visibility = Visibility.Collapsed;
                     string truncated = result.TotalFilesFound > result.ScannedFiles
                         ? $" (se analizaron los primeros {result.ScannedFiles} de {result.TotalFilesFound})"
                         : "";
                     string damagedNote = _damagedItems.Count > 0
-                        ? $" · {_damagedItems.Count} archivo(s) dañado(s) (< 6 KB)"
+                        ? $" · {_damagedItems.Count} archivo(s) dañado(s) (< {DuplicateItem.FormatSize(AppLimits.DuplicatesMinValidFileSizeBytes)})"
                         : "";
                     int unmarkedPossible = _possibleItems.Count(i => !i.IsMarkedForDeletion);
                     string possibleNote = unmarkedPossible > 0
@@ -417,8 +423,16 @@ namespace Remove_Top.Features.DuplicateRemoval
             {
                 await remover.RemoveFilesAsync(marked, mode, progress, _cts.Token);
 
-                // Quita de la lista los archivos que se eliminaron correctamente
-                foreach (var item in marked.Where(i => i.IsMarkedForDeletion).ToList())
+                // Quita de la lista SOLO los archivos que se eliminaron
+                // correctamente; los que fallaron permanecen marcados para
+                // poder reintentarlos.
+                var deletedPaths = _deletionResults
+                    .Where(r => r.Success)
+                    .Select(r => r.FilePath)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in marked
+                    .Where(i => i.IsMarkedForDeletion && deletedPaths.Contains(i.FilePath))
+                    .ToList())
                 {
                     item.PropertyChanged -= Item_PropertyChanged;
                     _exactItems.Remove(item);
@@ -497,7 +511,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         }
 
         /// <summary>
-        /// "Iniciar de nuevo": vuelve la página a su estado inicial tras la
+        /// "Limpiar": vuelve la página a su estado inicial tras la
         /// eliminación. Limpia la ruta seleccionada y todos los resultados.
         /// </summary>
         private void RestartButton_Click(object sender, RoutedEventArgs e)

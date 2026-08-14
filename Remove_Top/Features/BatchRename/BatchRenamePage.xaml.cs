@@ -24,7 +24,7 @@ namespace Remove_Top.Features.BatchRename
     {
         private static readonly string PatternsFile =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Remove_Top", "patterns.json");
+                AppLimits.AppDataFolderName, "patterns.json");
 
         private readonly ObservableCollection<RenamePattern> _patterns = [];
         private readonly ObservableCollection<RenameResult> _results = [];
@@ -42,13 +42,15 @@ namespace Remove_Top.Features.BatchRename
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             AddPatternButton.Content = UiHelpers.Content(Icon.Add, "Agregar", semibold: false, foreground: AddPatternButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Delete, "Eliminar patrones de los nombres", foreground: StartButton.Foreground);
+            CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
             SuggestPatternsButton.Content = UiHelpers.Content(Icon.Sparkle, "Sugerir patrones con IA", foreground: SuggestPatternsButton.Foreground);
-            RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
+            RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.BatchRenamePageTitle;
             PageSubtitleText.Text = AppLimits.BatchRenamePageSubtitle;
             FreeBadgeText.Text = AppLimits.FreeBadgeText;
+            BrandText.Text = AppLimits.AppName;
 
             // Aviso de límite de patrones, generado desde AppLimits para que
             // coincida siempre con el máximo real (BatchRenameMaxPatterns).
@@ -234,9 +236,15 @@ namespace Remove_Top.Features.BatchRename
             PatternsContainer.Visibility = _patterns.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             AddPatternButton.IsEnabled = !string.IsNullOrWhiteSpace(PatternInput.Text)
                                          && _patterns.Count < AppLimits.BatchRenameMaxPatterns;
+            bool hasResults = _results.Count > 0;
             StartButton.IsEnabled = !string.IsNullOrEmpty(FolderPathBox.Text)
-                                    && _patterns.Count > 0 && !_isProcessing;
+                                    && _patterns.Count > 0 && !_isProcessing && !hasResults;
+            StartButton.Visibility = hasResults ? Visibility.Collapsed : Visibility.Visible;
+            bool showCancel = !string.IsNullOrEmpty(FolderPathBox.Text) && !_isProcessing && !hasResults;
+            CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
+            CancelButton.IsEnabled = showCancel;
             AiSection.Visibility = !string.IsNullOrEmpty(FolderPathBox.Text) && _patterns.Count > 0
+                && !hasResults
                 ? Visibility.Visible
                 : Visibility.Collapsed;
             UpdateAiStatus();
@@ -262,6 +270,7 @@ namespace Remove_Top.Features.BatchRename
             PreviewListView.ItemsSource = null;
             PreviewSection.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
             _isProcessing = true;
             UpdateAiStatus();
             CompleteBadge.Visibility = Visibility.Collapsed;
@@ -343,7 +352,7 @@ namespace Remove_Top.Features.BatchRename
         }
 
         /// <summary>
-        /// "Iniciar de nuevo": vuelve la página a su estado inicial tras un
+        /// "Limpiar": vuelve la página a su estado inicial tras un
         /// renombrado. Limpia la ruta, los resultados, la vista previa, el
         /// progreso y las sugerencias de IA. Los patrones se conservan porque
         /// son preferencias persistentes (patterns.json).
@@ -361,6 +370,35 @@ namespace Remove_Top.Features.BatchRename
             ResultsSection.Visibility = Visibility.Collapsed;
             CompleteBadge.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
+
+            ProgressBar.Value = 0;
+            ProgressText.Text = "";
+            ProgressCountText.Text = "";
+
+            ClearSuggestions();
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// "Cancelar": resetea la página al estado inicial tras el análisis
+        /// ( limpia ruta, resultados, vista previa, progreso y sugerencias).
+        /// Los patrones se conservan.
+        /// </summary>
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing) return;
+
+            FolderPathBox.Text = "";
+            _results.Clear();
+
+            PreviewListView.ItemsSource = null;
+            PreviewSection.Visibility = Visibility.Collapsed;
+            ProgressSection.Visibility = Visibility.Collapsed;
+            ResultsSection.Visibility = Visibility.Collapsed;
+            CompleteBadge.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
 
             ProgressBar.Value = 0;
             ProgressText.Text = "";

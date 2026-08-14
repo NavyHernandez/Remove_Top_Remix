@@ -27,6 +27,14 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// </summary>
         ProbableByKeyword,
 
+        /// <summary>
+        /// Nombre contenido: todas las palabras del nombre más corto aparecen
+        /// en el más largo (subconjunto de palabras). Si la duración coincide,
+        /// se considera la misma canción con descriptores extra; si no, se
+        /// desmarca para que el usuario revise.
+        /// </summary>
+        SubsetMatch,
+
         /// <summary>Tamaño menor al mínimo válido (probablemente dañado).</summary>
         Damaged
     }

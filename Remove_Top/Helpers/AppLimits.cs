@@ -24,6 +24,36 @@ namespace Remove_Top.Helpers
     public static class AppLimits
     {
         // ====================================================================
+        // IDENTIDAD DE LA APLICACIÓN (branding central)
+        // ====================================================================
+
+        /// <summary>
+        /// Nombre de marca de la aplicación: título de ventana, menú de
+        /// navegación y badges de cabecera de todas las páginas.
+        /// CAMBIAR AQUÍ para renombrar la app en toda la UI.
+        /// </summary>
+        public const string AppName = "Top Dj App";
+
+        /// <summary>
+        /// Subtítulo que acompaña al nombre en el menú de navegación.
+        /// CAMBIAR AQUÍ (editable desde el módulo de límites).
+        /// </summary>
+        public const string AppSubtitle = "Mejorador de Audio";
+
+        /// <summary>
+        /// Sitio web de marca que se muestra en las páginas (no cambiar el
+        /// dominio; solo centraliza el texto para editarlo en un solo lugar).
+        /// </summary>
+        public const string AppBrandSite = "www.top-remix.com";
+
+        /// <summary>
+        /// Nombre de la carpeta de datos persistente en %LOCALAPPDATA%.
+        /// Se conserva "Remove_Top" para no perder patrones guardados
+        /// (patterns.json) ni el modelo ONNX descargado.
+        /// </summary>
+        public const string AppDataFolderName = "Remove_Top";
+
+        // ====================================================================
         // NORMALIZACIÓN (Features/Normalization)
         // ====================================================================
 
@@ -52,6 +82,17 @@ namespace Remove_Top.Helpers
         /// %LOCALAPPDATA%\Remove_Top\patterns.json y la UI los limita a este tope.
         /// </summary>
         public const int BatchRenameMaxPatterns = 20;
+
+        // ====================================================================
+        // EDICIÓN RÁPIDA (Features/QuickRename)
+        // ====================================================================
+
+        /// <summary>
+        /// Máximo de archivos .mp3/.wav que se listan por ejecución en la
+        /// Edición Rápida (QuickRenamer). Solo se muestran los primeros N
+        /// archivos de la carpeta.
+        /// </summary>
+        public const int QuickRenameMaxFilesToScan = 200;
 
         // ====================================================================
         // EXTRACCIÓN DE STEMS (Features/VocalRemoval)
@@ -118,6 +159,10 @@ namespace Remove_Top.Helpers
         /// <summary>Aviso de límite de patrones en el Renombrado Masivo.</summary>
         public static string BatchRenameLimitMessage =>
             $"Máximo {BatchRenameMaxPatterns} patrones. La búsqueda no distingue mayúsculas/minúsculas.";
+
+        /// <summary>Aviso de límite de archivos en la Edición Rápida.</summary>
+        public static string QuickRenameLimitMessage =>
+            $"Se muestran los primeros {N0(QuickRenameMaxFilesToScan)} archivos .mp3/.wav de la carpeta.";
 
         /// <summary>Descripción de la página de Extracción de Stems.</summary>
         public static string VocalRemovalPageDescription =>

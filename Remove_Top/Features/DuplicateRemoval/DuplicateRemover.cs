@@ -22,6 +22,7 @@ namespace Remove_Top.Features.DuplicateRemoval
     public class DeletionResult
     {
         public string FileName { get; set; } = "";
+        public string FilePath { get; set; } = "";
         public bool Success { get; set; }
         public string Message { get; set; } = "";
         public Icon StatusIcon => Success ? Icon.CheckmarkCircle : Icon.DismissCircle;
@@ -83,6 +84,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                     result = new DeletionResult
                     {
                         FileName = item.FileName,
+                        FilePath = item.FilePath,
                         Success = true,
                         Message = mode == DeletionMode.RecycleBin
                             ? "Enviado a la Papelera"
@@ -98,6 +100,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                     result = new DeletionResult
                     {
                         FileName = item.FileName,
+                        FilePath = item.FilePath,
                         Success = false,
                         Message = $"Error: {ex.Message}"
                     };

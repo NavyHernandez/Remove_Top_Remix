@@ -22,7 +22,6 @@ namespace Remove_Top.Features.QuickRename
     public sealed partial class QuickRenamePage : Page
     {
         private readonly ObservableCollection<QuickRenameItem> _items = [];
-        private readonly ObservableCollection<QuickRenameResult> _results = [];
         private CancellationTokenSource? _cts;
         private bool _isProcessing;
 
@@ -30,14 +29,18 @@ namespace Remove_Top.Features.QuickRename
         {
             InitializeComponent();
             FilesListView.ItemsSource = _items;
-            ResultsListView.ItemsSource = _results;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             ResetButton.Content = UiHelpers.Content(Icon.ArrowUndo, "Restaurar originales", semibold: false, foreground: ResetButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar cambios", foreground: StartButton.Foreground);
+            RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
+            FreeBadgeText.Text = AppLimits.FreeBadgeText;
+            LimitInfoText.Text = AppLimits.QuickRenameLimitMessage;
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.QuickRenamePageTitle;
             PageSubtitleText.Text = AppLimits.QuickRenamePageSubtitle;
+            BrandText.Text = AppLimits.AppName;
+            SiteBrandText.Text = AppLimits.AppBrandSite;
         }
 
         private async void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -62,16 +65,26 @@ namespace Remove_Top.Features.QuickRename
 
         private void LoadFiles(string folderPath)
         {
+            ResultSection.Visibility = Visibility.Collapsed;
+            CompleteBadge.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
+            PopulateItems(folderPath);
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// Reconstruye la lista editable de archivos (primeros
+        /// <see cref="AppLimits.QuickRenameMaxFilesToScan"/> de la carpeta)
+        /// sin tocar las secciones de progreso/resultados.
+        /// </summary>
+        private void PopulateItems(string folderPath)
+        {
             foreach (var item in _items)
                 item.PropertyChanged -= Item_PropertyChanged;
 
             _items.Clear();
-            _results.Clear();
-            ResultsSection.Visibility = Visibility.Collapsed;
-            ProgressSection.Visibility = Visibility.Collapsed;
-            CompleteBadge.Visibility = Visibility.Collapsed;
 
-            var files = QuickRenamer.GetAudioFiles(folderPath);
+            var files = QuickRenamer.GetAudioFiles(folderPath, AppLimits.QuickRenameMaxFilesToScan);
             foreach (var f in files)
             {
                 var name = Path.GetFileName(f);
@@ -88,7 +101,6 @@ namespace Remove_Top.Features.QuickRename
             FileCountText.Text = $"{_items.Count} archivo(s) .mp3/.wav encontrado(s)";
             FileCountText.Visibility = Visibility.Visible;
             ListSection.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            UpdateUI();
         }
 
         private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -126,55 +138,35 @@ namespace Remove_Top.Features.QuickRename
             var folderPath = FolderPathBox.Text;
             if (string.IsNullOrEmpty(folderPath) || _items.Count == 0) return;
 
-            _results.Clear();
             _isProcessing = true;
-            CompleteBadge.Visibility = Visibility.Collapsed;
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
             BrowseButton.IsEnabled = false;
             FolderPathBox.IsEnabled = false;
             ResetButton.IsEnabled = false;
-            ProgressSection.Visibility = Visibility.Visible;
-            ResultsSection.Visibility = Visibility.Visible;
-            ProgressBar.Value = 0;
 
             _cts = new CancellationTokenSource();
             var renamer = new QuickRenamer();
-            var progress = new Progress<QuickRenameProgress>(p =>
-            {
-                ProgressBar.Value = p.Percentage;
-                ProgressCountText.Text = $"{p.CurrentIndex}/{p.TotalCount}";
-                ProgressText.Text = p.CurrentFile;
-
-                if (p.Result != null)
-                {
-                    _results.Add(p.Result);
-                    ResultsListView.ScrollIntoView(p.Result);
-                    UpdateSummary();
-                }
-            });
+            var pending = _items.Count(i => i.IsDirty);
 
             try
             {
-                await renamer.ApplyRenamesAsync(_items, progress, _cts.Token);
+                var changed = await renamer.ApplyRenamesAsync(_items, _cts.Token);
 
-                var ok = _results.Count(r => r.Success);
-                var fail = _results.Count(r => !r.Success);
-                CompleteText.Text = fail == 0 ? "\u2713 Completado" : "\u2713 Completado con errores";
+                CompleteText.Text = "\u2713 Completado";
                 CompleteBadge.Visibility = Visibility.Visible;
-                ProgressBar.Value = 100;
-                ProgressText.Text = "Proceso finalizado";
+                ResultSummaryText.Text = $"Se cambiaron {changed} de {pending} archivo(s).";
+                ResultSection.Visibility = Visibility.Visible;
+                RestartButton.Visibility = Visibility.Visible;
 
-                LoadFiles(folderPath);
+                PopulateItems(folderPath);
             }
             catch (OperationCanceledException)
             {
-                _results.Add(new QuickRenameResult
-                {
-                    OriginalName = "---",
-                    Success = false,
-                    Message = "Proceso cancelado por el usuario"
-                });
-                UpdateSummary();
+                CompleteText.Text = "\u2713 Cancelado";
+                CompleteBadge.Visibility = Visibility.Visible;
+                ResultSummaryText.Text = "Proceso cancelado por el usuario.";
+                ResultSection.Visibility = Visibility.Visible;
+                RestartButton.Visibility = Visibility.Visible;
             }
             finally
             {
@@ -187,11 +179,24 @@ namespace Remove_Top.Features.QuickRename
             }
         }
 
-        private void UpdateSummary()
+        /// <summary>
+        /// "Limpiar": vuelve la página a su estado inicial tras el
+        /// renombrado. Limpia la ruta, la lista editable y el resultado.
+        /// </summary>
+        private void RestartButton_Click(object sender, RoutedEventArgs e)
         {
-            int ok = _results.Count(r => r.Success);
-            int fail = _results.Count(r => !r.Success);
-            SummaryText.Text = $"{ok} correctos \u00b7 {fail} errores \u00b7 {_results.Count} total";
+            if (_isProcessing) return;
+
+            FolderPathBox.Text = "";
+            _items.Clear();
+
+            ListSection.Visibility = Visibility.Collapsed;
+            ResultSection.Visibility = Visibility.Collapsed;
+            CompleteBadge.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
+            FileCountText.Visibility = Visibility.Collapsed;
+
+            UpdateUI();
         }
     }
 }

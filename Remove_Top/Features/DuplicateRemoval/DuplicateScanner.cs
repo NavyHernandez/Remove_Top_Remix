@@ -157,6 +157,14 @@ namespace Remove_Top.Features.DuplicateRemoval
             var byNameGroups = new NormalizedNameDetector().Detect(valid).ToList();
             var used = CollectPaths(byNameGroups);
 
+            // Fase 1.5: nombre contenido — archivos donde todas las palabras del
+            // nombre más corto aparecen en el más largo (subconjunto). Se ejecuta
+            // después del nombre exacto y antes del hash.
+            var remainingForSubset = valid.Where(r => !used.Contains(r.FilePath)).ToArray();
+            progress.Report(new ScanProgress { Phase = "Detectando nombres contenidos..." });
+            var subsetGroups = new SubsetNameDetector().Detect(remainingForSubset).ToList();
+            used.UnionWith(CollectPaths(subsetGroups));
+
             var remainingForHash = valid.Where(r => !used.Contains(r.FilePath)).ToArray();
 
             // Solo se hashean los archivos cuyo tamaño se repite, porque un
@@ -213,7 +221,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             //     canciones distintas).
             //   - Keyword: elimina falsos positivos por duración muy distinta.
             var verified = await DurationVerifier.VerifyAsync(
-                byNameGroups.Concat(keywordGroups).ToList(),
+                byNameGroups.Concat(subsetGroups).Concat(keywordGroups).ToList(),
                 progress,
                 cancellationToken);
 
@@ -221,11 +229,14 @@ namespace Remove_Top.Features.DuplicateRemoval
                 verified.Where(g => g.Duplicates.Count > 0 &&
                     g.Duplicates[0].MatchKind == DuplicateMatchKind.SameName)).ToList();
             var possibleGroups = verified.Where(g => g.Duplicates.Count > 0 &&
-                g.Duplicates[0].MatchKind != DuplicateMatchKind.SameName).ToList();
+                g.Duplicates[0].MatchKind != DuplicateMatchKind.SameName &&
+                g.Duplicates[0].MatchKind != DuplicateMatchKind.SubsetMatch).ToList();
+            var subsetGroupsResult = verified.Where(g => g.Duplicates.Count > 0 &&
+                g.Duplicates[0].MatchKind == DuplicateMatchKind.SubsetMatch).ToList();
 
             return new DuplicateScanResult
             {
-                ExactGroups = exactGroups,
+                ExactGroups = exactGroups.Concat(subsetGroupsResult).ToList(),
                 PossibleGroups = possibleGroups,
                 DamagedFiles = DamagedFileDetector.Detect(damagedRecords),
                 ScannedFiles = total,

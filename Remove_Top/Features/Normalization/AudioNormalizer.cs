@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -137,7 +139,8 @@ namespace Remove_Top.Features.Normalization
         private static string GetCorrectedOutputPath(string sourcePath)
         {
             var baseName = Path.GetFileNameWithoutExtension(sourcePath);
-            var corrected = SpanishNameCorrector.CorrectTitle(baseName);
+            var cleaned = CleanOutputName(baseName);
+            var corrected = SpanishNameCorrector.CorrectTitle(cleaned);
             return Path.Combine(
                 Path.GetDirectoryName(sourcePath)!,
                 OutputFolderName,
@@ -450,6 +453,54 @@ namespace Remove_Top.Features.Normalization
         }
 
         /// <summary>
+        /// Limpia y formatea un nombre de archivo de salida:
+        /// 1. Elimina paréntesis () y corchetes [] junto con su contenido.
+        /// 2. Elimina las palabras "audio", "video" e "oficial" (cualquier caso).
+        /// 3. Convierte a Title Case (primera letra mayúscula, resto minúscula por palabra).
+        /// </summary>
+        public static string CleanOutputName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return name;
+
+            // 1. Eliminar contenido entre paréntesis o corchetes: (...), [...], ( [...] )
+            var cleaned = Regex.Replace(name, @"\s*[\(\[][^\)\]]*[\)\]]\s*", " ");
+
+            // 2. Eliminar palabras clave: audio, video, oficial (case-insensitive)
+            cleaned = Regex.Replace(cleaned, @"\b(audio|video|oficial)\b", " ",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+            // 3. Limpiar espacios múltiples resultantes
+            cleaned = Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+
+            if (string.IsNullOrWhiteSpace(cleaned))
+                return name; // Si quedó vacío, devolver el original
+
+            // 4. Title Case: primera letra mayúscula, resto minúscula por palabra
+            var sb = new StringBuilder(cleaned.Length);
+            bool capitalizeNext = true;
+            foreach (var c in cleaned)
+            {
+                if (char.IsWhiteSpace(c) || c == '-' || c == ',' || c == '.' || c == '&' || c == '\'')
+                {
+                    sb.Append(c);
+                    capitalizeNext = true;
+                }
+                else if (capitalizeNext)
+                {
+                    sb.Append(char.ToUpperInvariant(c));
+                    capitalizeNext = false;
+                }
+                else
+                {
+                    sb.Append(char.ToLowerInvariant(c));
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Corrige ortográficamente los nombres de las salidas procesadas.
         /// Por cada resultado exitoso, calcula el nombre corregido con
         /// <see cref="SpanishNameCorrector.CorrectTitle"/> y renombra el archivo
@@ -468,7 +519,10 @@ namespace Remove_Top.Features.Normalization
                 var currentNameWithoutExt = Path.GetFileNameWithoutExtension(result.OutputPath);
                 var ext = Path.GetExtension(result.OutputPath);
 
-                var correctedNameWithoutExt = SpanishNameCorrector.CorrectTitle(currentNameWithoutExt);
+                // Primero limpia: quita paréntesis/corchetes, palabras clave y aplica Title Case
+                var cleanedName = CleanOutputName(currentNameWithoutExt);
+                // Luego corrige ortografía (tildes)
+                var correctedNameWithoutExt = SpanishNameCorrector.CorrectTitle(cleanedName);
 
                 // Si el nombre ya es correcto, no hacer nada
                 if (string.Equals(currentNameWithoutExt, correctedNameWithoutExt, StringComparison.OrdinalIgnoreCase))

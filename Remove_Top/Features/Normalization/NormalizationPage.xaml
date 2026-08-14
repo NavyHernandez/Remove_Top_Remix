@@ -24,7 +24,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
             <TextBlock x:Name="PageTitleText"
@@ -185,6 +185,19 @@
                         Click="StartButton_Click"
                         IsEnabled="False"
                         Background="#5B9BD5" Foreground="White" BorderThickness="0" />
+
+                <Button x:Name="CancelButton"
+                        Content="Limpiar"
+                        FontSize="13"
+                        Height="36"
+                        HorizontalAlignment="Stretch"
+                        CornerRadius="6"
+                        Click="CancelButton_Click"
+                        Visibility="Collapsed"
+                        Background="Transparent"
+                        BorderBrush="#5B9BD5"
+                        Foreground="#5B9BD5"
+                        BorderThickness="1" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Barra de progreso durante el procesamiento   -->

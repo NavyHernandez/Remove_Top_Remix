@@ -1,5 +1,6 @@
 ﻿using Microsoft.UI.Xaml;
 using Remove_Top.Features.VocalRemoval;
+using Remove_Top.Helpers;
 using System;
 using System.IO;
 
@@ -24,7 +25,7 @@ namespace Remove_Top
 
         private static readonly string LogPath =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Remove_Top", "crash.log");
+                AppLimits.AppDataFolderName, "crash.log");
 
         /// <summary>
         /// Escribe en el archivo de log. Crea el directorio si no existe.

@@ -28,7 +28,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
             <TextBlock x:Name="PageTitleText"
@@ -319,17 +319,33 @@
                 </Border>
 
                 <!-- ==================================================== -->
-                <!-- BOTÓN DE ACCIÓN                                       -->
+                <!-- BOTONES DE ACCIÓN                                     -->
                 <!-- ==================================================== -->
-                <Button x:Name="StartButton"
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        CornerRadius="6"
-                        Click="StartButton_Click"
-                        IsEnabled="False"
-                        Background="#70AD47" Foreground="White" BorderThickness="0" />
+                <StackPanel Spacing="8">
+                    <Button x:Name="StartButton"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Height="44"
+                            HorizontalAlignment="Stretch"
+                            CornerRadius="6"
+                            Click="StartButton_Click"
+                            IsEnabled="False"
+                            Background="#70AD47" Foreground="White" BorderThickness="0" />
+                    <Button x:Name="CancelButton"
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Height="40"
+                            CornerRadius="6"
+                            Click="CancelButton_Click"
+                            IsEnabled="False"
+                            Visibility="Collapsed"
+                            HorizontalAlignment="Center"
+                            MinWidth="180"
+                            Background="Transparent"
+                            BorderBrush="#70AD47"
+                            Foreground="#70AD47"
+                            BorderThickness="1.5" />
+                </StackPanel>
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Progreso                                     -->
@@ -421,7 +437,7 @@
                                 </ListView.ItemTemplate>
                             </ListView>
                         <Button x:Name="RestartButton"
-                                Content="Iniciar de nuevo"
+                                Content="Limpiar"
                                 Click="RestartButton_Click"
                                 CornerRadius="4"
                                 HorizontalAlignment="Center"

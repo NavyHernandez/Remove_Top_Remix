@@ -39,6 +39,10 @@ namespace Remove_Top.Features.VocalRemoval
             // para que el máximo de canciones por lote coincida siempre con el real.
             PageTitleText.Text = AppLimits.VocalRemovalPageTitle;
             PageDescriptionText.Text = AppLimits.VocalRemovalPageSubtitle;
+            BrandText.Text = AppLimits.AppName;
+            ModelInfoText.Text =
+                $"{AppLimits.AppName} necesita descargar un modelo de IA (~316 MB) para separar la voz. " +
+                "La descarga ocurre solo una vez. Después funciona sin internet.";
 
             InitializePage();
         }

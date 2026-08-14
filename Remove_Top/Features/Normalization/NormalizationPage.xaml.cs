@@ -33,10 +33,13 @@ namespace Remove_Top.Features.Normalization
             ResultsListView.ItemsSource = _results;
             TargetSlider.Value = -1.0;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
+            CancelButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CancelButton.Foreground);
+            ClearButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: ClearButton.Foreground);
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.NormalizationPageTitle;
             PageSubtitleText.Text = AppLimits.NormalizationPageSubtitle;
+            BrandText.Text = AppLimits.AppName;
 
             // Muestra el límite de la versión gratuita. El texto (título y
             // mensaje) se genera a partir de AppLimits: usa el límite publicitado
@@ -123,6 +126,7 @@ namespace Remove_Top.Features.Normalization
                 }
 
                 StartButton.IsEnabled = valid.Length > 0 && !_isProcessing;
+                CancelButton.Visibility = valid.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
                 AnalysisStatusText.Text = $"Completo \u2014 {results.Length} archivos";
             }
             catch (Exception ex)
@@ -196,6 +200,7 @@ namespace Remove_Top.Features.Normalization
             _results.Clear();
             _isProcessing = true;
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
+            CancelButton.Visibility = Visibility.Collapsed;
             BrowseButton.IsEnabled = false;
             FolderPathBox.IsEnabled = false;
             ProgressSection.Visibility = Visibility.Visible;
@@ -316,9 +321,15 @@ namespace Remove_Top.Features.Normalization
             ProcessingRing.IsActive = false;
             CompletedIcon.Visibility = Visibility.Collapsed;
             ClearButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
 
             StartButton.IsEnabled = false;
             UpdateStartButtonText();
+        }
+
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            ClearButton_Click(sender, e);
         }
     }
 }

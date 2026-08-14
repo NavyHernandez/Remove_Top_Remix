@@ -5,6 +5,7 @@ using Remove_Top.Features.DuplicateRemoval;
 using Remove_Top.Features.Normalization;
 using Remove_Top.Features.QuickRename;
 using Remove_Top.Features.VocalRemoval;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 
@@ -26,6 +27,11 @@ namespace Remove_Top
             try
             {
                 InitializeComponent();
+
+                // Identidad de la app centralizada en AppLimits (módulo de límites).
+                Title = AppLimits.AppName;
+                BrandNameText.Text = AppLimits.AppName;
+                BrandSubtitleText.Text = AppLimits.AppSubtitle;
             }
             catch (Exception ex)
             {
@@ -41,7 +47,7 @@ namespace Remove_Top
             {
                 var dir = System.IO.Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Remove_Top");
+                    AppLimits.AppDataFolderName);
                 System.IO.Directory.CreateDirectory(dir);
                 System.IO.File.AppendAllText(
                     System.IO.Path.Combine(dir, "crash.log"),

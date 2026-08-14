@@ -76,19 +76,21 @@ namespace Remove_Top.Features.DuplicateRemoval
         {
             DuplicateMatchKind.Exact => "Exacto",
             DuplicateMatchKind.SameName => "Exacto",
+            DuplicateMatchKind.SubsetMatch => "Exacto",
             DuplicateMatchKind.ProbableByName or DuplicateMatchKind.ProbableByKeyword => "Posible",
             _ => "Dañado"
         };
 
         /// <summary>
         /// Detalle adicional del tipo de coincidencia: nombre (y duración cuando
-        /// está disponible) para los "misma canción por nombre", tamaño para los
-        /// "posibles por nombre" y palabra clave + duración para los "posibles
-        /// por palabra".
+        /// está disponible) para los "misma canción por nombre", contenido para
+        /// los "nombre contenido", tamaño para los "posibles por nombre" y
+        /// palabra clave + duración para los "posibles por palabra".
         /// </summary>
         public string MatchDetailDisplay => MatchKind switch
         {
             DuplicateMatchKind.SameName => BuildSameNameDetail(),
+            DuplicateMatchKind.SubsetMatch => BuildSubsetDetail(),
             DuplicateMatchKind.ProbableByName => BuildNameDetail(),
             DuplicateMatchKind.ProbableByKeyword => BuildKeywordDetail(),
             _ => ""
@@ -102,6 +104,15 @@ namespace Remove_Top.Features.DuplicateRemoval
             if (DurationSeconds is double d)
                 return $"mismo nombre · duración muy distinta ({FormatDuration(d)})";
             return "mismo nombre";
+        }
+
+        private string BuildSubsetDetail()
+        {
+            if (DurationMatches) return $"nombre contenido · misma duración ({DurationDisplay})";
+            if (SameSize) return "nombre contenido · mismo tamaño";
+            if (DurationSeconds is double d)
+                return $"nombre contenido · duración muy distinta ({FormatDuration(d)})";
+            return "nombre contenido";
         }
 
         private string BuildNameDetail()
@@ -120,7 +131,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Icono visual del tipo de coincidencia.</summary>
         public Icon MatchIcon => MatchKind switch
         {
-            DuplicateMatchKind.Exact or DuplicateMatchKind.SameName => Icon.CheckmarkCircle,
+            DuplicateMatchKind.Exact or DuplicateMatchKind.SameName or DuplicateMatchKind.SubsetMatch => Icon.CheckmarkCircle,
             DuplicateMatchKind.ProbableByName or DuplicateMatchKind.ProbableByKeyword => Icon.Warning,
             _ => Icon.ErrorCircle
         };

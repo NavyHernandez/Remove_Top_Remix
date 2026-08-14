@@ -1,4 +1,10 @@
-# Remove-Top — Mejorador de Audio
+# Remove-Top — Top Dj App
+
+> **Nota para agentes:** Antes de comenzar cualquier tarea, lee los archivos en la carpeta `progress/`:
+> - `progress/history.md` — bitácora de sesiones anteriores
+> - `progress/feature_list.json` — lista de features completadas y pendientes
+>
+> Esto te dará contexto completo del estado del proyecto.
 
 ## Descripción
 
@@ -9,10 +15,10 @@ Aplicación WinUI 3 (Windows App SDK) para procesamiento de audio.
 | Módulo | Descripción |
 |--------|-------------|
 | **Normalización** (`NormalizationPage`) | Ajusta el nivel de pico de archivos de audio a un dBFS objetivo usando NAudio y exporta a WAV en subcarpeta `RemoveTop_Normalized`. Sobre el audio ya normalizado aplica una masterización ligera (paso alto → EQ → compresor → limitador a −0.3 dB). Al finalizar, corrige la ortografía de los nombres de salida (tildes) con un diccionario local (`SpanishNameCorrector`). Límite gratuito PUBLICADO de **50 archivos** (`AppLimits.NormalizationFreeLimitDisplay`, solo texto); el límite REAL de escaneo es de **1.000 archivos** (`AppLimits.NormalizationMaxFilesToScan`). El texto del InfoBar se monta en runtime desde `AppLimits`. Omite los que ya tienen una salida procesada válida (firma RIFF/WAVE) — reconoce tanto el nombre original como el corregido. Muestra un loader (`ProgressRing`) durante el procesamiento y, al terminar, el estado "Completado" con icono de estado (check verde si todo salió bien, advertencia ámbar si hubo errores). Si todo terminó correctamente, aparece un botón "Limpiar" (centrado) que borra los resultados y resetea la página. |
-| **Renombrado Masivo** (`BatchRenamePage`) | Elimina texto específico de los nombres de archivos en una carpeta (audio, video, imagen, documentos). Opera directamente sobre los archivos originales. Persiste hasta **20 patrones** (`AppLimits.BatchRenameMaxPatterns`) en `%LOCALAPPDATA%\Remove_Top\patterns.json`. Etiqueta "Versión Gratuita" (badge verde) junto al mensaje de límite (generado desde `AppLimits`). Botón **"Iniciar de nuevo"** al final: resetea ruta, resultados, vista previa, progreso y sugerencias IA **conservando los patrones**. |
-| **Edición Rápida** (`QuickRenamePage`) | Lista los `.mp3`/`.wav` de la carpeta principal y permite editar cada nombre en una caja de texto inline (nombre completo, incluida la extensión). Aplica los cambios con `File.Move` directamente sobre los originales. |
+| **Renombrado Masivo** (`BatchRenamePage`) | Elimina texto específico de los nombres de archivos en una carpeta (audio, video, imagen, documentos). Opera directamente sobre los archivos originales. Persiste hasta **20 patrones** (`AppLimits.BatchRenameMaxPatterns`) en `%LOCALAPPDATA%\Remove_Top\patterns.json`. Etiqueta "Versión Gratuita" (badge verde) junto al mensaje de límite (generado desde `AppLimits`). Botón **"Limpiar"** al final: resetea ruta, resultados, vista previa, progreso y sugerencias IA **conservando los patrones**. Botón **"Cancelar"** centrado debajo del botón principal para resetear la página en cualquier momento. |
+| **Edición Rápida** (`QuickRenamePage`) | Lista los `.mp3`/`.wav` de la carpeta principal y permite editar cada nombre en una caja de texto inline (nombre completo, incluida la extensión). Aplica los cambios con `File.Move` directamente sobre los originales. Tope de **200 archivos** (`AppLimits.QuickRenameMaxFilesToScan`, solo los primeros N). Badge **"Versión Gratuita"** + mensaje de límite junto a la carpeta de origen (generado desde `AppLimits.QuickRenameLimitMessage`). Marca `www.top-remix.com` centrado en la línea de "Nombres editables". Botón **"Limpiar"** al final (resetea ruta, lista y resultado). Al terminar muestra una etiqueta con cuántos archivos se renombraron y recarga la lista con los nombres nuevos. Sin barra de progreso ni lista de resultados. |
 | **Extracción de Stems** (`VocalRemovalPage`) | Separa la voz del instrumental usando IA (modelo HT-Demucs FT en ONNX). Exporta vocal mono en subcarpeta `RemoveTop_Vocals`. Máximo **5 canciones** estéreo por lote (`AppLimits.VocalRemovalMaxFilesPerBatch`). |
-| **Eliminación de Duplicados** (`DuplicateRemovalPage`) | Escanea una carpeta (recursivo, incluye subcarpetas, máx. **1.000 archivos** `AppLimits.DuplicatesMaxFilesToScan`). Pipeline de detección por prioridad: **nombre normalizado → hash → palabra clave**. La MISMA CANCIÓN por nombre normalizado (`SameName`) se clasifica como **exacta** y se marca por defecto; también se detectan nombres que difieren en **una sola letra** (falta ortográfica). Exactos por hash SHA-256 solo sobre los no reclamados por nombre con tamaño repetido (en paralelo). Los "posibles" por palabra clave se verifican por duración de audio. Eliminación con dos opciones: Papelera de Windows (recuperable) o borrado definitivo, ambas con confirmación. Detecta además archivos < **6 KB** (`AppLimits.DuplicatesMinValidFileSizeBytes`) como "dañados" en una 3.ª pestaña. Botón **"Iniciar de nuevo"** al final de los resultados de eliminación (resetea ruta + resultados). |
+| **Eliminación de Duplicados** (`DuplicateRemovalPage`) | Escanea una carpeta (recursivo, incluye subcarpetas, máx. **1.000 archivos** `AppLimits.DuplicatesMaxFilesToScan`). Pipeline de detección por prioridad: **nombre normalizado → nombre contenido (subconjunto) → hash → palabra clave**. La MISMA CANCIÓN por nombre normalizado (`SameName`) se clasifica como **exacta** y se marca por defecto; también se detectan nombres que difieren en **una sola letra** (falta ortográfica). El detector de **nombre contenido** (`SubsetNameDetector`) agrupa archivos donde todas las palabras del **título** (último bloque) del nombre más corto aparecen en el título del más largo (máx. 3 palabras de diferencia; tope de 6 miembros por cluster). Fix: `StripAllExtensions` elimina extensiones múltiples conocidas (`.mp3.vdjstems` → `.mp3`). Exactos por hash SHA-256 solo sobre los no reclamados por nombre con tamaño repetido (en paralelo). Los "posibles" por palabra clave se verifican por duración de audio. Eliminación con dos opciones: Papelera de Windows (recuperable) o borrado definitivo, ambas con confirmación. Detecta además archivos < **6 KB** (`AppLimits.DuplicatesMinValidFileSizeBytes`) como "dañados" en una 3.ª pestaña. Icono check verde cuando no hay duplicados. Botones de acciones centrados. Botón **"Limpiar"** al final de los resultados de eliminación (resetea ruta + resultados). |
 
 ## Stack Tecnológico
 
@@ -44,7 +50,7 @@ Remove_Top/
         │   │   ├── MasteringDsp.cs                # DSP managed (BiQuad, compresor, limitador)
         │   │   └── MasteringChain.cs              # Cadena de masterización ligera (settings + build)
         │   ├── BatchRename/
-        │   │   ├── BatchRenamePage.xaml / .cs     # Renombrado masivo (patrones, botón "Iniciar de nuevo")
+        │   │   ├── BatchRenamePage.xaml / .cs     # Renombrado masivo (patrones, botón "Limpiar")
         │   │   ├── FileRenamer.cs                 # Servicio de renombrado en lote
         │   │   ├── PatternSuggestion.cs           # Interfaz IPatternSuggestionProvider + PatternSuggestion
         │   │   └── GroqPatternSuggester.cs        # Proveedor real de sugerencias (servidor Topremix)
@@ -56,7 +62,7 @@ Remove_Top/
         │   │   ├── VocalSeparator.cs              # Separación de voz con modelo ONNX
         │   │   └── ModelDownloader.cs             # Descarga del modelo HT-Demucs desde HuggingFace
         │   └── DuplicateRemoval/
-        │       ├── DuplicateRemovalPage.xaml / .cs  # Eliminación de duplicados (UI + ViewModel inline, "Iniciar de nuevo")
+        │       ├── DuplicateRemovalPage.xaml / .cs  # Eliminación de duplicados (UI + ViewModel inline, "Limpiar")
         │       ├── DuplicateScanner.cs              # Servicio: enumera y agrupa (nombre → hash → keyword) + verifica
         │       ├── DuplicateRemover.cs              # Servicio: envía confirmados a la Papelera / borrado definitivo
         │       ├── DuplicateGroup.cs                # Grupo de duplicados (keeper + duplicados)
@@ -72,6 +78,7 @@ Remove_Top/
         │           ├── GroupBuilder.cs              # Construye grupos (keeper, marcado por tipo)
         │           ├── DurationVerifier.cs          # Verificación por duración de audio (NAudio)
         │           ├── NameNormalizer.cs            # Normalización + palabras (significativas / título / todas)
+        │           ├── SubsetNameDetector.cs        # Nombre contenido: subconjunto de palabras
         │           ├── FileRecord.cs                # Registro con tamaño/hash/nombre/palabras precalculados
         │           └── DamagedFileDetector.cs       # Archivos < 6 KB ("dañados")
         ├── Helpers/
@@ -109,8 +116,9 @@ App.xaml.cs (Application)
 Pipeline de `DuplicateScanner.ScanAsync` por prioridad (optimizado para bibliotecas musicales):
 
 1. **Misma canción por nombre normalizado (`SameName`)** → pestaña "Exacto", marcada por defecto. La normalización ignora mayúsculas, acentos, guiones, espacios y guiones iniciales.
-2. **Exactos por hash SHA-256** → solo sobre archivos NO reclamados por nombre y con tamaño repetido (un tamaño único no puede tener duplicado idéntico); en paralelo.
-3. **Posibles por palabras clave (`ProbableByKeyword`)** → entre lo restante; se verifican por duración y los falsos positivos se descartan.
+2. **Nombre contenido (`SubsetMatch`)** → pestaña "Exacto", marcado por defecto. Detecta archivos donde todas las palabras del nombre más corto aparecen en el más largo (máx. 3 palabras de diferencia). Clustering transitivo con union-find.
+3. **Exactos por hash SHA-256** → solo sobre archivos NO reclamados por nombre y con tamaño repetido (un tamaño único no puede tener duplicado idéntico); en paralelo.
+4. **Posibles por palabras clave (`ProbableByKeyword`)** → entre lo restante; se verifican por duración y los falsos positivos se descartan.
 
 ### Coincidencia difusa "1 letra de diferencia" (`NormalizedNameDetector`)
 
@@ -121,14 +129,32 @@ Además del nombre exacto, detecta nombres "casi idénticos" (falta ortográfica
 - Guarda `MinFuzzyNameLength = 6` (longitud del nombre normalizado).
 - Clustering **transitivo con union-find**; el grupo se clasifica `SameName` con `NameNearMatch = true` (detalle en UI: "mismo nombre · 1 letra distinta").
 
+### Nombre contenido (`SubsetNameDetector`)
+
+Detecta archivos donde el título (último bloque) del nombre más corto es subconjunto de palabras del título del más largo. **El artista NO participa** (bloque previo al último guion), para que un archivo con solo el artista no actúe como "hub" que agrupa transitivamente TODAS las canciones del mismo intérprete (fix del `×N` inflado).
+
+- Requisitos: diferencia de 1 a 3 palabras del título, todas las palabras del título más corto en el más largo, nombre normalizado del más corto contenido en el más largo (el artista sí participa aquí como salvaguarda).
+- Clustering transitivo con union-find (A ⊂ B y B ⊂ C → {A, B, C}) con **tope de 6 miembros** (`MaxGroupSize`): los clusters mayores se descartan (cadena de falsos positivos).
+- Se clasifica `SubsetMatch` con `NameNearMatch = true`.
+- Detalle en UI: "nombre contenido · misma duración" o "nombre contenido · mismo tamaño".
+
+### Fix: extensiones múltiples (`NameNormalizer.StripAllExtensions`)
+
+Elimina TODAS las extensiones conocidas del final del nombre (no solo la última):
+
+- `song.mp3.vdjstems` → `song` (antes quedaba `song.mp3`)
+- `track.flac.zip` → `track`
+- Set de ~30 extensiones: audio (.mp3, .wav, .flac...), DJ (.vdjstems, .stems...), contenedores (.mp4, .zip...)
+
 ### Verificación por duración (`DurationVerifier`)
 
 - `SameName`: salvaguarda — si la duración difiere > **2×** (`SameNameMaxDurationRatio`) el ítem se desmarca (posible título idéntico de otra canción).
+- `SubsetMatch` ("nombre contenido"): la coincidencia de palabras NO basta. El duplicado solo se confirma si comparte **tamaño exacto** (`SameSize`) o si la **duración es prácticamente igual** (tolerancia estricta `SubsetMatchDurationTolerance = 0.10`). Si ninguna se cumple (p. ej. 4:10 vs 3:31 = 16%) son canciones distintas que comparten palabras y el miembro se **elimina del grupo** (falso positivo).
 - `ProbableByKeyword`: si las duraciones no coinciden (tolerancia `DurationTolerance = 0.30`) el miembro se elimina del grupo (falso positivo).
 
 ### Marcado por defecto (`GroupBuilder`)
 
-- `Exact` y `SameName` → siempre marcados.
+- `Exact`, `SameName` y `SubsetMatch` → siempre marcados.
 - `ProbableByName` (legacy) → marcado si comparte tamaño.
 - Keeper: ruta más superficial y, en empate, más corta (`keepLargest: false`).
 
@@ -136,7 +162,8 @@ Además del nombre exacto, detecta nombres "casi idénticos" (falta ortográfica
 
 - Máximo **20 patrones** (`AppLimits.BatchRenameMaxPatterns`), persistidos en `%LOCALAPPDATA%\Remove_Top\patterns.json`.
 - Etiqueta **"Versión Gratuita"** (badge #70AD47) junto al mensaje "Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." (texto generado desde `AppLimits.BatchRenameLimitMessage`).
-- Botón **"Iniciar de nuevo"** (`RestartButton`) al final de los resultados: resetea ruta, resultados, vista previa, progreso, badge y sugerencias IA, pero **CONSERVA los patrones**.
+- Botón **"Limpiar"** (`RestartButton`) al final de los resultados: resetea ruta, resultados, vista previa, progreso, badge y sugerencias IA, pero **CONSERVA los patrones**.
+- Botón **"Cancelar"** (`CancelButton`) centrado debajo del botón principal: resetea la página en cualquier momento (conserva patrones). Se oculta tras mostrar resultados.
 
 ## Normalización (límite gratuito)
 
@@ -158,6 +185,19 @@ Además del nombre exacto, detecta nombres "casi idénticos" (falta ortográfica
 Las funcionalidades **consumen la lógica y los textos de UI desde `AppLimits`**: los servicios los usan en sus `Take(n)`/topes reales y las páginas montan los InfoBars, contadores y descripciones en runtime desde las propiedades de texto (`AppLimits.NormalizationInfoBar*`, `DuplicatesInfoBar*`, `BatchRenameLimitMessage`, `VocalRemovalPageDescription`). Así los textos nunca se desincronizan de los límites reales. Para cambiar un límite, editar el valor aquí y recompilar.
 
 Además de los límites, `AppLimits` centraliza los **textos del encabezado de cada página** (título, subtítulo) y el badge **"Versión Gratuita"** (`AppLimits.FreeBadgeText`): `NormalizationPageTitle/Subtitle`, `BatchRenamePageTitle/Subtitle`, `QuickRenamePageTitle/Subtitle`, `VocalRemovalPageTitle/Subtitle`, `DuplicatesPageTitle/Subtitle`. Cada página los monta en su constructor desde estas propiedades, por lo que todos los textos de las funcionalidades se cambian en un solo lugar.
+
+### Identidad de la aplicación (branding)
+
+También en `AppLimits` se centraliza la identidad de la app, para cambiar el nombre y textos de marca en un solo lugar:
+
+| Constante | Valor | Dónde se usa |
+|-----------|-------|--------------|
+| `AppName` | `Top Dj App` | Título de ventana, nombre del menú (`BrandNameText`), badges de marca de las 5 páginas (`BrandText`) |
+| `AppSubtitle` | `Mejorador de Audio` | Subtítulo del menú (`BrandSubtitleText`) |
+| `AppBrandSite` | `www.top-remix.com` | `SiteBrandText` (QuickRename) y `BrandSiteRun` (DuplicateRemoval). **No cambiar el dominio** |
+| `AppDataFolderName` | `Remove_Top` | Carpeta de datos en `%LOCALAPPDATA%` (crash.log, patterns.json, models). Conservar para no perder datos |
+
+El ejecutable se genera como `TopDjApp.exe` (AssemblyName en el csproj); el `RootNamespace` sigue siendo `Remove_Top`.
 
 ## Sugerencia de patrones con IA (BatchRename)
 
@@ -187,7 +227,7 @@ Además de los límites, `AppLimits` centraliza los **textos del encabezado de c
 ```bash
 cd Remove_Top\Remove_Top
 dotnet build -c Debug -p:Platform=x64
-bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\Remove_Top.exe
+bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\TopDjApp.exe
 ```
 
 ## Solución de problemas
@@ -206,7 +246,7 @@ bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\Remove_Top.exe
 
 - Existen **dos salidas de build**: `bin/Debug/...` (AnyCPU / `dotnet build`) y `bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64/` (Debug|x64). El usuario lanza con **F5 en Visual Studio (Debug|x64)**: para ver los cambios hay que compilar `-p:Platform=x64`.
 - El csproj tiene `<DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>` para forzar la recompilación XAML en cada F5.
-- **Cerrar instancias de `Remove_Top.exe` en ejecución antes de compilar**: el ejecutable queda bloqueado y la compilación falla.
+- **Cerrar instancias de `TopDjApp.exe` en ejecución antes de compilar**: el ejecutable queda bloqueado y la compilación falla.
 
 ### Recursos XAML no encontrados
 

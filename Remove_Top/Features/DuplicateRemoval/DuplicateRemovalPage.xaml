@@ -28,7 +28,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" FontSize="11" FontWeight="SemiBold" Foreground="White" />
                 </StackPanel>
             </Border>
             <TextBlock x:Name="PageTitleText"
@@ -88,7 +88,7 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap">
                             <Run Text="Ingresa a " />                            
-                            <Run FontWeight="Bold" Text="www.top-remix.com" />
+                            <Run x:Name="BrandSiteRun" FontWeight="Bold" Text="" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -114,12 +114,19 @@
                                 Background="#E67E22"
                                 Foreground="White"
                                 BorderThickness="0" />
-                        <StackPanel Orientation="Horizontal" Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
                             <ProgressRing x:Name="ScanLoader"
                                           Width="24" Height="24"
                                           IsActive="False"
                                           Visibility="Collapsed"
                                           VerticalAlignment="Center" />
+                            <ic:FluentIcon x:Name="NoDuplicatesIcon"
+                                           Icon="CheckmarkCircle"
+                                           IconVariant="Filled"
+                                           IconSize="Size20"
+                                           Foreground="#2ECC71"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed" />
                             <TextBlock x:Name="ScanStatusText"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -359,7 +366,7 @@
                                    TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto"
                               ColumnSpacing="8"
-                              HorizontalAlignment="Right">
+                              HorizontalAlignment="Center">
                             <Button x:Name="SelectAllButton"
                                     Content="Borrar todos"
                                     Click="SelectAllButton_Click"
@@ -437,7 +444,7 @@
                 <!-- y la limpieza terminó correctamente (se gestiona en   -->
                 <!-- DuplicateRemovalPage.UpdateUI). Colocada antes de la  -->
                 <!-- sección de resultados de la eliminación para quedar   -->
-                <!-- al final, justo encima del botón "Iniciar de nuevo".  -->
+                <!-- al final, justo encima del botón "Limpiar".  -->
                 <!-- ==================================================== -->
                 <Border x:Name="PremiumSection"
                         BorderBrush="#2ECC71"
@@ -522,7 +529,7 @@
                             </ListView.ItemTemplate>
                         </ListView>
                         <Button x:Name="RestartButton"
-                                Content="Iniciar de nuevo"
+                                Content="Limpiar"
                                 Click="RestartButton_Click"
                                 CornerRadius="4"
                                 HorizontalAlignment="Center"

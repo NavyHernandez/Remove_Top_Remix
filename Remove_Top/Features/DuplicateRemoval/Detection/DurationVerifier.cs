@@ -21,6 +21,11 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
     ///   la duración para mostrar y se aplica una salvaguarda: si un miembro
     ///   tiene una duración MUY distinta a la referencia (&gt; SameNameMaxDurationRatio),
     ///   se desmarca (posible título idéntico de otra canción).
+    /// - Grupos por nombre contenido (SubsetMatch): tras la coincidencia de
+    ///   palabras se confirma el duplicado SOLO si comparte tamaño exacto o si
+    ///   la duración es prácticamente igual (&lt;= SubsetMatchDurationTolerance).
+    ///   Si no se confirma (p. ej. 4:10 vs 3:31), son canciones distintas que
+    ///   comparten palabras y se eliminan del grupo (falso positivo).
     ///
     /// Los archivos que no son audio o cuya duración no se puede leer (null)
     /// no son verificables y se conservan con la lógica de detección original.
@@ -36,6 +41,14 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         /// desmarca (salvaguarda frente a títulos idénticos de canciones distintas).
         /// </summary>
         public const double SameNameMaxDurationRatio = 2.0;
+
+        /// <summary>
+        /// Tolerancia relativa de duración para confirmar un "nombre contenido"
+        /// como la misma canción. Más estricta que <see cref="DurationTolerance"/>:
+        /// canciones distintas que comparten palabras suelen diferir bastante en
+        /// duración (p. ej. 4:10 vs 3:31 = 16% &gt; esta tolerancia → no duplicado).
+        /// </summary>
+        public const double SubsetMatchDurationTolerance = 0.10;
 
         /// <summary>Piso (segundos): por debajo no se descarta/marca por duración (ruido en pistas cortas).</summary>
         private const double MinRelevantSeconds = 5.0;
@@ -120,6 +133,7 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
                 : DuplicateMatchKind.ProbableByName;
             bool isKeyword = kind == DuplicateMatchKind.ProbableByKeyword;
             bool isSameName = kind == DuplicateMatchKind.SameName;
+            bool isSubsetMatch = kind == DuplicateMatchKind.SubsetMatch;
 
             // Referencia de duración del grupo: el keeper o cualquier duplicado conocido.
             double? reference = GetDuration(group.KeeperPath, durations);
@@ -150,15 +164,29 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
                 }
                 else if (isSameName)
                 {
-                    // Misma canción por nombre: ya viene marcada. Salvaguarda:
-                    // si ambas duraciones se conocen y difieren MUCHO (otro tema
-                    // con título idéntico), se desmarca para que el usuario revise.
+                    // Misma canción por nombre: ya viene marcada.
+                    // Salvaguarda: si ambas duraciones se conocen y difieren MUCHO
+                    // (otro tema con título idéntico), se desmarca para revisar.
                     item.DurationMatches = durationMatches;
                     if (itemDur.HasValue && reference.HasValue &&
                         TooDifferent(itemDur.Value, reference.Value))
                     {
                         item.IsMarkedForDeletion = false;
                     }
+                }
+                else if (isSubsetMatch)
+                {
+                    // Nombre contenido: la coincidencia de palabras no basta.
+                    // Se confirma el duplicado SOLO si comparte tamaño exacto
+                    // (misma canción recodificada) o si la duración es
+                    // prácticamente igual (misma canción, misma longitud). Si
+                    // ninguna se cumple, son canciones distintas que comparten
+                    // palabras y se eliminan del grupo (falso positivo).
+                    bool sizeConfirms = item.SameSize;
+                    bool durationConfirms = itemDur.HasValue && reference.HasValue &&
+                        SubsetDurationsMatch(itemDur.Value, reference.Value);
+                    item.DurationMatches = durationConfirms;
+                    if (!sizeConfirms && !durationConfirms) continue;
                 }
                 else
                 {
@@ -188,6 +216,17 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
             double max = Math.Max(a, b);
             if (max < MinRelevantSeconds) return true;
             return Math.Abs(a - b) / max <= DurationTolerance;
+        }
+
+        /// <summary>
+        /// Compara duraciones con la tolerancia estricta de "nombre contenido"
+        /// (misma canción = misma duración, con pequeñas variaciones de codificación).
+        /// </summary>
+        private static bool SubsetDurationsMatch(double a, double b)
+        {
+            double max = Math.Max(a, b);
+            if (max < MinRelevantSeconds) return true;
+            return Math.Abs(a - b) / max <= SubsetMatchDurationTolerance;
         }
 
         /// <summary>Indica si dos duraciones difieren de forma inequívoca (otro tema).</summary>
