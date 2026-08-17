@@ -52,7 +52,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             DeletionResultsListView.ItemsSource = _deletionResults;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             ScanButton.Content = UiHelpers.Content(Icon.Search, "Escanear duplicados", foreground: ScanButton.Foreground);
-            SelectAllButton.Content = UiHelpers.Content(Icon.Checkmark, "Borrar todos", semibold: false, foreground: SelectAllButton.Foreground);
+            SelectAllButton.Content = UiHelpers.Content(Icon.Checkmark, "Marcar todos", semibold: false, foreground: SelectAllButton.Foreground);
             DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle, "Eliminar seleccionados", foreground: DeleteButton.Foreground);
             DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);

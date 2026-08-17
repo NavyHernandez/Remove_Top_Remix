@@ -16,17 +16,25 @@
                     ItemInvoked="NavView_ItemInvoked"
                     Loaded="NavView_Loaded">
 
+        <NavigationView.Resources>
+            <!-- Fondo del panel ligeramente translúcido sobre el Acrílico (toque de glass) -->
+            <SolidColorBrush x:Key="NavigationViewPaneBackground" Color="#33000000" />
+            <SolidColorBrush x:Key="NavigationViewPaneBorderBrush" Color="Transparent" />
+        </NavigationView.Resources>
+
         <!-- Logo / Header personalizado en la parte superior del panel -->
         <NavigationView.PaneHeader>
             <Grid Height="48" Margin="4,8,4,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                     <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size20"
                                    VerticalAlignment="Center"
                                    Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="BrandNameText" FontSize="14" FontWeight="SemiBold" />
+                        <TextBlock x:Name="BrandNameText" FontSize="16" FontWeight="SemiBold"
+                                   FontFamily="Bahnschrift" TextAlignment="Center" />
                         <TextBlock x:Name="BrandSubtitleText" FontSize="10"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextAlignment="Center" />
                     </StackPanel>
                 </StackPanel>
             </Grid>
@@ -81,6 +89,16 @@
                 </NavigationViewItem.Resources>
                 <NavigationViewItem.Icon>
                     <ic:FluentIcon Icon="Copy" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavAccount" Tag="account" Content="Cuenta"
+                                ToolTipService.ToolTip="Perfil, actualizaciones y estadísticas de uso">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#00A88F"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#00A88F"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Person" IconVariant="Regular" IconSize="Size20" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
         </NavigationView.MenuItems>

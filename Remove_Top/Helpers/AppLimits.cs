@@ -226,5 +226,12 @@ namespace Remove_Top.Helpers
         /// <summary>Subtítulo del encabezado de la página de Eliminación de Duplicados.</summary>
         public const string DuplicatesPageSubtitle =
             "Escanea una carpeta (incluye subcarpetas), detecta duplicados, posibles y archivos dañados";
+
+        /// <summary>Título del encabezado de la página Cuenta (perfil/uso/actualizaciones).</summary>
+        public const string AccountPageTitle = "Cuenta";
+
+        /// <summary>Subtítulo del encabezado de la página Cuenta.</summary>
+        public const string AccountPageSubtitle =
+            "Tu perfil, el estado de la aplicación y las estadísticas de tu uso.";
     }
 }

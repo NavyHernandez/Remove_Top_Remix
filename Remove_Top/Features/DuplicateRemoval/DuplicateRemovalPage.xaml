@@ -24,11 +24,11 @@
         <!-- HEADER: Branding + Título y descripción                     -->
         <!-- ============================================================ -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <Border CornerRadius="4" Padding="8,2" Background="#E74C3C" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal" Spacing="4">
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#E74C3C">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
                     <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock x:Name="BrandText" Text="" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>
             </Border>
             <TextBlock x:Name="PageTitleText"
@@ -368,13 +368,13 @@
                               ColumnSpacing="8"
                               HorizontalAlignment="Center">
                             <Button x:Name="SelectAllButton"
-                                    Content="Borrar todos"
+                                    Content="Marcar todos"
                                     Click="SelectAllButton_Click"
                                     CornerRadius="4"
                                     IsEnabled="False"
                                     Background="Transparent"
-                                    BorderBrush="#E74C3C"
-                                    Foreground="#E74C3C"
+                                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                    Foreground="{ThemeResource AccentFillColorDefaultBrush}"
                                     BorderThickness="1.5" />
                             <Button Grid.Column="1"
                                     x:Name="DeleteButton"

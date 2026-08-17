@@ -19,6 +19,7 @@ Aplicación WinUI 3 (Windows App SDK) para procesamiento de audio.
 | **Edición Rápida** (`QuickRenamePage`) | Lista los `.mp3`/`.wav` de la carpeta principal y permite editar cada nombre en una caja de texto inline (nombre completo, incluida la extensión). Aplica los cambios con `File.Move` directamente sobre los originales. Tope de **200 archivos** (`AppLimits.QuickRenameMaxFilesToScan`, solo los primeros N). Badge **"Versión Gratuita"** + mensaje de límite junto a la carpeta de origen (generado desde `AppLimits.QuickRenameLimitMessage`). Marca `www.top-remix.com` centrado en la línea de "Nombres editables". Botón **"Limpiar"** al final (resetea ruta, lista y resultado). Al terminar muestra una etiqueta con cuántos archivos se renombraron y recarga la lista con los nombres nuevos. Sin barra de progreso ni lista de resultados. |
 | **Extracción de Stems** (`VocalRemovalPage`) | Separa la voz del instrumental usando IA (modelo HT-Demucs FT en ONNX). Exporta vocal mono en subcarpeta `RemoveTop_Vocals`. Máximo **5 canciones** estéreo por lote (`AppLimits.VocalRemovalMaxFilesPerBatch`). |
 | **Eliminación de Duplicados** (`DuplicateRemovalPage`) | Escanea una carpeta (recursivo, incluye subcarpetas, máx. **1.000 archivos** `AppLimits.DuplicatesMaxFilesToScan`). Pipeline de detección por prioridad: **nombre normalizado → nombre contenido (subconjunto) → hash → palabra clave**. La MISMA CANCIÓN por nombre normalizado (`SameName`) se clasifica como **exacta** y se marca por defecto; también se detectan nombres que difieren en **una sola letra** (falta ortográfica). El detector de **nombre contenido** (`SubsetNameDetector`) agrupa archivos donde todas las palabras del **título** (último bloque) del nombre más corto aparecen en el título del más largo (máx. 3 palabras de diferencia; tope de 6 miembros por cluster). Fix: `StripAllExtensions` elimina extensiones múltiples conocidas (`.mp3.vdjstems` → `.mp3`). Exactos por hash SHA-256 solo sobre los no reclamados por nombre con tamaño repetido (en paralelo). Los "posibles" por palabra clave se verifican por duración de audio. Eliminación con dos opciones: Papelera de Windows (recuperable) o borrado definitivo, ambas con confirmación. Detecta además archivos < **6 KB** (`AppLimits.DuplicatesMinValidFileSizeBytes`) como "dañados" en una 3.ª pestaña. Icono check verde cuando no hay duplicados. Botones de acciones centrados. Botón **"Limpiar"** al final de los resultados de eliminación (resetea ruta + resultados). |
+| **Cuenta** (`AccountPage`) | Centro de perfil y actualizaciones. La página muestra: logo profesional vectorial (`Assets/BrandLogo.xaml`, gradiente + nota + forma de onda), sección **Perfil** (login con Google solo interfaz — `AuthService` stub; OAuth real documentado y pendiente de Client ID) y sección **Actualizaciones** (`UpdateChecker` en **modo simulado** `IsSimulated=true`; badge que se ilumina verde/ámbar; implementación real documentada en comentario — el repo GitHub es privado, fuente real pendiente). Ítem de menú "Cuenta" con icono `Person` y color teal `#00A88F`. Textos del encabezado centralizados en `AppLimits` (`AccountPageTitle/Subtitle`). |
 
 ## Stack Tecnológico
 
@@ -61,6 +62,10 @@ Remove_Top/
         │   │   ├── VocalRemovalPage.xaml / .cs    # Extracción de stems con IA
         │   │   ├── VocalSeparator.cs              # Separación de voz con modelo ONNX
         │   │   └── ModelDownloader.cs             # Descarga del modelo HT-Demucs desde HuggingFace
+        │   ├── Account/
+        │   │   ├── AccountPage.xaml / .cs         # Cuenta: perfil y actualizaciones
+        │   │   ├── UpdateChecker.cs               # Verificador de actualizaciones (SIMULADO, real comentado)
+        │   │   └── AuthService.cs                 # Stub de login con Google (OAuth real pendiente de Client ID)
         │   └── DuplicateRemoval/
         │       ├── DuplicateRemovalPage.xaml / .cs  # Eliminación de duplicados (UI + ViewModel inline, "Limpiar")
         │       ├── DuplicateScanner.cs              # Servicio: enumera y agrupa (nombre → hash → keyword) + verifica
@@ -88,7 +93,7 @@ Remove_Top/
         │   ├── FileTypeIconConverter.cs  # Icono según tipo de archivo (audio/video/imagen/documento)
         │   ├── RecycleBinHelper.cs       # Envía archivos a la Papelera de Windows (SHFileOperationW)
         │   └── TopRemixServerApiClient.cs  # Cliente HTTP compartido del servidor Topremix (endpoint, modelo, parseo)
-        ├── Assets/                      # Iconos y recursos visuales
+        ├── Assets/                      # Iconos y recursos visuales (BrandLogo.xaml = logo vectorial)
         └── Properties/
             ├── launchSettings.json      # Perfiles de ejecución (Package/Unpackaged)
             └── PublishProfiles/         # Perfiles de publicación
@@ -103,7 +108,8 @@ App.xaml.cs (Application)
         ├── BatchRenamePage   → FileRenamer
         ├── QuickRenamePage   → QuickRenamer
         ├── VocalRemovalPage  → VocalSeparator (ONNX) + ModelDownloader
-        └── DuplicateRemovalPage → DuplicateScanner + DuplicateRemover + RecycleBinHelper
+        ├── DuplicateRemovalPage → DuplicateScanner + DuplicateRemover + RecycleBinHelper
+        └── AccountPage → UpdateChecker (simulado) + AuthService (stub)
 ```
 
 - **Features/<Feature>/:** Cada feature es un módulo autocontenido que agrupa su página (con ViewModel inline en el code-behind) y su lógica de negocio. Los servicios se comunican con la UI via `IProgress<T>` y `CancellationToken`.
@@ -198,7 +204,7 @@ Selector `IntensityComboBox` en `NormalizationPage` con 3 perfiles (`MasteringIn
 
 Las funcionalidades **consumen la lógica y los textos de UI desde `AppLimits`**: los servicios los usan en sus `Take(n)`/topes reales y las páginas montan los InfoBars, contadores y descripciones en runtime desde las propiedades de texto (`AppLimits.NormalizationInfoBar*`, `DuplicatesInfoBar*`, `BatchRenameLimitMessage`, `VocalRemovalPageDescription`). Así los textos nunca se desincronizan de los límites reales. Para cambiar un límite, editar el valor aquí y recompilar.
 
-Además de los límites, `AppLimits` centraliza los **textos del encabezado de cada página** (título, subtítulo) y el badge **"Versión Gratuita"** (`AppLimits.FreeBadgeText`): `NormalizationPageTitle/Subtitle`, `BatchRenamePageTitle/Subtitle`, `QuickRenamePageTitle/Subtitle`, `VocalRemovalPageTitle/Subtitle`, `DuplicatesPageTitle/Subtitle`. Cada página los monta en su constructor desde estas propiedades, por lo que todos los textos de las funcionalidades se cambian en un solo lugar.
+Además de los límites, `AppLimits` centraliza los **textos del encabezado de cada página** (título, subtítulo) y el badge **"Versión Gratuita"** (`AppLimits.FreeBadgeText`): `NormalizationPageTitle/Subtitle`, `BatchRenamePageTitle/Subtitle`, `QuickRenamePageTitle/Subtitle`, `VocalRemovalPageTitle/Subtitle`, `DuplicatesPageTitle/Subtitle`, `AccountPageTitle/Subtitle`. Cada página los monta en su constructor desde estas propiedades, por lo que todos los textos de las funcionalidades se cambian en un solo lugar.
 
 ### Identidad de la aplicación (branding)
 
