@@ -33,6 +33,13 @@ namespace Remove_Top.Features.BatchRename
         private bool _isProcessing;
         private bool _isSuggesting;
 
+        // Control de la tarjeta premium: se muestra solo si el escaneo se
+        // truncó (la carpeta tenía más de FileRenamer.MaxFilesToScan archivos
+        // afectados) y el renombrado terminó correctamente.
+        private bool _batchTruncated;
+        private int _totalAffected;
+        private bool _renamingCompleted;
+
         public BatchRenamePage()
         {
             InitializeComponent();
@@ -55,6 +62,10 @@ namespace Remove_Top.Features.BatchRename
             // Aviso de límite de patrones, generado desde AppLimits para que
             // coincida siempre con el máximo real (BatchRenameMaxPatterns).
             LimitInfoText.Text = AppLimits.BatchRenameLimitMessage;
+
+            // Aviso del límite de archivos (máx. BatchRenameMaxFilesToScan),
+            // generado desde AppLimits junto al badge "Versión Gratuita".
+            FilesLimitInfoText.Text = AppLimits.BatchRenameFilesLimitMessage;
 
             LoadPatterns();
             UpdateUI();
@@ -247,6 +258,23 @@ namespace Remove_Top.Features.BatchRename
                 && !hasResults
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+
+            // La tarjeta premium solo aparece si el escaneo se truncó (carpeta
+            // con más de FileRenamer.MaxFilesToScan archivos afectados) y el
+            // renombrado ya terminó correctamente. En cualquier otro momento
+            // permanece oculta.
+            if (_renamingCompleted && _batchTruncated)
+            {
+                PremiumMessageText.Text = $"Se procesaron solo los primeros {AppLimits.N0(AppLimits.BatchRenameMaxFilesToScan)} de " +
+                    $"{_totalAffected} archivos encontrados. Con la versión premium podrás procesar carpetas completas " +
+                    "sin límites y renombrar todos los archivos de una sola vez.";
+                PremiumSection.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                PremiumSection.Visibility = Visibility.Collapsed;
+            }
+
             UpdateAiStatus();
         }
 
@@ -265,6 +293,17 @@ namespace Remove_Top.Features.BatchRename
             var folderPath = FolderPathBox.Text;
             var patterns = _patterns.Select(p => p.Text).ToArray();
             if (string.IsNullOrEmpty(folderPath) || patterns.Length == 0) return;
+
+            var files = FileRenamer.GetAffectedFiles(folderPath, patterns, out int totalFound);
+            if (files.Length == 0) return;
+
+            // El escaneo se truncó si la carpeta tenía más archivos afectados de
+            // los que se procesarán (FileRenamer.MaxFilesToScan). Esto habilita
+            // la tarjeta premium, que solo se muestra al terminar el renombrado.
+            _batchTruncated = totalFound > files.Length;
+            _totalAffected = totalFound;
+            _renamingCompleted = false;
+            PremiumSection.Visibility = Visibility.Collapsed;
 
             _results.Clear();
             PreviewListView.ItemsSource = null;
@@ -300,7 +339,7 @@ namespace Remove_Top.Features.BatchRename
 
             try
             {
-                await renamer.ProcessFolderAsync(folderPath, patterns, progress, _cts.Token);
+                await renamer.ProcessFilesAsync(files, patterns, progress, _cts.Token);
 
                 var ok = _results.Count(r => r.Success);
                 var fail = _results.Count(r => !r.Success);
@@ -308,6 +347,7 @@ namespace Remove_Top.Features.BatchRename
                 CompleteBadge.Visibility = Visibility.Visible;
                 ProgressBar.Value = 100;
                 ProgressText.Text = "Proceso finalizado";
+                _renamingCompleted = true;
             }
             catch (OperationCanceledException)
             {
@@ -363,6 +403,9 @@ namespace Remove_Top.Features.BatchRename
 
             FolderPathBox.Text = "";
             _results.Clear();
+            _renamingCompleted = false;
+            _batchTruncated = false;
+            PremiumSection.Visibility = Visibility.Collapsed;
 
             PreviewListView.ItemsSource = null;
             PreviewSection.Visibility = Visibility.Collapsed;
@@ -391,6 +434,9 @@ namespace Remove_Top.Features.BatchRename
 
             FolderPathBox.Text = "";
             _results.Clear();
+            _renamingCompleted = false;
+            _batchTruncated = false;
+            PremiumSection.Visibility = Visibility.Collapsed;
 
             PreviewListView.ItemsSource = null;
             PreviewSection.Visibility = Visibility.Collapsed;
@@ -406,6 +452,29 @@ namespace Remove_Top.Features.BatchRename
 
             ClearSuggestions();
             UpdateUI();
+        }
+
+        // ================================================================
+        // VERSIÓN PREMIUM
+        // ================================================================
+
+        /// <summary>
+        /// Abre en el navegador la URL de la versión premium. El destino se
+        /// centraliza en <see cref="PremiumLinks.UpgradeUrl"/> para poder
+        /// cambiarlo manualmente en un solo lugar. Si la apertura falla se
+        /// muestra el motivo en la línea de estado del progreso.
+        /// </summary>
+        private async void UpgradeButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var uri = new Uri(PremiumLinks.UpgradeUrl);
+                await Windows.System.Launcher.LaunchUriAsync(uri);
+            }
+            catch (Exception ex)
+            {
+                ProgressText.Text = $"No se pudo abrir el enlace premium: {ex.Message}";
+            }
         }
 
         // ================================================================

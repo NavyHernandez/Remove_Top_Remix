@@ -48,7 +48,37 @@ namespace Remove_Top.Features.Normalization
             LimitInfoBar.Title = AppLimits.NormalizationInfoBarTitle;
             LimitInfoBar.Message = AppLimits.NormalizationInfoBarMessage;
 
+            PopulateIntensityOptions();
             UpdateStartButtonText();
+        }
+
+        /// <summary>
+        /// Llena el selector de intensidad de masterización con los tres perfiles
+        /// disponibles. Por defecto se elige "Hard Limiter" (el paso profesional
+        /// que rellena la onda); el usuario puede volver a "Ligera" en cualquier momento.
+        /// </summary>
+        private void PopulateIntensityOptions()
+        {
+            IntensityComboBox.Items.Clear();
+            foreach (var intensity in Enum.GetValues<MasteringIntensity>())
+            {
+                IntensityComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = MasteringChain.DisplayName(intensity),
+                    Tag = intensity
+                });
+            }
+            IntensityComboBox.SelectedIndex = 1; // Hard Limiter
+        }
+
+        /// <summary>
+        /// Devuelve el perfil de intensidad seleccionado en el ComboBox.
+        /// </summary>
+        private MasteringIntensity GetSelectedIntensity()
+        {
+            if (IntensityComboBox.SelectedItem is ComboBoxItem item && item.Tag is MasteringIntensity intensity)
+                return intensity;
+            return MasteringIntensity.HardLimiter;
         }
 
         private async void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -228,7 +258,7 @@ namespace Remove_Top.Features.Normalization
 
             try
             {
-                await normalizer.ProcessFilesAsync(files, targetDb, progress, _cts.Token);
+                await normalizer.ProcessFilesAsync(files, targetDb, GetSelectedIntensity(), progress, _cts.Token);
 
                 // Corrección ortográfica de nombres de salida
                 ProgressText.Text = "Corrigiendo nombres...";

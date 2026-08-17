@@ -325,6 +325,7 @@ namespace Remove_Top.Features.Normalization
         public async Task ProcessFilesAsync(
             string[] files,
             double targetDbFs,
+            MasteringIntensity intensity,
             IProgress<NormalizationProgress> progress,
             CancellationToken cancellationToken = default)
         {
@@ -338,7 +339,7 @@ namespace Remove_Top.Features.Normalization
 
                 try
                 {
-                    result = await Task.Run(() => NormalizeFile(file, targetDbFs), cancellationToken);
+                    result = await Task.Run(() => NormalizeFile(file, targetDbFs, intensity), cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -376,7 +377,7 @@ namespace Remove_Top.Features.Normalization
         /// El archivo procesado se guarda en una subcarpeta "RemoveTop_Normalized"
         /// con el sufijo "_normalized.wav".
         /// </summary>
-        private NormalizationResult NormalizeFile(string inputPath, double targetDbFs)
+        private NormalizationResult NormalizeFile(string inputPath, double targetDbFs, MasteringIntensity intensity)
         {
             var outputDir = Path.Combine(
                 Path.GetDirectoryName(inputPath)!,
@@ -424,9 +425,14 @@ namespace Remove_Top.Features.Normalization
                 Volume = (float)gainLinear
             };
 
-            // ...y sobre ese audio ya normalizado, la cadena de masterización ligera
-            // (paso alto → EQ paramétrico → compresor → limitador a -0.3 dB).
-            var mastered = MasteringChain.Build(gained, format, new MasteringSettings());
+            // ...y sobre ese audio ya normalizado, la cadena de masterización
+            // según el perfil de intensidad elegido (el techo final es siempre -0.3 dB).
+            var mastered = MasteringChain.Build(gained, format, intensity);
+
+            // Medición del resultado: RMS (nivel promedio) y pico final real.
+            double sumSquares = 0.0;
+            long sampleCount = 0;
+            float finalPeak = 0f;
 
             using var writer = new WaveFileWriter(outputPath, format);
             while ((samplesRead = mastered.Read(sampleBuffer, 0, bufferSize)) > 0)
@@ -435,17 +441,32 @@ namespace Remove_Top.Features.Normalization
                 // una red de seguridad para no escribir floats fuera de rango.
                 for (int j = 0; j < samplesRead; j++)
                 {
-                    if (sampleBuffer[j] > 1f) sampleBuffer[j] = 1f;
-                    else if (sampleBuffer[j] < -1f) sampleBuffer[j] = -1f;
+                    float s = sampleBuffer[j];
+                    if (s > 1f) s = 1f;
+                    else if (s < -1f) s = -1f;
+
+                    sumSquares += (double)s * s;
+                    sampleCount++;
+                    float abs = Math.Abs(s);
+                    if (abs > finalPeak) finalPeak = abs;
+
+                    sampleBuffer[j] = s;
                 }
                 writer.WriteSamples(sampleBuffer, 0, samplesRead);
             }
+
+            double rmsDb = sampleCount > 0
+                ? 20.0 * Math.Log10(Math.Sqrt(sumSquares / sampleCount))
+                : double.NegativeInfinity;
+            double finalPeakDb = finalPeak > 0f
+                ? 20.0 * Math.Log10(finalPeak)
+                : double.NegativeInfinity;
 
             return new NormalizationResult
             {
                 FileName = Path.GetFileName(inputPath),
                 Success = true,
-                Message = $"Normalizado a {targetDbFs:F1} dBFS · masterizado ligero",
+                Message = $"Normalizado a {targetDbFs:F1} dBFS \u00b7 {MasteringChain.DisplayName(intensity)} \u00b7 Pico {finalPeakDb:F1} dB \u00b7 RMS {rmsDb:F1} dB",
                 OriginalPeakDb = originalPeakDb,
                 AppliedGainDb = gainDb,
                 OutputPath = outputPath

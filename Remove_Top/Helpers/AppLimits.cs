@@ -38,7 +38,7 @@ namespace Remove_Top.Helpers
         /// Subtítulo que acompaña al nombre en el menú de navegación.
         /// CAMBIAR AQUÍ (editable desde el módulo de límites).
         /// </summary>
-        public const string AppSubtitle = "Mejorador de Audio";
+        public const string AppSubtitle = "Organiza tu mundo musical";
 
         /// <summary>
         /// Sitio web de marca que se muestra en las páginas (no cambiar el
@@ -82,6 +82,13 @@ namespace Remove_Top.Helpers
         /// %LOCALAPPDATA%\Remove_Top\patterns.json y la UI los limita a este tope.
         /// </summary>
         public const int BatchRenameMaxPatterns = 20;
+
+        /// <summary>
+        /// Límite REAL de archivos que se procesan por ejecución en el
+        /// Renombrado Masivo (FileRenamer). El escaneo es recursivo e incluye
+        /// las subcarpetas; por encima de esta cantidad el resto se omite.
+        /// </summary>
+        public const int BatchRenameMaxFilesToScan = 1000;
 
         // ====================================================================
         // EDICIÓN RÁPIDA (Features/QuickRename)
@@ -159,6 +166,10 @@ namespace Remove_Top.Helpers
         /// <summary>Aviso de límite de patrones en el Renombrado Masivo.</summary>
         public static string BatchRenameLimitMessage =>
             $"Máximo {BatchRenameMaxPatterns} patrones. La búsqueda no distingue mayúsculas/minúsculas.";
+
+        /// <summary>Aviso de límite de archivos en el Renombrado Masivo (junto al badge "Versión Gratuita").</summary>
+        public static string BatchRenameFilesLimitMessage =>
+            $"Se procesan hasta {N0(BatchRenameMaxFilesToScan)} archivos por ejecución. El escaneo es recursivo e incluye las subcarpetas.";
 
         /// <summary>Aviso de límite de archivos en la Edición Rápida.</summary>
         public static string QuickRenameLimitMessage =>

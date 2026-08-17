@@ -170,6 +170,23 @@
                             <Run FontWeight="Bold" Text="-3.0 dB" />
                             <Run Text="(margen de seguridad)" />
                         </TextBlock>
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Masterización"
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <ComboBox x:Name="IntensityComboBox"
+                                      HorizontalAlignment="Stretch"
+                                      CornerRadius="4" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap">
+                                <Run Text="Ligera" FontWeight="Bold" />
+                                <Run Text=": conserva la dinámica · " />
+                                <Run Text="Hard Limiter" FontWeight="Bold" />
+                                <Run Text=": rellena la onda y sube el RMS (~ -12 dB) · " />
+                                <Run Text="Comercial EDM" FontWeight="Bold" />
+                                <Run Text=": densidad de master comercial (RMS ~ -9 dB). Techo siempre -0.3 dB, sin saturar." />
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

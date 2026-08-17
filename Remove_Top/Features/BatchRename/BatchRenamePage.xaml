@@ -170,6 +170,10 @@
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        VerticalAlignment="Center" />
                         </StackPanel>
+                        <TextBlock x:Name="FilesLimitInfoText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
@@ -450,6 +454,54 @@
                                 BorderThickness="1.5" />
                         </StackPanel>
                     </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Upgrade a la versión premium                -->
+                <!-- Solo aparece cuando el escaneo se truncó (la carpeta   -->
+                <!-- tenía más de FileRenamer.MaxFilesToScan archivos       -->
+                <!-- afectados) y el renombrado terminó correctamente       -->
+                <!-- (se gestiona en BatchRenamePage.UpdateUI). Al final    -->
+                <!-- de la página, justo debajo de los resultados.          -->
+                <!-- ==================================================== -->
+                <Border x:Name="PremiumSection"
+                        BorderBrush="#2ECC71"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Width="40" Height="40"
+                                    CornerRadius="20"
+                                    Background="#332ECC71"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Star" IconVariant="Filled" IconSize="Size20"
+                                               Foreground="#2ECC71"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Adquiere la versión premium"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="PremiumMessageText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="UpgradeButton"
+                                Content="Adquiere la versión premium"
+                                Click="UpgradeButton_Click"
+                                Height="40"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                CornerRadius="6"
+                                Background="#2ECC71"
+                                Foreground="White"
+                                BorderThickness="0" />
+                    </StackPanel>
+                </Border>
 
             </StackPanel>
         </ScrollViewer>
