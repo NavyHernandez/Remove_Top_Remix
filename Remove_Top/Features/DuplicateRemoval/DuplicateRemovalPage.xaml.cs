@@ -1,6 +1,8 @@
 using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Remove_Top.Features.AudioPreview;
+using Remove_Top.Features.ImagePreview;
 using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
@@ -34,6 +36,11 @@ namespace Remove_Top.Features.DuplicateRemoval
         private bool _isProcessing;
         private bool _scanPerformed;
         private bool _deletionCompleted;
+
+        // Previsualizador de audio: motor NAudio + timer que actualiza el
+        // playhead y el reloj de la onda mientras se reproduce.
+        private readonly AudioPreviewPlayer _previewPlayer = new();
+        private readonly DispatcherTimer _previewTimer;
 
         // Control de la tarjeta premium: se muestra solo si el escaneo se
         // truncó (la carpeta tenía más de MaxFilesToScan archivos) y la
@@ -70,6 +77,21 @@ namespace Remove_Top.Features.DuplicateRemoval
             LimitInfoBar.Title = AppLimits.DuplicatesInfoBarTitle;
             LimitInfoBar.Message = AppLimits.DuplicatesInfoBarMessage;
 
+            // Previsualizador: timer de playhead (100 ms), evento de fin de
+            // reproducción y acento de la onda (naranja, el color de la feature).
+            _previewTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            _previewTimer.Tick += PreviewTimer_Tick;
+            _previewPlayer.PlaybackEnded += PreviewPlayer_PlaybackEnded;
+            PreviewWaveform.SeekRequested += PreviewWaveform_SeekRequested;
+            PreviewWaveform.SetAccentColor(Windows.UI.Color.FromArgb(255, 230, 126, 34));
+            PreviewPlayButton.Content = UiHelpers.Icon(Icon.Play, IconVariant.Regular, IconSize.Size16, foreground: PreviewPlayButton.Foreground);
+            PreviewStopButton.Content = UiHelpers.Icon(Icon.Stop, IconVariant.Regular, IconSize.Size16, foreground: PreviewStopButton.Foreground);
+
+            // Visor de imágenes: notificaciones para el pie de la tarjeta
+            // (dimensiones y error de lectura).
+            ImagePreviewViewer.ImageLoaded += ImagePreviewViewer_ImageLoaded;
+            ImagePreviewViewer.ImageLoadFailed += ImagePreviewViewer_ImageLoadFailed;
+
             UpdateUI();
         }
 
@@ -102,6 +124,9 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Limpia los resultados y devuelve la UI al estado inicial.</summary>
         private void ResetResults()
         {
+            // Detiene y libera cualquier audio/imagen en reproducción (el archivo
+            // puede borrarse o desaparecer al cambiar de carpeta).
+            StopAllPreviews();
             UnsubscribeItems();
             _exactItems.Clear();
             _possibleItems.Clear();
@@ -391,6 +416,10 @@ namespace Remove_Top.Features.DuplicateRemoval
 
             if (!await ConfirmDeletionAsync(marked, mode)) return;
 
+            // Detiene y libera el archivo en reproducción: sin esto, el borrado
+            // del archivo que estaba sonando fallaría por el bloqueo del lector.
+            StopAllPreviews();
+
             _lastDeletionMode = mode;
             _deletionResults.Clear();
             _isProcessing = true;
@@ -541,6 +570,247 @@ namespace Remove_Top.Features.DuplicateRemoval
             {
                 ScanStatusText.Text = $"No se pudo abrir el enlace premium: {ex.Message}";
             }
+        }
+
+        // ================================================================
+        // PREVISUALIZADOR DE AUDIO (solo pestañas Exactos/Posibles)
+        // ================================================================
+
+        /// <summary>
+        /// Botón "Previsualizar" de una fila: carga y reproduce el audio o
+        /// muestra la imagen según el tipo del archivo. La ruta viaja en el Tag
+        /// del botón (binding FilePath).
+        /// </summary>
+        private async void PreviewButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: string path }) return;
+            if (!File.Exists(path)) return;
+
+            if (ImagePreviewSupport.IsImageFile(path))
+                BeginImagePreview(path);
+            else
+                await BeginPreviewAsync(path);
+        }
+
+        // ================================================================
+        // PREVISUALIZADOR DE IMÁGENES (solo pestañas Exactos/Posibles)
+        // ================================================================
+
+        /// <summary>
+        /// Muestra la tarjeta de imagen con la imagen seleccionada ajustada al
+        /// espacio disponible (sin zoom). Cierra cualquier audio previo para
+        /// tener un solo preview activo a la vez.
+        /// </summary>
+        private void BeginImagePreview(string path)
+        {
+            // Ya es la imagen actual: solo reabrir la tarjeta.
+            if (string.Equals(ImagePreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                ImagePreviewSection.Visibility = Visibility.Visible;
+                return;
+            }
+
+            // Otro preview (audio o imagen): cerrar el actual liberando su archivo.
+            StopAllPreviews();
+
+            ImagePreviewSection.Visibility = Visibility.Visible;
+            ImagePreviewFileNameText.Text = Path.GetFileName(path);
+            ImagePreviewInfoText.Text = "Cargando...";
+            ImagePreviewViewer.Load(path);
+        }
+
+        /// <summary>
+        /// Libera la imagen mostrada (memoria y posible bloqueo del archivo) y
+        /// oculta la tarjeta.
+        /// </summary>
+        private void ClearImagePreview()
+        {
+            ImagePreviewViewer.Clear();
+            ImagePreviewSection.Visibility = Visibility.Collapsed;
+            ImagePreviewFileNameText.Text = "";
+            ImagePreviewInfoText.Text = "";
+        }
+
+        private void ImagePreviewClose_Click(object sender, RoutedEventArgs e)
+        {
+            ClearImagePreview();
+        }
+
+        /// <summary>
+        /// Imagen decodificada correctamente: muestra sus dimensiones reales
+        /// (0 x 0 en SVG, cuyo tamaño no se expone) y el tamaño en disco.
+        /// </summary>
+        private void ImagePreviewViewer_ImageLoaded(int width, int height)
+        {
+            if (string.IsNullOrEmpty(ImagePreviewViewer.CurrentPath)) return;
+            var sizeText = DuplicateItem.FormatSize(new FileInfo(ImagePreviewViewer.CurrentPath).Length);
+            string dims = width > 0 && height > 0 ? $"{width} × {height} px" : "Vectorial (SVG)";
+            ImagePreviewInfoText.Text = $"{dims} · {sizeText}";
+        }
+
+        /// <summary>No se pudo leer la imagen: lo indica el propio visor y el pie de la tarjeta.</summary>
+        private void ImagePreviewViewer_ImageLoadFailed()
+        {
+            if (string.IsNullOrEmpty(ImagePreviewViewer.CurrentPath)) return;
+            ImagePreviewInfoText.Text = "No se pudo abrir la imagen.";
+        }
+
+        /// <summary>
+        /// Detiene y libera todos los previews activos (audio y/o imagen).
+        /// </summary>
+        private void StopAllPreviews()
+        {
+            StopPreviewCore(closeFile: true);
+            ClearImagePreview();
+        }
+
+        /// <summary>
+        /// Carga un archivo en el previsualizador: libera el anterior (para no
+        /// dejar el archivo bloqueado), carga el audio con NAudio en segundo
+        /// plano, extrae la forma de onda y reproduce.
+        /// </summary>
+        private async Task BeginPreviewAsync(string path)
+        {
+            // Ya es el archivo actual: solo mostrar la tarjeta y reproducir.
+            if (_previewPlayer.IsLoaded &&
+                string.Equals(_previewPlayer.CurrentFilePath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                PreviewSection.Visibility = Visibility.Visible;
+                if (_previewPlayer.State != AudioPreviewState.Playing)
+                    _previewPlayer.Play();
+                UpdateTransportControls();
+                return;
+            }
+
+            // Otro archivo (o ninguno): cierra el preview actual (audio o
+            // imagen) liberando su bloqueo.
+            StopAllPreviews();
+
+            PreviewSection.Visibility = Visibility.Visible;
+            PreviewFileNameText.Text = Path.GetFileName(path);
+            PreviewTimeText.Text = "Cargando...";
+            PreviewWaveform.SetData(new WaveformData());
+            UpdateTransportControls();
+
+            // Carga el archivo (NAudio) en segundo plano.
+            bool loaded = await _previewPlayer.LoadAsync(path);
+            if (!loaded)
+            {
+                PreviewTimeText.Text = "No se pudo leer el archivo.";
+                PreviewPlayButton.IsEnabled = false;
+                PreviewStopButton.IsEnabled = false;
+                return;
+            }
+
+            // Extrae los peaks de la onda en segundo plano. El número de
+            // columnas sigue el ancho del control (con un rango razonable).
+            double width = PreviewWaveform.ActualWidth > 0 ? PreviewWaveform.ActualWidth : 600;
+            int columns = (int)Math.Clamp(width, 200, 1200);
+            var peaks = await WaveformPeaks.ComputeAsync(path, columns);
+            PreviewWaveform.SetData(peaks);
+
+            _previewTimer.Start();
+            _previewPlayer.Play();
+            UpdateTransportControls();
+        }
+
+        /// <summary>Actualiza los botones de transporte según el estado del reproductor.</summary>
+        private void UpdateTransportControls()
+        {
+            bool loaded = _previewPlayer.IsLoaded;
+            bool playing = _previewPlayer.State == AudioPreviewState.Playing;
+            PreviewPlayButton.IsEnabled = loaded;
+            PreviewStopButton.IsEnabled = loaded;
+            PreviewPlayButton.Content = UiHelpers.Icon(
+                playing ? Icon.Pause : Icon.Play,
+                IconVariant.Regular,
+                IconSize.Size16,
+                foreground: PreviewPlayButton.Foreground);
+        }
+
+        private void PreviewPlayPause_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            _previewPlayer.TogglePlay();
+            UpdateTransportControls();
+        }
+
+        private void PreviewStop_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            _previewPlayer.Stop();
+            PreviewWaveform.SetPlayhead(0);
+            PreviewTimeText.Text = $"0:00 / {FormatTs(_previewPlayer.Duration)}";
+            UpdateTransportControls();
+        }
+
+        /// <summary>Cierra la tarjeta y libera el archivo (para poder borrarlo).</summary>
+        private void PreviewClose_Click(object sender, RoutedEventArgs e)
+        {
+            StopPreviewCore(closeFile: true);
+        }
+
+        /// <summary>Scrub sobre la onda: mueve la reproducción a la fracción elegida.</summary>
+        private void PreviewWaveform_SeekRequested(double fraction)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            _previewPlayer.SeekToFraction(fraction);
+        }
+
+        /// <summary>
+        /// Tick del timer: mientras se reproduce, actualiza el playhead de la
+        /// onda y el reloj (posición / duración).
+        /// </summary>
+        private void PreviewTimer_Tick(object? sender, object e)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            PreviewWaveform.SetPlayhead(_previewPlayer.PositionFraction);
+            PreviewTimeText.Text = $"{FormatTs(_previewPlayer.Position)} / {FormatTs(_previewPlayer.Duration)}";
+        }
+
+        /// <summary>
+        /// Fin natural de la reproducción (el evento llega desde un hilo de
+        /// audio, así que se marisme a la UI con DispatcherQueue): vuelve al
+        /// inicio y deja el botón en "Reproducir".
+        /// </summary>
+        private void PreviewPlayer_PlaybackEnded()
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _previewPlayer.Seek(TimeSpan.Zero);
+                PreviewWaveform.SetPlayhead(0);
+                PreviewTimeText.Text = $"0:00 / {FormatTs(_previewPlayer.Duration)}";
+                UpdateTransportControls();
+            });
+        }
+
+        /// <summary>
+        /// Detiene el previsualizador y, si se indica, cierra y libera el
+        /// archivo para que pueda ser borrado. Oculta la tarjeta.
+        /// </summary>
+        private void StopPreviewCore(bool closeFile)
+        {
+            _previewPlayer.Stop();
+            if (closeFile) _previewPlayer.Close();
+            _previewTimer.Stop();
+            PreviewSection.Visibility = Visibility.Collapsed;
+            PreviewFileNameText.Text = "";
+            PreviewTimeText.Text = "";
+            UpdateTransportControls();
+        }
+
+        /// <summary>Formatea una duración como m:ss (u h:mm:ss).</summary>
+        private static string FormatTs(TimeSpan t)
+        {
+            return t.TotalHours >= 1
+                ? $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
+                : $"{(int)t.TotalMinutes}:{t.Seconds:D2}";
+        }
+
+        /// <summary>Al salir de la página se detiene y libera la reproducción.</summary>
+        private void Page_Unloaded(object sender, RoutedEventArgs e)
+        {
+            StopAllPreviews();
         }
 
         // ================================================================

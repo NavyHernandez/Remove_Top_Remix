@@ -4,11 +4,14 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Remove_Top.Features.DuplicateRemoval"
+    xmlns:audiopreview="using:Remove_Top.Features.AudioPreview"
+    xmlns:imagepreview="using:Remove_Top.Features.ImagePreview"
     xmlns:helpers="using:Remove_Top.Helpers"
     xmlns:ic="using:FluentIcons.WinUI"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    Unloaded="Page_Unloaded">
 
     <Page.Resources>
         <helpers:FileTypeIconConverter x:Key="FileTypeIcon" />
@@ -180,7 +183,7 @@
                                 <ListView x:Name="ExactListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -225,6 +228,19 @@
                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                     </StackPanel>
                                                 </Border>
+                                                <Button Grid.Column="6"
+                                                        Click="PreviewButton_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        Visibility="{Binding IsPreviewable}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="Previsualizar"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="#E67E22" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -242,7 +258,7 @@
                                 <ListView x:Name="PossibleListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -288,6 +304,19 @@
                                                                    Opacity="0.9" />
                                                     </StackPanel>
                                                 </Border>
+                                                <Button Grid.Column="6"
+                                                        Click="PreviewButton_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        Visibility="{Binding IsPreviewable}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="Previsualizar"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="#E67E22" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -346,6 +375,120 @@
                                 </ListView>
                             </TabViewItem>
                         </TabView>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Previsualizador de audio (Duplicados)       -->
+                <!-- Muestra la forma de onda del archivo seleccionado y   -->
+                <!-- permite reproducir/pausar, detener y adelantar con el -->
+                <!-- scrub sobre la onda. Solo aparece para archivos de    -->
+                <!-- audio de las pestañas Exactos/Posibles (no dañados).  -->
+                <!-- ==================================================== -->
+                <Border x:Name="PreviewSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="#E67E22" VerticalAlignment="Center" />
+                                <TextBlock x:Name="PreviewFileNameText"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    x:Name="PreviewCloseButton"
+                                    Click="PreviewClose_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Cerrar">
+                                <ic:FluentIcon Icon="Dismiss" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Forma de onda con scrub (adelantar/atrasar) -->
+                        <audiopreview:WaveformView x:Name="PreviewWaveform"
+                                                   Height="88" />
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                            <Button x:Name="PreviewPlayButton"
+                                    Click="PreviewPlayPause_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    ToolTipService.ToolTip="Reproducir / Pausar" />
+                            <Button Grid.Column="1"
+                                    x:Name="PreviewStopButton"
+                                    Click="PreviewStop_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    ToolTipService.ToolTip="Detener" />
+                            <TextBlock Grid.Column="3"
+                                       x:Name="PreviewTimeText"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Previsualizador de imágenes (Duplicados)     -->
+                <!-- Muestra la imagen seleccionada ajustada al espacio.    -->
+                <!-- Solo aparece para archivos de imagen de las pestañas   -->
+                <!-- Exactos/Posibles (no dañados).                        -->
+                <!-- ==================================================== -->
+                <Border x:Name="ImagePreviewSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Image" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="#E67E22" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ImagePreviewFileNameText"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    x:Name="ImagePreviewCloseButton"
+                                    Click="ImagePreviewClose_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Cerrar">
+                                <ic:FluentIcon Icon="Dismiss" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Visor de imagen (ajustada al espacio, sin zoom) -->
+                        <Border BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="4">
+                            <imagepreview:ImagePreviewView x:Name="ImagePreviewViewer"
+                                                           Height="300" />
+                        </Border>
+
+                        <TextBlock x:Name="ImagePreviewInfoText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
