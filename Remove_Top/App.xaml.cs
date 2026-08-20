@@ -44,6 +44,15 @@ namespace Remove_Top
             catch { }
         }
 
+        /// <summary>
+        /// Registra un error en el crash.log desde cualquier módulo. Nunca lanza
+        /// excepciones (try-catch interno) para no interferir con la app.
+        /// </summary>
+        internal static void Log(string source, string message, string? stackTrace = null)
+        {
+            WriteCrashLog(source, message, stackTrace);
+        }
+
         public App()
         {
             InitializeComponent();

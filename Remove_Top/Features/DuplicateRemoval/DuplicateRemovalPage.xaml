@@ -29,7 +29,7 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#E74C3C">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
+                    <ic:FluentIcon Icon="Copy" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
                     <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>
@@ -150,14 +150,25 @@
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         Visibility="Collapsed">
                     <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="Resultados"
-                                       FontSize="16" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1"
-                                       x:Name="SummaryText"
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Resultados"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1"
+                                           x:Name="SummaryText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Grid.Row="1"
+                                       x:Name="ScannedFilesText"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center" />
+                                       Margin="0,4,0,0" />
                         </Grid>
 
                         <TabView x:Name="ResultsTabView"
@@ -231,12 +242,12 @@
                                                 <Button Grid.Column="6"
                                                         Click="PreviewButton_Click"
                                                         Tag="{Binding FilePath}"
-                                                        Visibility="{Binding IsPreviewable}"
+                                                        IsEnabled="{Binding IsPreviewable}"
                                                         Background="Transparent"
                                                         BorderThickness="0"
                                                         Padding="4"
                                                         VerticalAlignment="Center"
-                                                        ToolTipService.ToolTip="Previsualizar"
+                                                        ToolTipService.ToolTip="{Binding PreviewToolTip}"
                                                         ToolTipService.Placement="Top">
                                                     <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
                                                                    Foreground="#E67E22" />
@@ -307,12 +318,12 @@
                                                 <Button Grid.Column="6"
                                                         Click="PreviewButton_Click"
                                                         Tag="{Binding FilePath}"
-                                                        Visibility="{Binding IsPreviewable}"
+                                                        IsEnabled="{Binding IsPreviewable}"
                                                         Background="Transparent"
                                                         BorderThickness="0"
                                                         Padding="4"
                                                         VerticalAlignment="Center"
-                                                        ToolTipService.ToolTip="Previsualizar"
+                                                        ToolTipService.ToolTip="{Binding PreviewToolTip}"
                                                         ToolTipService.Placement="Top">
                                                     <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
                                                                    Foreground="#E67E22" />

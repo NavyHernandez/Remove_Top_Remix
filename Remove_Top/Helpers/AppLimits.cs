@@ -233,5 +233,15 @@ namespace Remove_Top.Helpers
         /// <summary>Subtítulo del encabezado de la página Cuenta.</summary>
         public const string AccountPageSubtitle =
             "Tu perfil, el estado de la aplicación y las estadísticas de tu uso.";
+
+        /// <summary>Máximo de caracteres permitidos en el cuadro de sugerencias (página Cuenta).</summary>
+        public const int SuggestionsMaxLength = 1000;
+
+        /// <summary>Título de la sección de sugerencias de la página Cuenta.</summary>
+        public const string SuggestionsTitle = "Sugerencias y feedback";
+
+        /// <summary>Subtítulo de la sección de sugerencias de la página Cuenta.</summary>
+        public const string SuggestionsSubtitle =
+            "Tu opinión nos ayuda a mejorar Top Dj App. Cuéntanos qué te gustaría añadir o qué encontramos mal.";
     }
 }

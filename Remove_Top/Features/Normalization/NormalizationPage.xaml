@@ -22,7 +22,7 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#5B9BD5">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
+                    <ic:FluentIcon Icon="Speaker2" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
                     <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>

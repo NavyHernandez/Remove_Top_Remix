@@ -73,8 +73,16 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// </summary>
         public bool IsPreviewable => IsAudio || IsImage;
 
-        /// <summary>Icono del botón de previsualizar: play para audio, imagen para imágenes.</summary>
-        public Icon PreviewIcon => IsAudio ? Icon.Play : Icon.Image;
+        /// <summary>
+        /// Icono del botón de previsualizar: play para audio, imagen para
+        /// imágenes y "sin vista previa" (EyeOff) para los tipos no
+        /// visualizables (video, documentos, etc.), que muestran el botón
+        /// deshabilitado en lugar de dejar el hueco vacío.
+        /// </summary>
+        public Icon PreviewIcon => IsAudio ? Icon.Play : IsImage ? Icon.Image : Icon.EyeOff;
+
+        /// <summary>Texto de ayuda del botón de previsualizar.</summary>
+        public string PreviewToolTip => IsPreviewable ? "Previsualizar" : "Sin previsualización";
 
         /// <summary>Nombre del archivo (sin ruta).</summary>
         public string FileName => Path.GetFileName(FilePath);

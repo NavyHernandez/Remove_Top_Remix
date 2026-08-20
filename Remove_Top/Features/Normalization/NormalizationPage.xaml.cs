@@ -24,6 +24,7 @@ namespace Remove_Top.Features.Normalization
         private readonly ObservableCollection<NormalizationResult> _results = [];
         private CancellationTokenSource? _cts;
         private bool _isProcessing;
+        private bool _isAnalyzing;
         private bool _isUpdatingSlider;
 
         public NormalizationPage()
@@ -128,9 +129,13 @@ namespace Remove_Top.Features.Normalization
         private async Task AnalyzeFilesAsync(string[] files)
         {
             _analysisResults.Clear();
+            _isAnalyzing = true;
             AnalysisSection.Visibility = Visibility.Visible;
             AnalysisProgressBar.IsIndeterminate = true;
             AnalysisStatusText.Text = "Analizando archivos...";
+            BrowseButton.IsEnabled = false;
+            CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
+            CancelButton.Visibility = Visibility.Visible;
 
             var progress = new Progress<AnalysisResult>(r =>
             {
@@ -138,10 +143,12 @@ namespace Remove_Top.Features.Normalization
                 AnalysisListView.ScrollIntoView(r);
             });
 
+            _cts = new CancellationTokenSource();
+
             try
             {
                 var normalizer = new AudioNormalizer();
-                var results = await normalizer.AnalyzeFilesAsync(files, progress);
+                var results = await normalizer.AnalyzeFilesAsync(files, progress, _cts.Token);
 
                 var valid = results.Where(r => r.Success).ToArray();
                 if (valid.Length > 0)
@@ -159,13 +166,24 @@ namespace Remove_Top.Features.Normalization
                 CancelButton.Visibility = valid.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
                 AnalysisStatusText.Text = $"Completo \u2014 {results.Length} archivos";
             }
+            catch (OperationCanceledException)
+            {
+                ResetPageState();
+                FileCountText.Text = "Análisis cancelado. Selecciona una carpeta para volver a empezar.";
+                FileCountText.Visibility = Visibility.Visible;
+            }
             catch (Exception ex)
             {
                 AnalysisStatusText.Text = $"Error: {ex.Message}";
             }
             finally
             {
+                _isAnalyzing = false;
                 AnalysisProgressBar.IsIndeterminate = false;
+                BrowseButton.IsEnabled = true;
+                CancelButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CancelButton.Foreground);
+                _cts?.Dispose();
+                _cts = null;
             }
         }
 
@@ -334,7 +352,7 @@ namespace Remove_Top.Features.Normalization
         /// quita la carpeta seleccionada, oculta las secciones y deshabilita el
         /// botón de inicio.
         /// </summary>
-        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        private void ResetPageState()
         {
             _results.Clear();
             _analysisResults.Clear();
@@ -357,9 +375,22 @@ namespace Remove_Top.Features.Normalization
             UpdateStartButtonText();
         }
 
+        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            ResetPageState();
+        }
+
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
-            ClearButton_Click(sender, e);
+            // Durante el análisis, el botón actúa como "Cancelar": detiene el
+            // escaneo en curso y resetea la página al estado inicial.
+            if (_isAnalyzing)
+            {
+                _cts?.Cancel();
+                return;
+            }
+
+            ResetPageState();
         }
     }
 }

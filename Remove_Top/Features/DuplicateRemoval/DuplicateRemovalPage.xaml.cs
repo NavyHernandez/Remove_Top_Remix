@@ -358,6 +358,10 @@ namespace Remove_Top.Features.DuplicateRemoval
                 .Where(i => i.IsMarkedForDeletion).Sum(i => i.Size);
             SummaryText.Text = $"{_exactItems.Count} exacto(s) · {_possibleItems.Count} posible(s){possibleNote} · " +
                 DuplicateItem.FormatSize(wasted) + " liberables";
+
+            ScannedFilesText.Text = _totalFound > _scannedFiles
+                ? $"Se examinaron los primeros {_scannedFiles} de {_totalFound} archivos"
+                : $"{_scannedFiles} archivo(s) examinado(s)";
         }
 
         // ================================================================
@@ -585,6 +589,11 @@ namespace Remove_Top.Features.DuplicateRemoval
         {
             if (sender is not FrameworkElement { Tag: string path }) return;
             if (!File.Exists(path)) return;
+
+            // Tipos no visualizables (video, documentos, etc.): el botón está
+            // deshabilitado y solo informa de que no hay preview.
+            if (!ImagePreviewSupport.IsImageFile(path) && !AudioPreviewPlayer.IsSupportedAudio(path))
+                return;
 
             if (ImagePreviewSupport.IsImageFile(path))
                 BeginImagePreview(path);

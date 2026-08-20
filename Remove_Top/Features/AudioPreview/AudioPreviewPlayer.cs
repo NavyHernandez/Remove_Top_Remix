@@ -26,7 +26,9 @@ namespace Remove_Top.Features.AudioPreview
     /// NAudio (la misma librería de audio ya usada en el proyecto):
     ///
     ///   - <see cref="MediaFoundationReader"/>: lee los formatos ya soportados
-    ///     por la app (mp3/wav/flac/m4a/aac/ogg/wma/aiff/wv...).
+    ///     por la app (mp3/wav/flac/m4a/aac/ogg/wma/aiff/wv...) y la familia
+    ///     MPEG (mp1/mp2/mpa/mpeg/mpg/m1a/m2a), cuyos decodificadores los aporta
+    ///     Windows Media Foundation.
     ///   - <see cref="MediaFoundationResampler"/>: convierte cualquier formato
     ///     de entrada a 44,1 kHz / 16 bits / estéreo PCM, el formato que
     ///     WaveOutEvent acepta siempre, para que todas las muestras suenen sin
@@ -48,7 +50,8 @@ namespace Remove_Top.Features.AudioPreview
 
         /// <summary>Extensiones de audio que el previsualizador puede leer (MediaFoundation).</summary>
         private static readonly string[] AudioExtensions =
-            [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma", ".aiff", ".aif", ".wv"];
+            [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma", ".aiff", ".aif", ".wv",
+             ".mp1", ".mp2", ".mpa", ".mpeg", ".mpg", ".m1a", ".m2a"];
 
         /// <summary>Ruta del archivo cargado actualmente (vacío si no hay ninguno).</summary>
         public string CurrentFilePath { get; private set; } = "";
