@@ -343,11 +343,7 @@
                                       IsIndeterminate="False"
                                       Minimum="0" Maximum="100" />
 
-                        <TextBlock x:Name="UpdateNoteText"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap"
-                                   Text="Las actualizaciones se descargan directamente desde GitHub." />
+
                     </StackPanel>
                 </Border>
 
