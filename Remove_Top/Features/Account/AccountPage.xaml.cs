@@ -112,7 +112,7 @@ namespace Remove_Top.Features.Account
             if (logged)
             {
                 ProfileNameText.Text = string.IsNullOrWhiteSpace(user!.DisplayName)
-                    ? "Usuario Top Dj App"
+                    ? "Usuario One Dj App"
                     : user.DisplayName;
                 ProfileEmailText.Text = user.Email;
 

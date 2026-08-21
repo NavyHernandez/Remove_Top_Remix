@@ -30,6 +30,9 @@ namespace Remove_Top
             {
                 InitializeComponent();
 
+                // Icono de ventana (WinUI 3 unpackaged).
+                Win32Helper.SetWindowIcon(this);
+
                 // Identidad de la app centralizada en AppLimits (módulo de límites).
                 Title = AppLimits.AppName;
                 BrandNameText.Text = AppLimits.AppName;

@@ -564,6 +564,27 @@ Integración completa de Velopack para auto-updates desde GitHub Releases.
 
 ---
 
+## 2026-08-20 — Renombrado a "One Dj App" + iconos personalizados
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+Renombrado completo de "Top Dj App" → "One Dj App" y configuración de iconos reales desde `iconos/`.
+
+1. **`iconos/` → `Assets/`** — copiados 6 archivos: `AppIcon.ico`, `SplashScreen` (512x512), `StoreLogo` (256), `Square44x44` (48), `Square150x150` (32), `LockScreenLogo` (16).
+2. **`Remove_Top.csproj`** — `AssemblyName = OneDjApp` (antes TopDjApp) + `ApplicationIcon = Assets\AppIcon.ico`.
+3. **`AppLimits.cs`** — `AppName = "One Dj App"`, texto de sugerencias actualizado.
+4. **`MainWindow.xaml`** — `Title="One Dj App"`.
+5. **`MainWindow.xaml.cs`** — `Win32Helper.SetWindowIcon(this)` para icono de ventana WinUI 3 unpackaged.
+6. **`Helpers/Win32Helper.cs`** — nuevo: P/Invoke `LoadImageW` + `SendMessageW(WM_SETICON)` para icono de barra de título y taskbar.
+7. **`AccountPage.xaml`** — texto hardcoded "Top Dj App" → "One Dj App".
+8. **`AccountPage.xaml.cs`** — "Usuario Top Dj App" → "Usuario One Dj App".
+
+### Verificación
+- Build Debug|x64: **0 errores, 0 advertencias**. Salida: `OneDjApp.exe`.
+
+---
+
 ## 2026-08-20 — DuplicateRemoval: botón "Cancelar" → "Limpiar" con icono Broom
 
 **Agente:** humano + opencode (mimo-v2.5-free)

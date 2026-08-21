@@ -32,7 +32,7 @@ namespace Remove_Top.Helpers
         /// navegación y badges de cabecera de todas las páginas.
         /// CAMBIAR AQUÍ para renombrar la app en toda la UI.
         /// </summary>
-        public const string AppName = "Top Dj App";
+        public const string AppName = "One Dj App";
 
         /// <summary>
         /// Subtítulo que acompaña al nombre en el menú de navegación.
@@ -242,6 +242,6 @@ namespace Remove_Top.Helpers
 
         /// <summary>Subtítulo de la sección de sugerencias de la página Cuenta.</summary>
         public const string SuggestionsSubtitle =
-            "Tu opinión nos ayuda a mejorar Top Dj App. Cuéntanos qué te gustaría añadir o qué encontramos mal.";
+            "Tu opinión nos ayuda a mejorar One Dj App. Cuéntanos qué te gustaría añadir o qué encontramos mal.";
     }
 }

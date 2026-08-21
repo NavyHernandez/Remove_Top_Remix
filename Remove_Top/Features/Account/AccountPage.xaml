@@ -50,7 +50,7 @@
                         BorderThickness="1" CornerRadius="8" Padding="16"
                         Background="{ThemeResource LayerFillColorDefaultBrush}">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Top Dj App"
+                        <TextBlock Text="One Dj App"
                                    FontSize="16" FontWeight="SemiBold"
                                    HorizontalAlignment="Center" />
                         <assets:BrandLogo Width="120" Height="120" HorizontalAlignment="Center" />
