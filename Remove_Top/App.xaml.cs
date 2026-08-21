@@ -83,10 +83,17 @@ namespace Remove_Top
         {
             try
             {
-                // Velopack: aplicar actualizaciones pendientes al inicio y configurar el updater.
-                VelopackApp.Build()
-                    .SetAutoApplyOnStartup(true)
-                    .Run();
+                // Velopack: aplicar actualizaciones pendientes al inicio.
+                try
+                {
+                    VelopackApp.Build()
+                        .SetAutoApplyOnStartup(true)
+                        .Run();
+                }
+                catch
+                {
+                    // Velopack no disponible (modo unpackaged/debug) — continuar normalmente.
+                }
 
                 MainWindow = new MainWindow();
                 MainWindow.Activate();

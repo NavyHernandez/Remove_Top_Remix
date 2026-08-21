@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Velopack;
+using Velopack.Sources;
 
 namespace Remove_Top.Features.Account
 {
@@ -43,13 +44,12 @@ namespace Remove_Top.Features.Account
 
         /// <summary>Versión instalada. Se lee del assembly en tiempo de ejecución.</summary>
         public static string InstalledVersion { get; } =
-            typeof(UpdateChecker).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+            typeof(UpdateChecker).Assembly.GetName().Version?.ToString(3) ?? "0.1.2";
 
         /// <summary>Indica si el checker está en modo simulación (no consulta la red).</summary>
         public bool IsSimulated => false;
 
-        // URL de los releases de GitHub (repo público o con token).
-        // El formato es: https://github.com/{owner}/{repo}
+        // URL de los releases de GitHub (repo público).
         private const string GitHubRepoUrl = "https://github.com/NavyHernandez/Remove_Top_Remix";
 
         private UpdateManager? _updateManager;
@@ -63,12 +63,17 @@ namespace Remove_Top.Features.Account
         {
             try
             {
-                _updateManager = new UpdateManager(GitHubRepoUrl);
+                // Usar GithubSource explícito para garantizar la detección correcta.
+                var source = new GithubSource(GitHubRepoUrl, "", false, null);
+                _updateManager = new UpdateManager(source);
+
+                App.Log("UpdateChecker", $"Checking updates from {GitHubRepoUrl} (installed: {InstalledVersion})");
 
                 var updateInfo = await _updateManager.CheckForUpdatesAsync();
 
                 if (updateInfo == null)
                 {
+                    App.Log("UpdateChecker", "No update available (null returned)");
                     return new UpdateCheckResult
                     {
                         InstalledVersion = InstalledVersion,
@@ -82,6 +87,8 @@ namespace Remove_Top.Features.Account
                 _pendingUpdate = updateInfo;
                 var latestVersion = updateInfo.TargetFullRelease.Version.ToString();
 
+                App.Log("UpdateChecker", $"Update available: {latestVersion}");
+
                 return new UpdateCheckResult
                 {
                     InstalledVersion = InstalledVersion,
@@ -92,9 +99,10 @@ namespace Remove_Top.Features.Account
                     VelopackUpdate = updateInfo
                 };
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Si hay error de red o el repo no está disponible, reportar sin update.
+                // Log del error para diagnóstico en vez de tragar silenciosamente.
+                App.Log("UpdateChecker", $"ERROR: {ex.Message}", ex.StackTrace);
                 return new UpdateCheckResult
                 {
                     InstalledVersion = InstalledVersion,
