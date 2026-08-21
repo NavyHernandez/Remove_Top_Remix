@@ -267,6 +267,38 @@ El ejecutable se genera como `TopDjApp.exe` (AssemblyName en el csproj); el `Roo
 - **Requisito manual en Firebase Console** (no se puede hacer desde la app): crear la base de datos Firestore y las reglas de seguridad, p. ej. `match /suggestions/{document=**} { allow create: if request.auth != null && request.auth.token.email_verified == true; allow read, update, delete: if false; }`. Sin esto, el envío falla con un error mapeado (NOT_FOUND / PERMISSION_DENIED).
 - Los errores de las REST APIs se traducen con `FirebaseRestApi.MapErrorCode/MapErrorStatus/MapHttpStatus` a mensajes amigables; `AuthService.GetAuthErrorMessage` también cubre `FirebaseApiException`.
 
+## Auto-actualización (Velopack)
+
+| Campo | Valor |
+|-------|-------|
+| **Paquete** | Velopack 0.0.1298 (NuGet) |
+| **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
+| **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
+| **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |
+| **Download** | `UpdateManager.DownloadUpdatesAsync(info, progress, ct)` con callback 0-100 |
+| **Apply** | `UpdateManager.ApplyUpdatesAndRestart(info)` — reinicia y aplica |
+
+### Flujo de actualización (usuario)
+1. Pestaña **Cuenta** → "Buscar actualizaciones" → consulta GitHub Releases.
+2. Si hay versión nueva: badge ámbar + botón **"Descargar vX.Y.Z"**.
+3. Click en Descargar → ProgressRing con % → al llegar a 100% se aplica y reinicia.
+4. Al reiniciar, `VelopackApp.Build().Run()` aplica los archivos descargados.
+
+### Publicación de releases en GitHub
+Para que Velopack detecte una nueva versión:
+1. Crear un tag `vX.Y.Z` (ej. `v1.1.0`).
+2. Crear un GitHub Release con ese tag.
+3. Subir como资产: `TopDjApp-{version}-win-x64.zip` (Velopack usa el naming convention `*-win-x64*`).
+4. La app la detecta automáticamente al pulsar "Buscar actualizaciones".
+
+### Workflow de branches
+```
+feature branches → staging (testing) → main (producción/Velopack)
+```
+- **`main`** — producción. Los releases de GitHub se publican desde esta rama.
+- **`staging`** — integración y testing antes de producción.
+- **`feat/*`** — desarrollo de features individuales.
+
 ## Cómo ejecutar
 
 ### Requisitos
