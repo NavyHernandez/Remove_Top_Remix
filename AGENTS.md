@@ -6,7 +6,12 @@
 >
 > Esto te dará contexto completo del estado del proyecto.
 >
-> **IMPORTANTE:** NO actualices el repositorio (git push) a menos que el usuario te lo solicite explícitamente. Solo haz commit y push cuando el usuario lo pida directamente.
+> **IMPORTANTE:**
+> - NO actualices el repositorio (git push) a menos que el usuario te lo solicite explícitamente.
+> - NO hagas builds (`dotnet build`), publicaciones (`dotnet publish`), ni empaquetado (`vpk pack`) a menos que el usuario te lo pida directamente.
+> - NO subas releases a GitHub (`vpk upload github`) a menos que el usuario te lo solicite explícitamente.
+> - Solo haz commit y push cuando el usuario lo pida directamente.
+> - Estas acciones (build, publish, upload, push) NUNCA deben ser parte de un plan; solo ejecútalas cuando el usuario lo ordene.
 
 ## Descripción
 
