@@ -3,6 +3,7 @@ using Remove_Top.Features.VocalRemoval;
 using Remove_Top.Helpers;
 using System;
 using System.IO;
+using Velopack;
 
 namespace Remove_Top
 {
@@ -82,6 +83,11 @@ namespace Remove_Top
         {
             try
             {
+                // Velopack: aplicar actualizaciones pendientes al inicio y configurar el updater.
+                VelopackApp.Build()
+                    .SetAutoApplyOnStartup(true)
+                    .Run();
+
                 MainWindow = new MainWindow();
                 MainWindow.Activate();
             }

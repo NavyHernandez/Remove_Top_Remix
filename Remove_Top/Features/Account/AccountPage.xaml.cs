@@ -493,12 +493,12 @@ namespace Remove_Top.Features.Account
         // ================================================================
 
         /// <summary>
-        /// Comprueba si hay actualizaciones y actualiza el badge de estado.
-        /// Hoy el checker está en modo simulado (no consulta la red).
+        /// Comprueba si hay actualizaciones usando Velopack + GitHub Releases.
         /// </summary>
         private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
         {
             CheckUpdatesButton.IsEnabled = false;
+            DownloadUpdateButton.Visibility = Visibility.Collapsed;
             UpdateStatusText.Text = "Buscando...";
             UpdateStatusBadge.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 168, 143));
 
@@ -522,6 +522,8 @@ namespace Remove_Top.Features.Account
                 UpdateStatusBadge.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0xE6, 0x7E, 0x22));
                 UpdateStatusIcon.Icon = FluentIcons.Common.Icon.ArrowDownload;
                 UpdateStatusText.Text = "¡Actualización disponible!";
+                DownloadUpdateButton.Visibility = Visibility.Visible;
+                DownloadUpdateText.Text = $"Descargar v{result.LatestVersion}";
             }
             else
             {
@@ -529,6 +531,42 @@ namespace Remove_Top.Features.Account
                 UpdateStatusBadge.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 112, 173, 71));
                 UpdateStatusIcon.Icon = FluentIcons.Common.Icon.CheckmarkCircle;
                 UpdateStatusText.Text = "Al día";
+                DownloadUpdateButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Descarga la actualización mostrando progreso y luego la aplica (reinicia la app).
+        /// </summary>
+        private async void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
+        {
+            DownloadUpdateButton.IsEnabled = false;
+            CheckUpdatesButton.IsEnabled = false;
+            DownloadProgressRing.Visibility = Visibility.Visible;
+            DownloadProgressRing.Value = 0;
+
+            try
+            {
+                await UpdateChecker.Instance.DownloadUpdateAsync(progress =>
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        DownloadProgressRing.Value = progress;
+                        DownloadUpdateText.Text = progress < 100
+                            ? $"Descargando... {progress}%"
+                            : "Instalando...";
+                    });
+                });
+
+                // Aplicar y reiniciar
+                UpdateChecker.Instance.ApplyUpdate();
+            }
+            catch (Exception)
+            {
+                DownloadUpdateButton.IsEnabled = true;
+                CheckUpdatesButton.IsEnabled = true;
+                DownloadProgressRing.Visibility = Visibility.Collapsed;
+                DownloadUpdateText.Text = "Error al descargar";
             }
         }
 

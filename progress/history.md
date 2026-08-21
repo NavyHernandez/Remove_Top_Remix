@@ -542,6 +542,28 @@ La feature 19 estaba documentada como `google_login` (stub de Google OAuth, pend
 
 ---
 
+## 2026-08-20 — Velopack: auto-update integrado con GitHub Releases
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+Integración completa de Velopack para auto-updates desde GitHub Releases.
+
+1. **`Remove_Top.csproj`** — nuevo `PackageReference` Velopack v0.0.1298.
+2. **`App.xaml.cs`** — `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `OnLaunched` antes de crear MainWindow. Aplica actualizaciones pendientes al reiniciar.
+3. **`UpdateChecker.cs`** — reescrito completamente: elimina modo simulado, usa `UpdateManager(GitHubRepoUrl)` para `CheckForUpdatesAsync`, `DownloadUpdatesAsync` (con progreso) y `ApplyUpdatesAndRestart`. Version leída del assembly.
+4. **`AccountPage.xaml`** — nuevo `DownloadUpdateButton` (oculto por defecto, aparece si hay update), `DownloadProgressRing` con progreso, texto de nota actualizado.
+5. **`AccountPage.xaml.cs`** — `DownloadUpdateButton_Click` con descarga en background + progreso + ApplyUpdate al terminar.
+
+### Workflow de branches
+- Creada rama `staging` desde `feat/app-improvements` y push a origin.
+- Workflow: feature branches → staging → main (producción Velopack).
+
+### Verificación
+- Build Debug|x64: **0 errores, 0 advertencias**.
+
+---
+
 ## 2026-08-20 — DuplicateRemoval: botón "Cancelar" → "Limpiar" con icono Broom
 
 **Agente:** humano + opencode (mimo-v2.5-free)

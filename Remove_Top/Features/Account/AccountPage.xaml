@@ -316,11 +316,33 @@
                             </StackPanel>
                         </Button>
 
+                        <Button x:Name="DownloadUpdateButton"
+                                HorizontalAlignment="Center"
+                                Click="DownloadUpdateButton_Click"
+                                CornerRadius="4"
+                                Visibility="Collapsed"
+                                Background="#E67E22"
+                                Foreground="White"
+                                BorderThickness="0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ic:FluentIcon Icon="ArrowDownload" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="White" />
+                                <TextBlock x:Name="DownloadUpdateText" Text="Descargar actualización" />
+                            </StackPanel>
+                        </Button>
+
+                        <ProgressRing x:Name="DownloadProgressRing"
+                                      Width="200" Height="4"
+                                      HorizontalAlignment="Center"
+                                      Visibility="Collapsed"
+                                      IsIndeterminate="False"
+                                      Minimum="0" Maximum="100" />
+
                         <TextBlock x:Name="UpdateNoteText"
                                    FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap"
-                                   Text="Comprobación en modo simulado: se conectará al repositorio/servidor en una próxima versión." />
+                                   Text="Las actualizaciones se descargan directamente desde GitHub." />
                     </StackPanel>
                 </Border>
 
