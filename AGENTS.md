@@ -1,4 +1,4 @@
-# Remove-Top — Top Dj App
+# Remove-Top — One Dj App
 
 > **Nota para agentes:** Antes de comenzar cualquier tarea, lee los archivos en la carpeta `progress/`:
 > - `progress/history.md` — bitácora de sesiones anteriores
@@ -242,12 +242,12 @@ También en `AppLimits` se centraliza la identidad de la app, para cambiar el no
 
 | Constante | Valor | Dónde se usa |
 |-----------|-------|--------------|
-| `AppName` | `Top Dj App` | Título de ventana, nombre del menú (`BrandNameText`), badges de marca de las 5 páginas (`BrandText`) |
+| `AppName` | `One Dj App` | Título de ventana, nombre del menú (`BrandNameText`), badges de marca de las 5 páginas (`BrandText`) |
 | `AppSubtitle` | `Mejorador de Audio` | Subtítulo del menú (`BrandSubtitleText`) |
 | `AppBrandSite` | `www.top-remix.com` | `SiteBrandText` (QuickRename) y `BrandSiteRun` (DuplicateRemoval). **No cambiar el dominio** |
 | `AppDataFolderName` | `Remove_Top` | Carpeta de datos en `%LOCALAPPDATA%` (crash.log, patterns.json, models). Conservar para no perder datos |
 
-El ejecutable se genera como `TopDjApp.exe` (AssemblyName en el csproj); el `RootNamespace` sigue siendo `Remove_Top`.
+El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `RootNamespace` sigue siendo `Remove_Top`.
 
 ## Sugerencia de patrones con IA (BatchRename)
 
@@ -288,7 +288,7 @@ El ejecutable se genera como `TopDjApp.exe` (AssemblyName en el csproj); el `Roo
 Para que Velopack detecte una nueva versión:
 1. Crear un tag `vX.Y.Z` (ej. `v1.1.0`).
 2. Crear un GitHub Release con ese tag.
-3. Subir como资产: `TopDjApp-{version}-win-x64.zip` (Velopack usa el naming convention `*-win-x64*`).
+3. Subir como资产: `OneDjApp-{version}-win-x64.zip` (Velopack usa el naming convention `*-win-x64*`).
 4. La app la detecta automáticamente al pulsar "Buscar actualizaciones".
 
 ### Workflow de branches
@@ -320,7 +320,7 @@ feature branches → staging (testing) → main (producción/Velopack)
 ```bash
 cd Remove_Top\Remove_Top
 dotnet build -c Debug -p:Platform=x64
-bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\TopDjApp.exe
+bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\OneDjApp.exe
 ```
 
 ## Solución de problemas
@@ -339,7 +339,7 @@ bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\TopDjApp.exe
 
 - Existen **dos salidas de build**: `bin/Debug/...` (AnyCPU / `dotnet build`) y `bin/x64/Debug/net8.0-windows10.0.19041.0/win-x64/` (Debug|x64). El usuario lanza con **F5 en Visual Studio (Debug|x64)**: para ver los cambios hay que compilar `-p:Platform=x64`.
 - El csproj tiene `<DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>` para forzar la recompilación XAML en cada F5.
-- **Cerrar instancias de `TopDjApp.exe` en ejecución antes de compilar**: el ejecutable queda bloqueado y la compilación falla.
+- **Cerrar instancias de `OneDjApp.exe` en ejecución antes de compilar**: el ejecutable queda bloqueado y la compilación falla.
 
 ### Recursos XAML no encontrados
 
