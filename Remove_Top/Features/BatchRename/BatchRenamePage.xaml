@@ -24,16 +24,18 @@
         <!-- HEADER: Branding + Título                                   -->
         <!-- ============================================================ -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <Border CornerRadius="4" Padding="8,2" Background="#70AD47" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#70AD47">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="Edit" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Renombrado Masivo"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Elimina texto específico del nombre de archivos. Soporta audio, video, imagen y documentos."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -159,14 +161,19 @@
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Border CornerRadius="4" Padding="8,2" Background="#70AD47">
-                                <TextBlock Text="Versión Gratuita" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                                <TextBlock x:Name="FreeBadgeText"
+                                           Text=""
+                                           FontSize="11" FontWeight="SemiBold" Foreground="White" />
                             </Border>
-                            <TextBlock FontSize="12"
+                            <TextBlock x:Name="LimitInfoText"
+                                       FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center">
-                                <Run Text="Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." />
-                            </TextBlock>
+                                       VerticalAlignment="Center" />
                         </StackPanel>
+                        <TextBlock x:Name="FilesLimitInfoText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
@@ -180,33 +187,9 @@
                         Padding="16"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         Visibility="Collapsed">
-                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="12">
                         <TextBlock Text="Mejorar patrones con IA"
                                    FontSize="16" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                            <TextBlock Text="Proveedor:"
-                                       FontSize="13"
-                                       VerticalAlignment="Center" />
-                            <ComboBox Grid.Column="1"
-                                      x:Name="ProviderComboBox"
-                                      HorizontalAlignment="Stretch"
-                                      CornerRadius="4"
-                                      SelectionChanged="ProviderComboBox_SelectionChanged">
-                                <ComboBoxItem x:Name="ProviderMockItem"
-                                              Content="Prueba local (Mock)"
-                                              Tag="mock" />
-                                <ComboBoxItem x:Name="ProviderGroqItem"
-                                              Content="Groq (API real)"
-                                              Tag="groq" />
-                            </ComboBox>
-                            <PasswordBox Grid.Column="2"
-                                         x:Name="ApiKeyBox"
-                                         PlaceholderText="API Key de Groq"
-                                         Width="220"
-                                         CornerRadius="4"
-                                         IsEnabled="False"
-                                         PasswordChanged="ApiKeyBox_PasswordChanged" />
-                        </Grid>
                         <TextBlock x:Name="AiStatusText"
                                    FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -340,17 +323,33 @@
                 </Border>
 
                 <!-- ==================================================== -->
-                <!-- BOTÓN DE ACCIÓN                                       -->
+                <!-- BOTONES DE ACCIÓN                                     -->
                 <!-- ==================================================== -->
-                <Button x:Name="StartButton"
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        Height="44"
-                        HorizontalAlignment="Stretch"
-                        CornerRadius="6"
-                        Click="StartButton_Click"
-                        IsEnabled="False"
-                        Background="#70AD47" Foreground="White" BorderThickness="0" />
+                <StackPanel Spacing="8">
+                    <Button x:Name="StartButton"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Height="44"
+                            HorizontalAlignment="Stretch"
+                            CornerRadius="6"
+                            Click="StartButton_Click"
+                            IsEnabled="False"
+                            Background="#70AD47" Foreground="White" BorderThickness="0" />
+                    <Button x:Name="CancelButton"
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Height="40"
+                            CornerRadius="6"
+                            Click="CancelButton_Click"
+                            IsEnabled="False"
+                            Visibility="Collapsed"
+                            HorizontalAlignment="Center"
+                            MinWidth="180"
+                            Background="Transparent"
+                            BorderBrush="#70AD47"
+                            Foreground="#70AD47"
+                            BorderThickness="1.5" />
+                </StackPanel>
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Progreso                                     -->
@@ -442,7 +441,7 @@
                                 </ListView.ItemTemplate>
                             </ListView>
                         <Button x:Name="RestartButton"
-                                Content="Iniciar de nuevo"
+                                Content="Limpiar"
                                 Click="RestartButton_Click"
                                 CornerRadius="4"
                                 HorizontalAlignment="Center"
@@ -455,6 +454,54 @@
                                 BorderThickness="1.5" />
                         </StackPanel>
                     </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Upgrade a la versión premium                -->
+                <!-- Solo aparece cuando el escaneo se truncó (la carpeta   -->
+                <!-- tenía más de FileRenamer.MaxFilesToScan archivos       -->
+                <!-- afectados) y el renombrado terminó correctamente       -->
+                <!-- (se gestiona en BatchRenamePage.UpdateUI). Al final    -->
+                <!-- de la página, justo debajo de los resultados.          -->
+                <!-- ==================================================== -->
+                <Border x:Name="PremiumSection"
+                        BorderBrush="#2ECC71"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Width="40" Height="40"
+                                    CornerRadius="20"
+                                    Background="#332ECC71"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Star" IconVariant="Filled" IconSize="Size20"
+                                               Foreground="#2ECC71"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Adquiere la versión premium"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="PremiumMessageText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="UpgradeButton"
+                                Content="Adquiere la versión premium"
+                                Click="UpgradeButton_Click"
+                                Height="40"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                CornerRadius="6"
+                                Background="#2ECC71"
+                                Foreground="White"
+                                BorderThickness="0" />
+                    </StackPanel>
+                </Border>
 
             </StackPanel>
         </ScrollViewer>

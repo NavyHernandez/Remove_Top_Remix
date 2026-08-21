@@ -20,16 +20,18 @@
         <!-- HEADER: Branding + Título y descripción                     -->
         <!-- ============================================================ -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <Border CornerRadius="4" Padding="8,2" Background="#5B9BD5" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#5B9BD5">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="Speaker2" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Normalización de Audio"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Ajusta el nivel de pico de todos los archivos de audio a un objetivo común (dBFS)."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -48,8 +50,8 @@
                          Severity="Informational"
                          IsOpen="True"
                          IsClosable="False"
-                         Title="Versión gratuita: hasta 50 archivos"
-                         Message="El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de 50 archivos." />
+                         Title=""
+                         Message="" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Selección de carpeta de origen              -->
@@ -168,6 +170,23 @@
                             <Run FontWeight="Bold" Text="-3.0 dB" />
                             <Run Text="(margen de seguridad)" />
                         </TextBlock>
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Masterización"
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <ComboBox x:Name="IntensityComboBox"
+                                      HorizontalAlignment="Stretch"
+                                      CornerRadius="4" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap">
+                                <Run Text="Ligera" FontWeight="Bold" />
+                                <Run Text=": conserva la dinámica · " />
+                                <Run Text="Hard Limiter" FontWeight="Bold" />
+                                <Run Text=": rellena la onda y sube el RMS (~ -12 dB) · " />
+                                <Run Text="Comercial EDM" FontWeight="Bold" />
+                                <Run Text=": densidad de master comercial (RMS ~ -9 dB). Techo siempre -0.3 dB, sin saturar." />
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -183,6 +202,19 @@
                         Click="StartButton_Click"
                         IsEnabled="False"
                         Background="#5B9BD5" Foreground="White" BorderThickness="0" />
+
+                <Button x:Name="CancelButton"
+                        Content="Limpiar"
+                        FontSize="13"
+                        Height="36"
+                        HorizontalAlignment="Stretch"
+                        CornerRadius="6"
+                        Click="CancelButton_Click"
+                        Visibility="Collapsed"
+                        Background="Transparent"
+                        BorderBrush="#5B9BD5"
+                        Foreground="#5B9BD5"
+                        BorderThickness="1" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Barra de progreso durante el procesamiento   -->

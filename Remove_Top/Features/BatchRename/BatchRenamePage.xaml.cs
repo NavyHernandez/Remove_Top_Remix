@@ -22,10 +22,9 @@ namespace Remove_Top.Features.BatchRename
     /// </summary>
     public sealed partial class BatchRenamePage : Page
     {
-        private const int MaxPatterns = 20;
         private static readonly string PatternsFile =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Remove_Top", "patterns.json");
+                AppLimits.AppDataFolderName, "patterns.json");
 
         private readonly ObservableCollection<RenamePattern> _patterns = [];
         private readonly ObservableCollection<RenameResult> _results = [];
@@ -33,6 +32,13 @@ namespace Remove_Top.Features.BatchRename
         private CancellationTokenSource? _cts;
         private bool _isProcessing;
         private bool _isSuggesting;
+
+        // Control de la tarjeta premium: se muestra solo si el escaneo se
+        // truncó (la carpeta tenía más de FileRenamer.MaxFilesToScan archivos
+        // afectados) y el renombrado terminó correctamente.
+        private bool _batchTruncated;
+        private int _totalAffected;
+        private bool _renamingCompleted;
 
         public BatchRenamePage()
         {
@@ -43,9 +49,24 @@ namespace Remove_Top.Features.BatchRename
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             AddPatternButton.Content = UiHelpers.Content(Icon.Add, "Agregar", semibold: false, foreground: AddPatternButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Delete, "Eliminar patrones de los nombres", foreground: StartButton.Foreground);
+            CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
             SuggestPatternsButton.Content = UiHelpers.Content(Icon.Sparkle, "Sugerir patrones con IA", foreground: SuggestPatternsButton.Foreground);
-            RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
-            ProviderComboBox.SelectedIndex = 0;
+            RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
+
+            // Título y subtítulo del encabezado, centralizados en AppLimits.
+            PageTitleText.Text = AppLimits.BatchRenamePageTitle;
+            PageSubtitleText.Text = AppLimits.BatchRenamePageSubtitle;
+            FreeBadgeText.Text = AppLimits.FreeBadgeText;
+            BrandText.Text = AppLimits.AppName;
+
+            // Aviso de límite de patrones, generado desde AppLimits para que
+            // coincida siempre con el máximo real (BatchRenameMaxPatterns).
+            LimitInfoText.Text = AppLimits.BatchRenameLimitMessage;
+
+            // Aviso del límite de archivos (máx. BatchRenameMaxFilesToScan),
+            // generado desde AppLimits junto al badge "Versión Gratuita".
+            FilesLimitInfoText.Text = AppLimits.BatchRenameFilesLimitMessage;
+
             LoadPatterns();
             UpdateUI();
         }
@@ -77,7 +98,7 @@ namespace Remove_Top.Features.BatchRename
                 var texts = JsonSerializer.Deserialize<string[]>(json);
                 if (texts != null)
                 {
-                    foreach (var t in texts.Take(MaxPatterns))
+                    foreach (var t in texts.Take(AppLimits.BatchRenameMaxPatterns))
                         _patterns.Add(new RenamePattern { Text = t });
                 }
             }
@@ -117,7 +138,7 @@ namespace Remove_Top.Features.BatchRename
         private void PatternInput_TextChanged(object sender, TextChangedEventArgs e)
         {
             AddPatternButton.IsEnabled = !string.IsNullOrWhiteSpace(PatternInput.Text)
-                                         && _patterns.Count < MaxPatterns;
+                                         && _patterns.Count < AppLimits.BatchRenameMaxPatterns;
         }
 
         private void PatternInput_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -148,7 +169,7 @@ namespace Remove_Top.Features.BatchRename
         private bool TryAddPattern(string? rawText)
         {
             var text = (rawText ?? "").Trim();
-            if (string.IsNullOrEmpty(text) || _patterns.Count >= MaxPatterns) return false;
+            if (string.IsNullOrEmpty(text) || _patterns.Count >= AppLimits.BatchRenameMaxPatterns) return false;
             if (_patterns.Any(p => p.Text.Equals(text, StringComparison.OrdinalIgnoreCase))) return false;
 
             _patterns.Add(new RenamePattern { Text = text });
@@ -222,15 +243,38 @@ namespace Remove_Top.Features.BatchRename
 
         private void UpdateUI()
         {
-            PatternCountText.Text = $"{_patterns.Count}/{MaxPatterns}";
+            PatternCountText.Text = $"{_patterns.Count}/{AppLimits.BatchRenameMaxPatterns}";
             PatternsContainer.Visibility = _patterns.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             AddPatternButton.IsEnabled = !string.IsNullOrWhiteSpace(PatternInput.Text)
-                                         && _patterns.Count < MaxPatterns;
+                                         && _patterns.Count < AppLimits.BatchRenameMaxPatterns;
+            bool hasResults = _results.Count > 0;
             StartButton.IsEnabled = !string.IsNullOrEmpty(FolderPathBox.Text)
-                                    && _patterns.Count > 0 && !_isProcessing;
+                                    && _patterns.Count > 0 && !_isProcessing && !hasResults;
+            StartButton.Visibility = hasResults ? Visibility.Collapsed : Visibility.Visible;
+            bool showCancel = !string.IsNullOrEmpty(FolderPathBox.Text) && !_isProcessing && !hasResults;
+            CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
+            CancelButton.IsEnabled = showCancel;
             AiSection.Visibility = !string.IsNullOrEmpty(FolderPathBox.Text) && _patterns.Count > 0
+                && !hasResults
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+
+            // La tarjeta premium solo aparece si el escaneo se truncó (carpeta
+            // con más de FileRenamer.MaxFilesToScan archivos afectados) y el
+            // renombrado ya terminó correctamente. En cualquier otro momento
+            // permanece oculta.
+            if (_renamingCompleted && _batchTruncated)
+            {
+                PremiumMessageText.Text = $"Se procesaron solo los primeros {AppLimits.N0(AppLimits.BatchRenameMaxFilesToScan)} de " +
+                    $"{_totalAffected} archivos encontrados. Con la versión premium podrás procesar carpetas completas " +
+                    "sin límites y renombrar todos los archivos de una sola vez.";
+                PremiumSection.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                PremiumSection.Visibility = Visibility.Collapsed;
+            }
+
             UpdateAiStatus();
         }
 
@@ -250,10 +294,22 @@ namespace Remove_Top.Features.BatchRename
             var patterns = _patterns.Select(p => p.Text).ToArray();
             if (string.IsNullOrEmpty(folderPath) || patterns.Length == 0) return;
 
+            var files = FileRenamer.GetAffectedFiles(folderPath, patterns, out int totalFound);
+            if (files.Length == 0) return;
+
+            // El escaneo se truncó si la carpeta tenía más archivos afectados de
+            // los que se procesarán (FileRenamer.MaxFilesToScan). Esto habilita
+            // la tarjeta premium, que solo se muestra al terminar el renombrado.
+            _batchTruncated = totalFound > files.Length;
+            _totalAffected = totalFound;
+            _renamingCompleted = false;
+            PremiumSection.Visibility = Visibility.Collapsed;
+
             _results.Clear();
             PreviewListView.ItemsSource = null;
             PreviewSection.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
             _isProcessing = true;
             UpdateAiStatus();
             CompleteBadge.Visibility = Visibility.Collapsed;
@@ -283,7 +339,7 @@ namespace Remove_Top.Features.BatchRename
 
             try
             {
-                await renamer.ProcessFolderAsync(folderPath, patterns, progress, _cts.Token);
+                await renamer.ProcessFilesAsync(files, patterns, progress, _cts.Token);
 
                 var ok = _results.Count(r => r.Success);
                 var fail = _results.Count(r => !r.Success);
@@ -291,6 +347,7 @@ namespace Remove_Top.Features.BatchRename
                 CompleteBadge.Visibility = Visibility.Visible;
                 ProgressBar.Value = 100;
                 ProgressText.Text = "Proceso finalizado";
+                _renamingCompleted = true;
             }
             catch (OperationCanceledException)
             {
@@ -335,7 +392,7 @@ namespace Remove_Top.Features.BatchRename
         }
 
         /// <summary>
-        /// "Iniciar de nuevo": vuelve la página a su estado inicial tras un
+        /// "Limpiar": vuelve la página a su estado inicial tras un
         /// renombrado. Limpia la ruta, los resultados, la vista previa, el
         /// progreso y las sugerencias de IA. Los patrones se conservan porque
         /// son preferencias persistentes (patterns.json).
@@ -346,6 +403,9 @@ namespace Remove_Top.Features.BatchRename
 
             FolderPathBox.Text = "";
             _results.Clear();
+            _renamingCompleted = false;
+            _batchTruncated = false;
+            PremiumSection.Visibility = Visibility.Collapsed;
 
             PreviewListView.ItemsSource = null;
             PreviewSection.Visibility = Visibility.Collapsed;
@@ -353,6 +413,38 @@ namespace Remove_Top.Features.BatchRename
             ResultsSection.Visibility = Visibility.Collapsed;
             CompleteBadge.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
+
+            ProgressBar.Value = 0;
+            ProgressText.Text = "";
+            ProgressCountText.Text = "";
+
+            ClearSuggestions();
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// "Cancelar": resetea la página al estado inicial tras el análisis
+        /// ( limpia ruta, resultados, vista previa, progreso y sugerencias).
+        /// Los patrones se conservan.
+        /// </summary>
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing) return;
+
+            FolderPathBox.Text = "";
+            _results.Clear();
+            _renamingCompleted = false;
+            _batchTruncated = false;
+            PremiumSection.Visibility = Visibility.Collapsed;
+
+            PreviewListView.ItemsSource = null;
+            PreviewSection.Visibility = Visibility.Collapsed;
+            ProgressSection.Visibility = Visibility.Collapsed;
+            ResultsSection.Visibility = Visibility.Collapsed;
+            CompleteBadge.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
+            CancelButton.Visibility = Visibility.Collapsed;
 
             ProgressBar.Value = 0;
             ProgressText.Text = "";
@@ -363,42 +455,41 @@ namespace Remove_Top.Features.BatchRename
         }
 
         // ================================================================
-        // MEJORA DE PATRONES CON IA
+        // VERSIÓN PREMIUM
         // ================================================================
 
-        private bool IsGroqProvider =>
-            (ProviderComboBox.SelectedItem as ComboBoxItem)?.Tag as string == "groq";
-
-        private void ProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// Abre en el navegador la URL de la versión premium. El destino se
+        /// centraliza en <see cref="PremiumLinks.UpgradeUrl"/> para poder
+        /// cambiarlo manualmente en un solo lugar. Si la apertura falla se
+        /// muestra el motivo en la línea de estado del progreso.
+        /// </summary>
+        private async void UpgradeButton_Click(object sender, RoutedEventArgs e)
         {
-            ApiKeyBox.IsEnabled = IsGroqProvider;
-            ApiKeyBox.Password = "";
-            UpdateAiStatus();
+            try
+            {
+                var uri = new Uri(PremiumLinks.UpgradeUrl);
+                await Windows.System.Launcher.LaunchUriAsync(uri);
+            }
+            catch (Exception ex)
+            {
+                ProgressText.Text = $"No se pudo abrir el enlace premium: {ex.Message}";
+            }
         }
 
-        private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            UpdateAiStatus();
-        }
+        // ================================================================
+        // MEJORA DE PATRONES CON IA
+        // ================================================================
 
         private void UpdateAiStatus()
         {
             bool ready = !string.IsNullOrEmpty(FolderPathBox.Text)
                          && _patterns.Count > 0 && !_isProcessing && !_isSuggesting;
 
-            if (IsGroqProvider)
-            {
-                bool hasKey = !string.IsNullOrEmpty(ApiKeyBox.Password);
-                AiStatusText.Text = hasKey
-                    ? "Se enviarán los patrones actuales y los nombres de archivos afectados a Groq."
-                    : "Ingresa tu API Key de Groq para habilitar la sugerencia de patrones.";
-                SuggestPatternsButton.IsEnabled = ready && hasKey;
-            }
-            else
-            {
-                AiStatusText.Text = "Modo de pruebas: las sugerencias se generan localmente sin red ni API Key.";
-                SuggestPatternsButton.IsEnabled = ready;
-            }
+            AiStatusText.Text = ready
+                ? "Se enviarán los patrones y los primeros 10 nombres de archivos afectados al servidor Topremix."
+                : "Selecciona una carpeta y agrega patrones para habilitar la sugerencia de IA.";
+            SuggestPatternsButton.IsEnabled = ready;
         }
 
         private async void SuggestPatternsButton_Click(object sender, RoutedEventArgs e)
@@ -410,6 +501,7 @@ namespace Remove_Top.Features.BatchRename
                 .Select(Path.GetFileNameWithoutExtension)
                 .Where(n => !string.IsNullOrEmpty(n))
                 .Cast<string>()
+                .Take(10)
                 .ToArray();
 
             if (patterns.Length == 0 || fileNames.Length == 0)
@@ -425,11 +517,9 @@ namespace Remove_Top.Features.BatchRename
             PatternInput.IsEnabled = false;
             AddPatternButton.IsEnabled = false;
             AiProgressBar.Visibility = Visibility.Visible;
-            AiStatusText.Text = "Enviando datos a la IA...";
+            AiStatusText.Text = "Enviando datos al servidor Topremix...";
 
-            IPatternSuggestionProvider provider = IsGroqProvider
-                ? new GroqPatternSuggester(ApiKeyBox.Password)
-                : new MockPatternSuggester();
+            var provider = new GroqPatternSuggester();
 
             try
             {

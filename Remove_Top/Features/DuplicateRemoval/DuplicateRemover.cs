@@ -22,6 +22,7 @@ namespace Remove_Top.Features.DuplicateRemoval
     public class DeletionResult
     {
         public string FileName { get; set; } = "";
+        public string FilePath { get; set; } = "";
         public bool Success { get; set; }
         public string Message { get; set; } = "";
         public Icon StatusIcon => Success ? Icon.CheckmarkCircle : Icon.DismissCircle;
@@ -46,8 +47,11 @@ namespace Remove_Top.Features.DuplicateRemoval
     /// </summary>
     public class DuplicateRemover
     {
-        /// <summary>Límite de archivos eliminables por ejecución (versión gratuita).</summary>
-        public const int MaxDeletionsPerRun = 1000;
+        /// <summary>
+        /// Límite de archivos eliminables por ejecución (versión gratuita).
+        /// Valor centralizado en <see cref="AppLimits.DuplicatesMaxDeletionsPerRun"/>.
+        /// </summary>
+        public const int MaxDeletionsPerRun = AppLimits.DuplicatesMaxDeletionsPerRun;
 
         /// <summary>
         /// Procesa los archivos marcados (IsMarkedForDeletion), hasta
@@ -80,6 +84,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                     result = new DeletionResult
                     {
                         FileName = item.FileName,
+                        FilePath = item.FilePath,
                         Success = true,
                         Message = mode == DeletionMode.RecycleBin
                             ? "Enviado a la Papelera"
@@ -95,6 +100,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                     result = new DeletionResult
                     {
                         FileName = item.FileName,
+                        FilePath = item.FilePath,
                         Success = false,
                         Message = $"Error: {ex.Message}"
                     };

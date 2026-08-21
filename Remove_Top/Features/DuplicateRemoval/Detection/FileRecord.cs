@@ -14,7 +14,7 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         public string NormalizedName { get; set; } = "";
 
         /// <summary>
-        /// Palabras significativas del BLOQUE DE TÍTULO del nombre (hasta 4),
+        /// Palabras significativas del BLOQUE DE TÍTULO del nombre (hasta 8),
         /// ya limpias y minúsculas. El artista (bloque previo al último guion)
         /// no se incluye: evitaría falsos positivos entre canciones distintas
         /// del mismo intérprete.

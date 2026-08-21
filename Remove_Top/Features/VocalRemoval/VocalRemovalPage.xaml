@@ -17,16 +17,18 @@
 
         <!-- HEADER: Branding + Título -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <Border CornerRadius="4" Padding="8,2" Background="#9B59B6" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#9B59B6">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="Mic" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Stems — Extraer Voz"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock                        Text="Separa la voz del instrumental usando IA (HD-Demucs). Máximo 5 canciones por lote."
+            <TextBlock x:Name="PageDescriptionText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
