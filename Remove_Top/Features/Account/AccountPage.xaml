@@ -63,6 +63,32 @@
                                    FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    HorizontalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                            <ic:FluentIcon Icon="Info" IconVariant="Regular" IconSize="Size12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="© GH Dev Company" FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Novedades (visible al pulsar info)          -->
+                <!-- ==================================================== -->
+                <Border x:Name="ReleaseNotesSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ic:FluentIcon Icon="Info" IconVariant="Regular" IconSize="Size16"
+                                           Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Novedades" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <TextBlock x:Name="ReleaseNotesText"
+                                   FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </Border>
 
@@ -281,7 +307,20 @@
                         BorderThickness="1" CornerRadius="8" Padding="16"
                         Background="{ThemeResource LayerFillColorDefaultBrush}">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Actualizaciones" FontSize="16" FontWeight="SemiBold" />
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Text="Actualizaciones" FontSize="16" FontWeight="SemiBold" />
+                            <Button Grid.Column="1"
+                                    x:Name="ShowReleaseNotesButton"
+                                    Click="ShowReleaseNotesButton_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    HorizontalAlignment="Left"
+                                    ToolTipService.ToolTip="Ver novedades de esta versión">
+                                <ic:FluentIcon Icon="Info" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            </Button>
+                        </Grid>
 
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="2">

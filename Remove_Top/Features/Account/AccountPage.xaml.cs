@@ -62,6 +62,12 @@ namespace Remove_Top.Features.Account
             PageSubtitleText.Text = AppLimits.AccountPageSubtitle;
             AppSiteText.Text = AppLimits.AppBrandSite;
 
+            // Versión actual visible de entrada (sin necesidad de buscar actualizaciones).
+            InstalledVersionText.Text = $"Versión instalada: {UpdateChecker.InstalledVersion}";
+
+            // Cargar notas de versión desde el archivo de texto.
+            LoadReleaseNotes();
+
             // Sección de sugerencias: textos y límite centralizados en AppLimits.
             SuggestionsTitleText.Text = AppLimits.SuggestionsTitle;
             SuggestionsSubtitleText.Text = AppLimits.SuggestionsSubtitle;
@@ -486,6 +492,44 @@ namespace Remove_Top.Features.Account
             SuggestionInfoBar.Title = title;
             SuggestionInfoBar.Message = message;
             SuggestionInfoBar.IsOpen = true;
+        }
+
+        // ================================================================
+        // NOVEDADES (release notes)
+        // ================================================================
+
+        /// <summary>
+        /// Carga las notas de versión desde Assets/release_notes.txt
+        /// y las muestra en el TextBlock de novedades.
+        /// </summary>
+        private void LoadReleaseNotes()
+        {
+            try
+            {
+                var notesPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "release_notes.txt");
+                if (System.IO.File.Exists(notesPath))
+                {
+                    var content = System.IO.File.ReadAllText(notesPath);
+                    ReleaseNotesText.Text = content.Trim();
+                }
+                else
+                {
+                    ReleaseNotesText.Text = "No hay notas de versión disponibles.";
+                }
+            }
+            catch
+            {
+                ReleaseNotesText.Text = "No se pudieron cargar las notas de versión.";
+            }
+        }
+
+        /// <summary>Muestra u oculta la sección de novedades al pulsar el icono [i].</summary>
+        private void ShowReleaseNotesButton_Click(object sender, RoutedEventArgs e)
+        {
+            ReleaseNotesSection.Visibility =
+                ReleaseNotesSection.Visibility == Visibility.Visible
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
         }
 
         // ================================================================

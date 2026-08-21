@@ -1,0 +1,8 @@
+=== One Dj App v0.1.3 ===
+
+✓ Sistema de actualizaciones corregido (Velopack 1.2.0)
+✓ Detección de updates con GithubSource explícito
+✓ Errores de red ahora se registran en crash.log
+✓ Iconos de ventana y cuenta corregidos en instaladores
+✓ Versión y novedades visibles en la sección de Cuenta
+✓ Copyright "© GH Dev Company" agregado

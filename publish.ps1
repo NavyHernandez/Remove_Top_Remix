@@ -35,7 +35,7 @@ $RepoName  = "Remove_Top_Remix"
 $AppId     = "OneDjApp"
 $RID        = "win-x64"
 $ProjectDir = Join-Path $PSScriptRoot "Remove_Top"
-$Csproj     = Join-Path $ProjectDir "$AppId.csproj"
+$Csproj     = Join-Path $ProjectDir "Remove_Top.csproj"
 $PublishDir = Join-Path $ProjectDir "bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\publish"
 $ReleaseDir = Join-Path $PSScriptRoot "releases"
 
@@ -77,10 +77,10 @@ if (-not (Test-Path $ReleaseDir)) {
 }
 
 vpk pack `
-    --appId $AppId `
-    --version $Version `
-    --publishDir $ReleaseDir `
-    $PublishDir
+    --packId $AppId `
+    --packVersion $Version `
+    --packDir $PublishDir `
+    --outputDir $ReleaseDir
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "vpk pack falló."
@@ -113,10 +113,9 @@ Write-Host "`n==> Subiendo a GitHub Releases ($RepoOwner/$RepoName)..." -Foregro
 vpk upload github `
     --repoUrl "https://github.com/$RepoOwner/$RepoName" `
     --tag "v$Version" `
-    --name "v$Version" `
-    --releaseNotes "Release v$Version" `
+    --releaseName "v$Version" `
     --token $Token `
-    $nupkg.FullName
+    --outputDir $ReleaseDir
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "vpk upload github falló."
