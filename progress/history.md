@@ -613,3 +613,24 @@ El botón "Cancelar" (columna 3 de la fila de acciones tras el escaneo) se reemp
 
 ### Verificación
 - Build Debug|x64: **0 errores, 0 advertencias**.
+
+---
+
+## 2026-08-20 — Versionado + script de publicación Velopack
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+1. **`Remove_Top.csproj`** — agregada `<Version>0.1.0</Version>` (versión inicial, no estable).
+2. **`publish.ps1`** — script PowerShell de publicación automatizada:
+   - Lee versión del .csproj (oacepta parámetro `-Version`)
+   - `dotnet publish` (Release, win-x64, self-contained)
+   - `vpk pack` (crea .nupkg en `releases/`)
+   - `vpk upload github` (sube a GitHub Releases con token)
+   - Soporta `-SkipUpload` para solo empaquetear
+   - Token via parámetro `-Token` o variable de entorno `GH_TOKEN`
+
+### Verificación
+- Velopack init: `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en App.xaml.cs (confirmado).
+- UpdateChecker: `UpdateManager(GitHubRepoUrl)` → `CheckForUpdatesAsync` → `DownloadUpdatesAsync` → `ApplyUpdatesAndRestart` (confirmado, con manejo de errores).
+- Build Debug|x64: **0 errores, 0 advertencias**.

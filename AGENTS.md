@@ -274,6 +274,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 | Campo | Valor |
 |-------|-------|
 | **Paquete** | Velopack 0.0.1298 (NuGet) |
+| **Versión actual** | `0.1.0` (en `Remove_Top.csproj`, `<Version>`) |
 | **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
 | **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
 | **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |
@@ -287,11 +288,26 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 4. Al reiniciar, `VelopackApp.Build().Run()` aplica los archivos descargados.
 
 ### Publicación de releases en GitHub
-Para que Velopack detecte una nueva versión:
-1. Crear un tag `vX.Y.Z` (ej. `v1.1.0`).
-2. Crear un GitHub Release con ese tag.
-3. Subir como资产: `OneDjApp-{version}-win-x64.zip` (Velopack usa el naming convention `*-win-x64*`).
-4. La app la detecta automáticamente al pulsar "Buscar actualizaciones".
+Para publicar una nueva versión, ejecutar el script `publish.ps1` desde la raíz del repo:
+
+```powershell
+# Publicar con versión del .csproj (0.1.0, 0.2.0, etc.)
+.\publish.ps1
+
+# Forzar versión específica
+.\publish.ps1 -Version "1.0.0"
+
+# Solo empaquetear (sin subir a GitHub)
+.\publish.ps1 -SkipUpload
+```
+
+El script automatiza:
+1. `dotnet publish` (Release, win-x64, self-contained)
+2. `vpk pack` (crea .nupkg en `releases/`)
+3. `vpk upload github` (sube a GitHub Releases con token)
+
+**Requisitos:** .NET 8 SDK + Velopack CLI (`dotnet tool install -g Velopack`).
+**Token:** via parámetro `-Token` o variable de entorno `GH_TOKEN` (no hardcodeado).
 
 ### Workflow de branches
 ```
