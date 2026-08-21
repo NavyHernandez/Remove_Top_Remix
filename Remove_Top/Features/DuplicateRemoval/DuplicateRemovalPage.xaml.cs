@@ -62,7 +62,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             SelectAllButton.Content = UiHelpers.Content(Icon.Checkmark, "Marcar todos", semibold: false, foreground: SelectAllButton.Foreground);
             DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle, "Eliminar seleccionados", foreground: DeleteButton.Foreground);
             DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
-            CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
+            CleanButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CleanButton.Foreground);
             RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
@@ -835,10 +835,10 @@ namespace Remove_Top.Features.DuplicateRemoval
                 _isScanning ? "Cancelar" : "Escanear duplicados",
                 foreground: ScanButton.Foreground);
 
-            // "Cancelar" está activo mientras haya una carpeta cargada (o un escaneo en curso)
-            CancelButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
+            // "Limpiar" está activo mientras haya una carpeta cargada (o un escaneo en curso)
+            CleanButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
 
-            // Fila de acciones: al cargar una carpeta solo aparece "Cancelar".
+            // Fila de acciones: al cargar una carpeta solo aparece "Limpiar".
             // La fila completa (Borrar todos / Eliminar...) solo tras un escaneo
             // con resultados. Si no hay duplicados ni dañados, no aparece nada.
             // Tras una eliminación, los botones desaparecen y solo quedan los resultados.
@@ -856,7 +856,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                 SelectAllButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
                 DeleteButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
                 DeletePermanentButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
-                CancelButton.Visibility = Visibility.Visible;
+                CleanButton.Visibility = Visibility.Visible;
             }
 
             // La tarjeta premium solo aparece si el escaneo se truncó (carpeta
@@ -879,10 +879,10 @@ namespace Remove_Top.Features.DuplicateRemoval
         }
 
         /// <summary>
-        /// "Cancelar": si hay un escaneo en curso lo cancela (el catch reinicia
+        /// "Limpiar": si hay un escaneo en curso lo cancela (el catch reinicia
         /// todo desde cero); si no, limpia los resultados y la ruta seleccionada.
         /// </summary>
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        private void CleanButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isScanning)
             {

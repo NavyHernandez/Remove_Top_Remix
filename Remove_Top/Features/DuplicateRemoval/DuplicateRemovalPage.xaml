@@ -549,8 +549,8 @@
                                     Foreground="White"
                                     BorderThickness="0" />
                             <Button Grid.Column="3"
-                                    x:Name="CancelButton"
-                                    Click="CancelButton_Click"
+                                    x:Name="CleanButton"
+                                    Click="CleanButton_Click"
                                     CornerRadius="4"
                                     IsEnabled="False"
                                     Background="Transparent"
