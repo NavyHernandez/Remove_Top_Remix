@@ -597,3 +597,19 @@ El botón "Cancelar" (columna 3 de la fila de acciones tras el escaneo) se reemp
 
 ### Verificación
 - Build Debug|x64: **0 errores, 0 advertencias**.
+
+---
+
+## 2026-08-20 — AccountPage: icono One Dj en círculo blanco + regla de no auto-push
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+1. **`AccountPage.xaml`** — `assets:BrandLogo` (cuadrado azul) reemplazado por un `Border` blanco circular (`CornerRadius="60"`) con `Image` del icono One Dj (`Assets/StoreLogo.png`, 80x80 centrado).
+2. **`AGENTS.md`** — agregada regla explícita: **NO hacer git push a menos que el usuario lo solicite directamente**.
+
+### Regla de repositorio
+> **IMPORTANTE:** NO actualices el repositorio (git push) a menos que el usuario te lo solicite explícitamente. Solo haz commit y push cuando el usuario lo pida directamente.
+
+### Verificación
+- Build Debug|x64: **0 errores, 0 advertencias**.

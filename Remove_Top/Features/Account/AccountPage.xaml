@@ -53,7 +53,12 @@
                         <TextBlock Text="One Dj App"
                                    FontSize="16" FontWeight="SemiBold"
                                    HorizontalAlignment="Center" />
-                        <assets:BrandLogo Width="120" Height="120" HorizontalAlignment="Center" />
+                        <Border Width="120" Height="120" CornerRadius="60"
+                                Background="White" HorizontalAlignment="Center">
+                            <Image Source="ms-appx:///Assets/StoreLogo.png"
+                                   Width="80" Height="80"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
                         <TextBlock x:Name="AppSiteText"
                                    FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"

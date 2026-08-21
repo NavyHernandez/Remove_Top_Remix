@@ -5,6 +5,8 @@
 > - `progress/feature_list.json` — lista de features completadas y pendientes
 >
 > Esto te dará contexto completo del estado del proyecto.
+>
+> **IMPORTANTE:** NO actualices el repositorio (git push) a menos que el usuario te lo solicite explícitamente. Solo haz commit y push cuando el usuario lo pida directamente.
 
 ## Descripción
 
