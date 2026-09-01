@@ -68,6 +68,9 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
                             // Exacto (hash) y Misma canción (mismo nombre) se marcan siempre.
                             DuplicateMatchKind.Exact => true,
                             DuplicateMatchKind.SameName => true,
+                            // Nombre contenido: se marca por defecto; DurationVerifier
+                            // desmarca si la duración es muy distinta.
+                            DuplicateMatchKind.SubsetMatch => true,
                             DuplicateMatchKind.ProbableByName => sameSize,
                             _ => false
                         }

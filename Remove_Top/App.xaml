@@ -10,7 +10,19 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+            <!-- Badge de marca de cada página (barra con color de fondo a todo lo ancho) -->
+            <Style x:Key="BrandBadgeBorderStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="8,4" />
+                <Setter Property="Margin" Value="0,0,0,8" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+            </Style>
+            <Style x:Key="BrandTextStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Bahnschrift" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="White" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

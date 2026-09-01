@@ -1,4 +1,5 @@
 using FluentIcons.Common;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -65,6 +66,9 @@ namespace Remove_Top.Features.BatchRename
         private static readonly string[] AllExtensions =
             AudioExtensions.Concat(ImageExtensions).Concat(VideoExtensions).Concat(DocumentExtensions).ToArray();
 
+        /// <summary>Límite real de archivos procesados (versión gratuita), centralizado en AppLimits.</summary>
+        public const int MaxFilesToScan = AppLimits.BatchRenameMaxFilesToScan;
+
         public static bool IsSupportedFile(string path)
         {
             var ext = Path.GetExtension(path)?.ToLowerInvariant();
@@ -73,15 +77,27 @@ namespace Remove_Top.Features.BatchRename
 
         /// <summary>
         /// Busca archivos que contengan ALGUNO de los patrones en su nombre.
+        /// El escaneo es recursivo (incluye subcarpetas) y devuelve como máximo
+        /// <see cref="MaxFilesToScan"/> archivos (versión gratuita).
         /// </summary>
         public static string[] GetAffectedFiles(string folderPath, string[] patterns)
+            => GetAffectedFiles(folderPath, patterns, out _);
+
+        /// <summary>
+        /// Como <see cref="GetAffectedFiles(string, string[])"/> pero además
+        /// expone <paramref name="totalFound"/> con el número TOTAL de archivos
+        /// afectados (antes de aplicar el límite). Si totalFound supera el
+        /// tamaño del array devuelto, el escaneo se truncó por el límite.
+        /// </summary>
+        public static string[] GetAffectedFiles(string folderPath, string[] patterns, out int totalFound)
         {
+            totalFound = 0;
             if (!Directory.Exists(folderPath) || patterns.Length == 0)
                 return [];
 
             try
             {
-                return Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
+                var affected = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
                     .Where(IsSupportedFile)
                     .Where(f =>
                     {
@@ -89,7 +105,10 @@ namespace Remove_Top.Features.BatchRename
                         return patterns.Any(p =>
                             name.Contains(p, StringComparison.OrdinalIgnoreCase));
                     })
-                    .ToArray();
+                    .ToList();
+
+                totalFound = affected.Count;
+                return affected.Take(MaxFilesToScan).ToArray();
             }
             catch
             {
@@ -115,6 +134,20 @@ namespace Remove_Top.Features.BatchRename
                 throw new ArgumentException("Debe agregar al menos un patrón.");
 
             var files = GetAffectedFiles(folderPath, patterns);
+            await ProcessFilesAsync(files, patterns, progress, cancellationToken);
+        }
+
+        /// <summary>
+        /// Procesa una lista ya calculada de archivos (con el límite gratuito
+        /// ya aplicado) aplicando todos los patrones a cada nombre.
+        /// Reporta progreso mediante IProgress y soporta cancelación.
+        /// </summary>
+        public async Task ProcessFilesAsync(
+            string[] files,
+            string[] patterns,
+            IProgress<RenameProgress> progress,
+            CancellationToken cancellationToken = default)
+        {
             int total = files.Length;
 
             for (int i = 0; i < total; i++)

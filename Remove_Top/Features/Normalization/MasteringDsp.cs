@@ -324,4 +324,139 @@ namespace Remove_Top.Features.Normalization
             return samplesRead;
         }
     }
+
+    /// <summary>
+    /// Limitador duro tipo "Hard Limiter" (estilo Adobe Audition).
+    /// Combina pre-amplificación (Input Boost), lookahead y techo de salida
+    /// (ceiling). El lookahead permite anticipar los picos antes de que se
+    /// escuchen, por lo que se puede subir mucha más sonoridad (RMS) sin
+    /// saturar: es el paso profesional que rellena la forma de onda hasta
+    /// cerca del techo (-0.3 dB) como en un master comercial.
+    /// La ganancia es estéreo-enlazada para no desplazar la imagen estéreo.
+    /// </summary>
+    public sealed class HardLimiterSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private readonly int _channels;
+        private readonly int _lookaheadFrames;
+        private readonly float _boostLinear;
+        private readonly float _ceilingLinear;
+        private readonly float _releaseCoeff;
+
+        // Anillo de retardo: mantiene la señal preamplificada durante el lookahead.
+        // La muestra que sale del anillo es la que se emite (retardada); el resto
+        // del anillo es su "futuro", usado para calcular la reducción de ganancia.
+        private readonly float[] _ring;
+        private int _ringPos;
+
+        // Ganancia actual suavizada con release (estéreo-enlazada).
+        private float _currentGain = 1f;
+
+        private bool _eof;
+        private int _flushedFrames;
+
+        private readonly float[] _frame;
+        private readonly float[] _outFrame;
+
+        /// <summary>
+        /// Crea el limitador duro.
+        /// </summary>
+        /// <param name="ceilingDb">Techo de salida en dBFS (negativo, p.ej. -0.3).</param>
+        /// <param name="boostDb">Pre-amplificación (input boost) en dB antes de limitar. Es lo que eleva el nivel promedio.</param>
+        /// <param name="lookaheadMs">Tiempo de anticipación en ms (Adobe recomienda al menos 5 ms para evitar distorsión audible).</param>
+        /// <param name="releaseMs">Tiempo de liberación en ms (~100 ms preserva los graves).</param>
+        public HardLimiterSampleProvider(
+            ISampleProvider source,
+            int channels,
+            int sampleRate,
+            double ceilingDb,
+            double boostDb,
+            double lookaheadMs,
+            double releaseMs)
+        {
+            _source = source;
+            _channels = channels;
+            _lookaheadFrames = Math.Max(1, (int)Math.Round(lookaheadMs / 1000.0 * sampleRate));
+            _boostLinear = (float)Math.Pow(10.0, boostDb / 20.0);
+            _ceilingLinear = (float)Math.Pow(10.0, ceilingDb / 20.0);
+            _releaseCoeff = (float)Math.Exp(-1.0 / (Math.Max(releaseMs, 0.1) / 1000.0 * sampleRate));
+
+            _ring = new float[_lookaheadFrames * channels];
+            _frame = new float[channels];
+            _outFrame = new float[channels];
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int frames = count / _channels;
+            if (frames == 0)
+                return 0;
+
+            int written = 0;
+
+            for (int f = 0; f < frames; f++)
+            {
+                if (!_eof)
+                {
+                    int n = _source.Read(_frame, 0, _channels);
+                    if (n < _channels)
+                    {
+                        // Fin de la señal: completa con silencio y vacía la cola de retardo.
+                        for (int c = n; c < _channels; c++)
+                            _frame[c] = 0f;
+                        _eof = true;
+                        _flushedFrames = 0;
+                    }
+
+                    // Pre-amplificación (Input Boost) antes de limitar.
+                    for (int c = 0; c < _channels; c++)
+                        _frame[c] *= _boostLinear;
+                }
+                else
+                {
+                    Array.Clear(_frame, 0, _channels);
+                    _flushedFrames++;
+                    if (_flushedFrames >= _lookaheadFrames)
+                        break; // cola de retardo vaciada
+                }
+
+                // Muestra retardada que sale del anillo (es la que se va a emitir).
+                int pos = _ringPos * _channels;
+                for (int c = 0; c < _channels; c++)
+                    _outFrame[c] = _ring[pos + c];
+
+                // Pico en la ventana de lookahead: la muestra de salida más sus
+                // sucesoras (aún sin sobrescribir el hueco que se va a liberar).
+                float peak = 0f;
+                for (int i = 0; i < _ring.Length; i++)
+                {
+                    float abs = Math.Abs(_ring[i]);
+                    if (abs > peak) peak = abs;
+                }
+
+                float targetGain = peak > _ceilingLinear ? _ceilingLinear / peak : 1f;
+
+                // Ataque instantáneo (gracias al lookahead) y recuperación con release.
+                if (targetGain < _currentGain)
+                    _currentGain = targetGain;
+                else
+                    _currentGain = _releaseCoeff * _currentGain + (1f - _releaseCoeff) * targetGain;
+
+                // Emite la muestra retardada con la ganancia aplicada (estéreo-enlazada).
+                for (int c = 0; c < _channels; c++)
+                    buffer[offset + written + c] = _outFrame[c] * _currentGain;
+
+                // Guarda la nueva muestra preamplificada en el hueco liberado.
+                for (int c = 0; c < _channels; c++)
+                    _ring[pos + c] = _frame[c];
+
+                _ringPos = (_ringPos + 1) % _lookaheadFrames;
+                written += _channels;
+            }
+
+            return written;
+        }
+    }
 }

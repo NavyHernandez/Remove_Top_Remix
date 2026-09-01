@@ -3,6 +3,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -52,7 +53,11 @@ namespace Remove_Top.Features.VocalRemoval
         private const int Overlap = (int)(NSamples * OverlapFraction);
         private const int Stride = NSamples - Overlap;
         private const int VocalsIndex = 3;
-        private const int MaxFiles = 5;
+        /// <summary>
+        /// Máximo de canciones estéreo por lote. Valor centralizado en
+        /// <see cref="AppLimits.VocalRemovalMaxFilesPerBatch"/>.
+        /// </summary>
+        private const int MaxFiles = AppLimits.VocalRemovalMaxFilesPerBatch;
 
         private static readonly string[] AudioExtensions =
             [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma"];

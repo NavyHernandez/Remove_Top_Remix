@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Remove_Top.Assets.BrandLogo"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ic="using:FluentIcons.WinUI"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!--
+        Logo profesional de la marca (vectorial).
+        Cuadrado redondeado con gradiente azul + nota musical y forma de onda.
+        Reutilizable en cualquier parte de la app (tamaño vía Width/Height).
+    -->
+    <Grid>
+        <Border CornerRadius="22" Padding="16">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#5B9BD5" Offset="0.0" />
+                    <GradientStop Color="#2E75B6" Offset="1.0" />
+                </LinearGradientBrush>
+            </Border.Background>
+
+            <StackPanel VerticalAlignment="Center" Spacing="4">
+                <!-- Nota musical -->
+                <ic:FluentIcon Icon="MusicNote2" IconVariant="Filled" IconSize="Size32"
+                               Foreground="White" HorizontalAlignment="Center" />
+
+                <!-- Forma de onda (barras de audio de distinta altura) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="3">
+                    <Rectangle Width="6" Height="16" RadiusX="3" RadiusY="3" Fill="White" Opacity="0.85" />
+                    <Rectangle Width="6" Height="24" RadiusX="3" RadiusY="3" Fill="White" Opacity="1.00" />
+                    <Rectangle Width="6" Height="12" RadiusX="3" RadiusY="3" Fill="White" Opacity="0.80" />
+                    <Rectangle Width="6" Height="20" RadiusX="3" RadiusY="3" Fill="White" Opacity="0.90" />
+                    <Rectangle Width="6" Height="10" RadiusX="3" RadiusY="3" Fill="White" Opacity="0.75" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

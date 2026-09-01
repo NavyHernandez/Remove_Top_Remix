@@ -4,11 +4,14 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Remove_Top.Features.DuplicateRemoval"
+    xmlns:audiopreview="using:Remove_Top.Features.AudioPreview"
+    xmlns:imagepreview="using:Remove_Top.Features.ImagePreview"
     xmlns:helpers="using:Remove_Top.Helpers"
     xmlns:ic="using:FluentIcons.WinUI"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    Unloaded="Page_Unloaded">
 
     <Page.Resources>
         <helpers:FileTypeIconConverter x:Key="FileTypeIcon" />
@@ -24,16 +27,18 @@
         <!-- HEADER: Branding + Título y descripción                     -->
         <!-- ============================================================ -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <Border CornerRadius="4" Padding="8,2" Background="#E74C3C" Margin="0,0,0,8">
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size12"
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#E74C3C">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="Copy" IconVariant="Regular" IconSize="Size12"
                                    Foreground="White" />
-                    <TextBlock Text="Top Remix" FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
                 </StackPanel>
             </Border>
-            <TextBlock Text="Eliminación de Duplicados"
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
                        FontSize="28" FontWeight="SemiBold" />
-            <TextBlock Text="Escanea una carpeta (incluye subcarpetas), detecta duplicados y luego envíalos a la Papelera. Se consideran EXACTOS los archivos con el mismo contenido (hash), el mismo nombre de canción cambiando solo el formato (mayúsculas, guiones, espacios, acentos) o nombres que difieren en una sola letra (falta ortográfica); los 'posibles' se verifican por duración de audio para descartar falsos positivos."
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
                        FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,4,0,0" />
@@ -52,8 +57,8 @@
                          Severity="Informational"
                          IsOpen="True"
                          IsClosable="False"
-                         Title="Versión gratuita: hasta 1.000 archivos"
-                         Message="El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de 1.000 archivos, se analizan los primeros 1.000." />
+                         Title=""
+                         Message="" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Selección de la carpeta de origen           -->
@@ -86,7 +91,7 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap">
                             <Run Text="Ingresa a " />                            
-                            <Run FontWeight="Bold" Text="www.top-remix.com" />
+                            <Run x:Name="BrandSiteRun" FontWeight="Bold" Text="" />
                         </TextBlock>
                     </StackPanel>
                 </Border>
@@ -112,12 +117,19 @@
                                 Background="#E67E22"
                                 Foreground="White"
                                 BorderThickness="0" />
-                        <StackPanel Orientation="Horizontal" Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
                             <ProgressRing x:Name="ScanLoader"
                                           Width="24" Height="24"
                                           IsActive="False"
                                           Visibility="Collapsed"
                                           VerticalAlignment="Center" />
+                            <ic:FluentIcon x:Name="NoDuplicatesIcon"
+                                           Icon="CheckmarkCircle"
+                                           IconVariant="Filled"
+                                           IconSize="Size20"
+                                           Foreground="#2ECC71"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed" />
                             <TextBlock x:Name="ScanStatusText"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -138,34 +150,51 @@
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         Visibility="Collapsed">
                     <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="Resultados"
-                                       FontSize="16" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1"
-                                       x:Name="SummaryText"
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                <TextBlock Text="Resultados"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1"
+                                           x:Name="SummaryText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBlock Grid.Row="1"
+                                       x:Name="ScannedFilesText"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center" />
+                                       Margin="0,4,0,0" />
                         </Grid>
 
                         <TabView x:Name="ResultsTabView"
                                  TabWidthMode="SizeToContent"
                                  IsAddTabButtonVisible="False"
                                  SelectionChanged="ResultsTabView_SelectionChanged">
+                            <TabView.Resources>
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33E67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelectedPressed" Color="#33E67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#1AE67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOverPressed" Color="#1AE67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#1AE67E22" />
+                                <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="#E67E22" />
+                            </TabView.Resources>
                             <TabViewItem x:Name="ExactTab" IsClosable="False">
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="CheckmarkCircle" IconVariant="Regular" IconSize="Size16"
-                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                        VerticalAlignment="Center" />
-                                        <TextBlock x:Name="ExactTabHeader" Text="· Duplicados exactos" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="ExactTabHeader" Text="Duplicados exactos" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                                 <ListView x:Name="ExactListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -210,6 +239,19 @@
                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                     </StackPanel>
                                                 </Border>
+                                                <Button Grid.Column="6"
+                                                        Click="PreviewButton_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        IsEnabled="{Binding IsPreviewable}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="{Binding PreviewToolTip}"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="#E67E22" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -220,16 +262,14 @@
                                 <TabViewItem.Header>
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="Warning" IconVariant="Regular" IconSize="Size16"
-                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                        VerticalAlignment="Center" />
-                                        <TextBlock x:Name="PossibleTabHeader" Text="· Posibles" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="PossibleTabHeader" Text="Posibles" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                                 <ListView x:Name="PossibleListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -275,6 +315,19 @@
                                                                    Opacity="0.9" />
                                                     </StackPanel>
                                                 </Border>
+                                                <Button Grid.Column="6"
+                                                        Click="PreviewButton_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        IsEnabled="{Binding IsPreviewable}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="{Binding PreviewToolTip}"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="#E67E22" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -286,8 +339,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <ic:FluentIcon Icon="ErrorCircle" IconVariant="Regular" IconSize="Size16"
                                                        Foreground="#C0392B" VerticalAlignment="Center" />
-                                        <TextBlock x:Name="DamagedTabHeader" Text="· Archivos dañados" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="DamagedTabHeader" Text="Archivos dañados" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TabViewItem.Header>
                                 <ListView x:Name="DamagedListView" SelectionMode="None" MaxHeight="260">
@@ -338,6 +390,120 @@
                 </Border>
 
                 <!-- ==================================================== -->
+                <!-- SECCIÓN: Previsualizador de audio (Duplicados)       -->
+                <!-- Muestra la forma de onda del archivo seleccionado y   -->
+                <!-- permite reproducir/pausar, detener y adelantar con el -->
+                <!-- scrub sobre la onda. Solo aparece para archivos de    -->
+                <!-- audio de las pestañas Exactos/Posibles (no dañados).  -->
+                <!-- ==================================================== -->
+                <Border x:Name="PreviewSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="MusicNote2" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="#E67E22" VerticalAlignment="Center" />
+                                <TextBlock x:Name="PreviewFileNameText"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    x:Name="PreviewCloseButton"
+                                    Click="PreviewClose_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Cerrar">
+                                <ic:FluentIcon Icon="Dismiss" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Forma de onda con scrub (adelantar/atrasar) -->
+                        <audiopreview:WaveformView x:Name="PreviewWaveform"
+                                                   Height="88" />
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                            <Button x:Name="PreviewPlayButton"
+                                    Click="PreviewPlayPause_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    ToolTipService.ToolTip="Reproducir / Pausar" />
+                            <Button Grid.Column="1"
+                                    x:Name="PreviewStopButton"
+                                    Click="PreviewStop_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    ToolTipService.ToolTip="Detener" />
+                            <TextBlock Grid.Column="3"
+                                       x:Name="PreviewTimeText"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Previsualizador de imágenes (Duplicados)     -->
+                <!-- Muestra la imagen seleccionada ajustada al espacio.    -->
+                <!-- Solo aparece para archivos de imagen de las pestañas   -->
+                <!-- Exactos/Posibles (no dañados).                        -->
+                <!-- ==================================================== -->
+                <Border x:Name="ImagePreviewSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Image" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="#E67E22" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ImagePreviewFileNameText"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    x:Name="ImagePreviewCloseButton"
+                                    Click="ImagePreviewClose_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Cerrar">
+                                <ic:FluentIcon Icon="Dismiss" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Visor de imagen (ajustada al espacio, sin zoom) -->
+                        <Border BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="4">
+                            <imagepreview:ImagePreviewView x:Name="ImagePreviewViewer"
+                                                           Height="300" />
+                        </Border>
+
+                        <TextBlock x:Name="ImagePreviewInfoText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
                 <!-- SECCIÓN: Acciones (visible al cargar una carpeta)    -->
                 <!-- ==================================================== -->
                 <Border x:Name="ActionsSection"
@@ -354,15 +520,15 @@
                                    TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto"
                               ColumnSpacing="8"
-                              HorizontalAlignment="Right">
+                              HorizontalAlignment="Center">
                             <Button x:Name="SelectAllButton"
-                                    Content="Borrar todos"
+                                    Content="Marcar todos"
                                     Click="SelectAllButton_Click"
                                     CornerRadius="4"
                                     IsEnabled="False"
                                     Background="Transparent"
-                                    BorderBrush="#E74C3C"
-                                    Foreground="#E74C3C"
+                                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                    Foreground="{ThemeResource AccentFillColorDefaultBrush}"
                                     BorderThickness="1.5" />
                             <Button Grid.Column="1"
                                     x:Name="DeleteButton"
@@ -383,8 +549,8 @@
                                     Foreground="White"
                                     BorderThickness="0" />
                             <Button Grid.Column="3"
-                                    x:Name="CancelButton"
-                                    Click="CancelButton_Click"
+                                    x:Name="CleanButton"
+                                    Click="CleanButton_Click"
                                     CornerRadius="4"
                                     IsEnabled="False"
                                     Background="Transparent"
@@ -422,6 +588,55 @@
                         <TextBlock x:Name="DeleteProgressText"
                                    FontSize="13"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Upgrade a la versión premium                -->
+                <!-- Solo aparece cuando el escaneo se truncó (la carpeta  -->
+                <!-- tenía más de DuplicateScanner.MaxFilesToScan archivos) -->
+                <!-- y la limpieza terminó correctamente (se gestiona en   -->
+                <!-- DuplicateRemovalPage.UpdateUI). Colocada antes de la  -->
+                <!-- sección de resultados de la eliminación para quedar   -->
+                <!-- al final, justo encima del botón "Limpiar".  -->
+                <!-- ==================================================== -->
+                <Border x:Name="PremiumSection"
+                        BorderBrush="#2ECC71"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Width="40" Height="40"
+                                    CornerRadius="20"
+                                    Background="#332ECC71"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Star" IconVariant="Filled" IconSize="Size20"
+                                               Foreground="#2ECC71"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Adquiere la versión premium"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="PremiumMessageText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="UpgradeButton"
+                                Content="Adquiere la versión premium"
+                                Click="UpgradeButton_Click"
+                                Height="40"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                CornerRadius="6"
+                                Background="#2ECC71"
+                                Foreground="White"
+                                BorderThickness="0" />
                     </StackPanel>
                 </Border>
 
@@ -468,7 +683,7 @@
                             </ListView.ItemTemplate>
                         </ListView>
                         <Button x:Name="RestartButton"
-                                Content="Iniciar de nuevo"
+                                Content="Limpiar"
                                 Click="RestartButton_Click"
                                 CornerRadius="4"
                                 HorizontalAlignment="Center"

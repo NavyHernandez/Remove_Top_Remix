@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Remove_Top.Features.Account.AccountPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Remove_Top.Features.Account"
+    xmlns:assets="using:Remove_Top.Assets"
+    xmlns:ic="using:FluentIcons.WinUI"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- HEADER: Branding + Título                                    -->
+        <!-- ============================================================ -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#00A88F">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="Person" IconVariant="Regular" IconSize="Size12"
+                                   Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
+                       FontSize="28" FontWeight="SemiBold" />
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
+                       FontSize="14"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- ============================================================ -->
+        <!-- CONTENT                                                      -->
+        <!-- ============================================================ -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="16">
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Logo profesional                             -->
+                <!-- ==================================================== -->
+                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="One Dj App"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                        <Border Width="120" Height="120" CornerRadius="60"
+                                Background="White" HorizontalAlignment="Center">
+                            <Image Source="ms-appx:///Assets/StoreLogo.png"
+                                   Width="80" Height="80"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="AppSiteText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                            <ic:FluentIcon Icon="Info" IconVariant="Regular" IconSize="Size12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="© GH Dev Company" FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Novedades (visible al pulsar info)          -->
+                <!-- ==================================================== -->
+                <Border x:Name="ReleaseNotesSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ic:FluentIcon Icon="Info" IconVariant="Regular" IconSize="Size16"
+                                           Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            <TextBlock Text="Novedades" FontSize="14" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <TextBlock x:Name="ReleaseNotesText"
+                                   FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Perfil / Autenticación                      -->
+                <!-- ==================================================== -->
+                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Perfil" FontSize="16" FontWeight="SemiBold" />
+
+                        <!-- Estado con sesión: avatar + datos + cerrar sesión -->
+                        <StackPanel x:Name="LoggedInPanel" Spacing="12" Visibility="Collapsed">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                <Border x:Name="AvatarCircle"
+                                        Width="56" Height="56" CornerRadius="28"
+                                        Background="#00A88F" VerticalAlignment="Center">
+                                    <ic:FluentIcon x:Name="AvatarIcon"
+                                                   Icon="Person" IconVariant="Regular" IconSize="Size28"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ProfileNameText"
+                                               FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="ProfileEmailText"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Button x:Name="LogoutButton"
+                                    HorizontalAlignment="Center"
+                                    Click="LogoutButton_Click"
+                                    CornerRadius="4"
+                                    Background="Transparent"
+                                    BorderBrush="#00A88F"
+                                    Foreground="#00A88F"
+                                    BorderThickness="1.5">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ic:FluentIcon Icon="SignOut" IconVariant="Regular" IconSize="Size16"
+                                                   Foreground="#00A88F" />
+                                    <TextBlock Text="Cerrar sesión" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Estado sin sesión: formulario de login / registro -->
+                        <StackPanel x:Name="LoggedOutPanel" Spacing="12" Visibility="Collapsed">
+                            <TextBox x:Name="EmailBox"
+                                     Header="Correo electrónico"
+                                     PlaceholderText="tucorreo@ejemplo.com"
+                                     KeyDown="AuthField_KeyDown" />
+                            <TextBlock Text="Contraseña"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Grid>
+                                <PasswordBox x:Name="PasswordBox"
+                                             PasswordRevealMode="Hidden"
+                                             Padding="10,5,40,5"
+                                             KeyDown="AuthField_KeyDown" />
+                                <Button x:Name="TogglePasswordButton"
+                                        Width="30" Height="30"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,4,0"
+                                        Padding="0"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        CornerRadius="4"
+                                        Click="TogglePasswordButton_Click"
+                                        ToolTipService.ToolTip="Mostrar contraseña">
+                                    <ic:FluentIcon x:Name="TogglePasswordIcon"
+                                                   Icon="Eye"
+                                                   IconVariant="Regular"
+                                                   IconSize="Size16" />
+                                </Button>
+                            </Grid>
+                            <TextBox x:Name="DisplayNameBox"
+                                     Header="Nombre para mostrar (opcional)"
+                                     PlaceholderText="Cómo te llamamos"
+                                     Visibility="Collapsed"
+                                     KeyDown="AuthField_KeyDown" />
+
+                            <!-- Botón de envío + indicador de progreso -->
+                            <StackPanel Orientation="Horizontal" Spacing="8"
+                                        HorizontalAlignment="Center">
+                                <Button x:Name="AuthSubmitButton"
+                                        Click="AuthSubmitButton_Click"
+                                        CornerRadius="4"
+                                        Padding="16,8"
+                                        Background="#00A88F"
+                                        Foreground="White" />
+                                <ProgressRing x:Name="AuthProgressRing"
+                                              Width="20" Height="20"
+                                              IsActive="False"
+                                              Foreground="#00A88F"
+                                              VerticalAlignment="Center"
+                                              Visibility="Collapsed" />
+                            </StackPanel>
+
+                            <!-- Enlace para alternar entre login y registro -->
+                            <HyperlinkButton x:Name="AuthToggleButton"
+                                             HorizontalAlignment="Center"
+                                             Click="AuthToggleButton_Click" />
+
+                            <!-- Aviso: correo sin verificar (login correcto pero sin verificación) -->
+                            <StackPanel x:Name="AuthVerifyNotePanel" Spacing="4" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <ic:FluentIcon Icon="MailAlert" IconVariant="Regular" IconSize="Size16"
+                                                   Foreground="#E67E22" />
+                                    <TextBlock Text="Tu correo aún no está verificado"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="#E67E22" />
+                                </StackPanel>
+                                <TextBlock Text="Revisa tu bandeja de entrada (y la carpeta de spam). Al confirmar el enlace entraremos a tu cuenta automáticamente."
+                                           FontSize="12" Foreground="#E67E22"
+                                           TextWrapping="Wrap" TextAlignment="Center" />
+                                <HyperlinkButton x:Name="ResendVerifyButton"
+                                                 HorizontalAlignment="Center"
+                                                 Click="ResendVerifyButton_Click"
+                                                 Foreground="#E67E22"
+                                                 Content="Reenviar enlace de verificación" />
+                            </StackPanel>
+
+                            <!-- Aviso: cuenta creada y correo de verificación enviado -->
+                            <StackPanel x:Name="AuthSuccessPanel" Spacing="4" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <ic:FluentIcon Icon="CheckmarkCircle" IconVariant="Regular" IconSize="Size16"
+                                                   Foreground="#70AD47" />
+                                    <TextBlock x:Name="AuthSuccessTitleText"
+                                               Text="Cuenta creada. Te enviamos un enlace de verificación"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="#70AD47" />
+                                </StackPanel>
+                                <TextBlock x:Name="AuthSuccessSubtitleText"
+                                           Text="Revisa tu bandeja de entrada (y la carpeta de spam), confirma el enlace y te loguearemos automáticamente."
+                                           FontSize="12" Foreground="#70AD47"
+                                           TextWrapping="Wrap" TextAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- Mensaje de error de autenticación -->
+                            <TextBlock x:Name="AuthErrorText"
+                                       FontSize="12"
+                                       Foreground="#E81123"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       Visibility="Collapsed" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Sugerencias y feedback (solo logueado)      -->
+                <!-- ==================================================== -->
+                <Border x:Name="SuggestionsSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Border Width="36" Height="36" CornerRadius="18"
+                                    Background="#00A88F" VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Lightbulb" IconVariant="Regular" IconSize="Size20"
+                                               Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="SuggestionsTitleText"
+                                           Text="" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="SuggestionsSubtitleText"
+                                           Text="" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBox x:Name="SuggestionBox"
+                                 Height="120"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 PlaceholderText="Cuéntanos qué te gustaría mejorar, qué problema encontraste o qué función te haría falta..."
+                                 TextChanged="SuggestionBox_TextChanged" />
+
+                        <TextBlock x:Name="SuggestionCounterText"
+                                   Text="0/1000"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Right" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                            <Button x:Name="SendSuggestionButton"
+                                    Click="SendSuggestionButton_Click"
+                                    CornerRadius="4"
+                                    Padding="16,8"
+                                    Background="#00A88F"
+                                    Foreground="White" />
+                            <ProgressRing x:Name="SuggestionProgressRing"
+                                          Width="20" Height="20"
+                                          IsActive="False"
+                                          Foreground="#00A88F"
+                                          VerticalAlignment="Center"
+                                          Visibility="Collapsed" />
+                        </StackPanel>
+
+                        <InfoBar x:Name="SuggestionInfoBar"
+                                 IsOpen="False"
+                                 IsClosable="True" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Actualizaciones de la app                     -->
+                <!-- ==================================================== -->
+                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Text="Actualizaciones" FontSize="16" FontWeight="SemiBold" />
+                            <Button Grid.Column="1"
+                                    x:Name="ShowReleaseNotesButton"
+                                    Click="ShowReleaseNotesButton_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    HorizontalAlignment="Left"
+                                    ToolTipService.ToolTip="Ver novedades de esta versión">
+                                <ic:FluentIcon Icon="Info" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Spacing="2">
+                                <TextBlock x:Name="InstalledVersionText"
+                                           FontSize="13" FontWeight="Medium" />
+                                <TextBlock x:Name="LatestVersionText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Border x:Name="UpdateStatusBadge"
+                                    Grid.Column="1"
+                                    CornerRadius="12" Padding="10,4"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ic:FluentIcon x:Name="UpdateStatusIcon"
+                                                   Icon="QuestionCircle" IconVariant="Regular"
+                                                   IconSize="Size16" Foreground="White" />
+                                    <TextBlock x:Name="UpdateStatusText"
+                                               FontSize="12" FontWeight="SemiBold"
+                                               Foreground="White" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Button x:Name="CheckUpdatesButton"
+                                HorizontalAlignment="Center"
+                                Click="CheckUpdatesButton_Click"
+                                CornerRadius="4"
+                                Background="Transparent"
+                                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                BorderThickness="1.5">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ic:FluentIcon Icon="ArrowSync" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                <TextBlock Text="Buscar actualizaciones" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="DownloadUpdateButton"
+                                HorizontalAlignment="Center"
+                                Click="DownloadUpdateButton_Click"
+                                CornerRadius="4"
+                                Visibility="Collapsed"
+                                Background="#E67E22"
+                                Foreground="White"
+                                BorderThickness="0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ic:FluentIcon Icon="ArrowDownload" IconVariant="Regular" IconSize="Size16"
+                                               Foreground="White" />
+                                <TextBlock x:Name="DownloadUpdateText" Text="Descargar actualización" />
+                            </StackPanel>
+                        </Button>
+
+                        <ProgressRing x:Name="DownloadProgressRing"
+                                      Width="200" Height="4"
+                                      HorizontalAlignment="Center"
+                                      Visibility="Collapsed"
+                                      IsIndeterminate="False"
+                                      Minimum="0" Maximum="100" />
+
+
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

@@ -1,6 +1,8 @@
 using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Remove_Top.Features.AudioPreview;
+using Remove_Top.Features.ImagePreview;
 using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
@@ -35,6 +37,19 @@ namespace Remove_Top.Features.DuplicateRemoval
         private bool _scanPerformed;
         private bool _deletionCompleted;
 
+        // Previsualizador de audio: motor NAudio + timer que actualiza el
+        // playhead y el reloj de la onda mientras se reproduce.
+        private readonly AudioPreviewPlayer _previewPlayer = new();
+        private readonly DispatcherTimer _previewTimer;
+
+        // Control de la tarjeta premium: se muestra solo si el escaneo se
+        // truncó (la carpeta tenía más de MaxFilesToScan archivos) y la
+        // limpieza terminó correctamente. Se guardan los contadores del
+        // escaneo para construir el mensaje informativo.
+        private bool _scanTruncated;
+        private int _scannedFiles;
+        private int _totalFound;
+
         public DuplicateRemovalPage()
         {
             InitializeComponent();
@@ -44,11 +59,39 @@ namespace Remove_Top.Features.DuplicateRemoval
             DeletionResultsListView.ItemsSource = _deletionResults;
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             ScanButton.Content = UiHelpers.Content(Icon.Search, "Escanear duplicados", foreground: ScanButton.Foreground);
-            SelectAllButton.Content = UiHelpers.Content(Icon.Checkmark, "Borrar todos", semibold: false, foreground: SelectAllButton.Foreground);
+            SelectAllButton.Content = UiHelpers.Content(Icon.Checkmark, "Marcar todos", semibold: false, foreground: SelectAllButton.Foreground);
             DeleteButton.Content = UiHelpers.Content(Icon.BinRecycle, "Eliminar seleccionados", foreground: DeleteButton.Foreground);
             DeletePermanentButton.Content = UiHelpers.Content(Icon.EraserTool, "Eliminar definitivamente", foreground: DeletePermanentButton.Foreground);
-            CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
-            RestartButton.Content = UiHelpers.Content(Icon.ArrowClockwise, "Iniciar de nuevo", semibold: false, foreground: RestartButton.Foreground);
+            CleanButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CleanButton.Foreground);
+            RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
+
+            // Título y subtítulo del encabezado, centralizados en AppLimits.
+            PageTitleText.Text = AppLimits.DuplicatesPageTitle;
+            PageSubtitleText.Text = AppLimits.DuplicatesPageSubtitle;
+            BrandText.Text = AppLimits.AppName;
+            BrandSiteRun.Text = AppLimits.AppBrandSite;
+
+            // Muestra el límite de la versión gratuita. El texto se genera a
+            // partir de AppLimits para que coincida siempre con el límite real
+            // de escaneo (DuplicatesMaxFilesToScan).
+            LimitInfoBar.Title = AppLimits.DuplicatesInfoBarTitle;
+            LimitInfoBar.Message = AppLimits.DuplicatesInfoBarMessage;
+
+            // Previsualizador: timer de playhead (100 ms), evento de fin de
+            // reproducción y acento de la onda (naranja, el color de la feature).
+            _previewTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+            _previewTimer.Tick += PreviewTimer_Tick;
+            _previewPlayer.PlaybackEnded += PreviewPlayer_PlaybackEnded;
+            PreviewWaveform.SeekRequested += PreviewWaveform_SeekRequested;
+            PreviewWaveform.SetAccentColor(Windows.UI.Color.FromArgb(255, 230, 126, 34));
+            PreviewPlayButton.Content = UiHelpers.Icon(Icon.Play, IconVariant.Regular, IconSize.Size16, foreground: PreviewPlayButton.Foreground);
+            PreviewStopButton.Content = UiHelpers.Icon(Icon.Stop, IconVariant.Regular, IconSize.Size16, foreground: PreviewStopButton.Foreground);
+
+            // Visor de imágenes: notificaciones para el pie de la tarjeta
+            // (dimensiones y error de lectura).
+            ImagePreviewViewer.ImageLoaded += ImagePreviewViewer_ImageLoaded;
+            ImagePreviewViewer.ImageLoadFailed += ImagePreviewViewer_ImageLoadFailed;
+
             UpdateUI();
         }
 
@@ -81,6 +124,9 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Limpia los resultados y devuelve la UI al estado inicial.</summary>
         private void ResetResults()
         {
+            // Detiene y libera cualquier audio/imagen en reproducción (el archivo
+            // puede borrarse o desaparecer al cambiar de carpeta).
+            StopAllPreviews();
             UnsubscribeItems();
             _exactItems.Clear();
             _possibleItems.Clear();
@@ -88,8 +134,12 @@ namespace Remove_Top.Features.DuplicateRemoval
             _deletionResults.Clear();
             _scanPerformed = false;
             _deletionCompleted = false;
+            _scanTruncated = false;
+            _scannedFiles = 0;
+            _totalFound = 0;
             ResultsSection.Visibility = Visibility.Collapsed;
             ProgressSection.Visibility = Visibility.Collapsed;
+            NoDuplicatesIcon.Visibility = Visibility.Collapsed;
             DeletionResultsSection.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
             ScanStatusText.Text = "";
@@ -182,6 +232,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             ScanLoader.IsActive = true;
             ScanLoader.Visibility = Visibility.Visible;
             ScanStatusText.Text = "Enumerando archivos...";
+            NoDuplicatesIcon.Visibility = Visibility.Collapsed;
 
             _cts = new CancellationTokenSource();
             var scanner = new DuplicateScanner();
@@ -218,21 +269,31 @@ namespace Remove_Top.Features.DuplicateRemoval
                 RefreshListBindings();
 
                 _scanPerformed = true;
+
+                // El escaneo se truncó si la carpeta tenía más archivos de los
+                // que se analizaron (MaxFilesToScan). Esto habilita la tarjeta
+                // premium, que solo se muestra al terminar la limpieza.
+                _scanTruncated = result.TotalFilesFound > result.ScannedFiles;
+                _scannedFiles = result.ScannedFiles;
+                _totalFound = result.TotalFilesFound;
+
                 UpdateTabHeaders();
                 UpdateSelectionSummary();
 
                 if (_exactItems.Count == 0 && _possibleItems.Count == 0 && _damagedItems.Count == 0)
                 {
+                    NoDuplicatesIcon.Visibility = Visibility.Visible;
                     ScanStatusText.Text = "No se encontraron duplicados.";
                     ResultsSection.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
+                    NoDuplicatesIcon.Visibility = Visibility.Collapsed;
                     string truncated = result.TotalFilesFound > result.ScannedFiles
                         ? $" (se analizaron los primeros {result.ScannedFiles} de {result.TotalFilesFound})"
                         : "";
                     string damagedNote = _damagedItems.Count > 0
-                        ? $" · {_damagedItems.Count} archivo(s) dañado(s) (< 6 KB)"
+                        ? $" · {_damagedItems.Count} archivo(s) dañado(s) (< {DuplicateItem.FormatSize(AppLimits.DuplicatesMinValidFileSizeBytes)})"
                         : "";
                     int unmarkedPossible = _possibleItems.Count(i => !i.IsMarkedForDeletion);
                     string possibleNote = unmarkedPossible > 0
@@ -285,9 +346,9 @@ namespace Remove_Top.Features.DuplicateRemoval
 
         private void UpdateTabHeaders()
         {
-            ExactTabHeader.Text = $"1 · Duplicados exactos ({_exactItems.Count})";
-            PossibleTabHeader.Text = $"2 · Posibles ({_possibleItems.Count})";
-            DamagedTabHeader.Text = $"3 · Archivos dañados ({_damagedItems.Count})";
+            ExactTabHeader.Text = $"Duplicados exactos ({_exactItems.Count})";
+            PossibleTabHeader.Text = $"Posibles ({_possibleItems.Count})";
+            DamagedTabHeader.Text = $"Archivos dañados ({_damagedItems.Count})";
 
             int unmarkedPossible = _possibleItems.Count(i => !i.IsMarkedForDeletion);
             string possibleNote = unmarkedPossible > 0
@@ -297,6 +358,10 @@ namespace Remove_Top.Features.DuplicateRemoval
                 .Where(i => i.IsMarkedForDeletion).Sum(i => i.Size);
             SummaryText.Text = $"{_exactItems.Count} exacto(s) · {_possibleItems.Count} posible(s){possibleNote} · " +
                 DuplicateItem.FormatSize(wasted) + " liberables";
+
+            ScannedFilesText.Text = _totalFound > _scannedFiles
+                ? $"Se examinaron los primeros {_scannedFiles} de {_totalFound} archivos"
+                : $"{_scannedFiles} archivo(s) examinado(s)";
         }
 
         // ================================================================
@@ -313,7 +378,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         {
             int selected = SelectedCount;
             SelectionCountText.Text = $"{selected} seleccionado(s) · liberará {DuplicateItem.FormatSize(SelectedBytes)} · " +
-                $"límite {DuplicateRemover.MaxDeletionsPerRun} por ejecución";
+                $"límite {AppLimits.DuplicatesMaxDeletionsPerRun} por ejecución";
             bool hasItems = _exactItems.Count + _possibleItems.Count + _damagedItems.Count > 0;
             SelectAllButton.IsEnabled = hasItems && !_isProcessing;
             DeleteButton.IsEnabled = selected > 0 && !_isProcessing;
@@ -355,6 +420,10 @@ namespace Remove_Top.Features.DuplicateRemoval
 
             if (!await ConfirmDeletionAsync(marked, mode)) return;
 
+            // Detiene y libera el archivo en reproducción: sin esto, el borrado
+            // del archivo que estaba sonando fallaría por el bloqueo del lector.
+            StopAllPreviews();
+
             _lastDeletionMode = mode;
             _deletionResults.Clear();
             _isProcessing = true;
@@ -387,8 +456,16 @@ namespace Remove_Top.Features.DuplicateRemoval
             {
                 await remover.RemoveFilesAsync(marked, mode, progress, _cts.Token);
 
-                // Quita de la lista los archivos que se eliminaron correctamente
-                foreach (var item in marked.Where(i => i.IsMarkedForDeletion).ToList())
+                // Quita de la lista SOLO los archivos que se eliminaron
+                // correctamente; los que fallaron permanecen marcados para
+                // poder reintentarlos.
+                var deletedPaths = _deletionResults
+                    .Where(r => r.Success)
+                    .Select(r => r.FilePath)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in marked
+                    .Where(i => i.IsMarkedForDeletion && deletedPaths.Contains(i.FilePath))
+                    .ToList())
                 {
                     item.PropertyChanged -= Item_PropertyChanged;
                     _exactItems.Remove(item);
@@ -403,8 +480,10 @@ namespace Remove_Top.Features.DuplicateRemoval
                 // solo quedan visibles los resultados de la operación.
                 _deletionCompleted = true;
 
-                if (_exactItems.Count == 0 && _possibleItems.Count == 0 && _damagedItems.Count == 0)
-                    ResultsSection.Visibility = Visibility.Collapsed;
+                // Se oculta el TabView de resultados: aunque queden ítems sin
+                // seleccionar (p. ej. "Posibles"), tras el borrado solo debe
+                // verse el resultado de lo que se eliminó.
+                ResultsSection.Visibility = Visibility.Collapsed;
             }
             catch (OperationCanceledException)
             {
@@ -465,13 +544,282 @@ namespace Remove_Top.Features.DuplicateRemoval
         }
 
         /// <summary>
-        /// "Iniciar de nuevo": vuelve la página a su estado inicial tras la
+        /// "Limpiar": vuelve la página a su estado inicial tras la
         /// eliminación. Limpia la ruta seleccionada y todos los resultados.
         /// </summary>
         private void RestartButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isProcessing) return;
             ResetAll();
+        }
+
+        // ================================================================
+        // VERSIÓN PREMIUM
+        // ================================================================
+
+        /// <summary>
+        /// Abre en el navegador la URL de la versión premium. El destino se
+        /// centraliza en <see cref="PremiumLinks.UpgradeUrl"/> para poder
+        /// cambiarlo manualmente en un solo lugar. Si la apertura falla se
+        /// muestra el motivo en la línea de estado del escaneo.
+        /// </summary>
+        private async void UpgradeButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var uri = new Uri(PremiumLinks.UpgradeUrl);
+                await Windows.System.Launcher.LaunchUriAsync(uri);
+            }
+            catch (Exception ex)
+            {
+                ScanStatusText.Text = $"No se pudo abrir el enlace premium: {ex.Message}";
+            }
+        }
+
+        // ================================================================
+        // PREVISUALIZADOR DE AUDIO (solo pestañas Exactos/Posibles)
+        // ================================================================
+
+        /// <summary>
+        /// Botón "Previsualizar" de una fila: carga y reproduce el audio o
+        /// muestra la imagen según el tipo del archivo. La ruta viaja en el Tag
+        /// del botón (binding FilePath).
+        /// </summary>
+        private async void PreviewButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: string path }) return;
+            if (!File.Exists(path)) return;
+
+            // Tipos no visualizables (video, documentos, etc.): el botón está
+            // deshabilitado y solo informa de que no hay preview.
+            if (!ImagePreviewSupport.IsImageFile(path) && !AudioPreviewPlayer.IsSupportedAudio(path))
+                return;
+
+            if (ImagePreviewSupport.IsImageFile(path))
+                BeginImagePreview(path);
+            else
+                await BeginPreviewAsync(path);
+        }
+
+        // ================================================================
+        // PREVISUALIZADOR DE IMÁGENES (solo pestañas Exactos/Posibles)
+        // ================================================================
+
+        /// <summary>
+        /// Muestra la tarjeta de imagen con la imagen seleccionada ajustada al
+        /// espacio disponible (sin zoom). Cierra cualquier audio previo para
+        /// tener un solo preview activo a la vez.
+        /// </summary>
+        private void BeginImagePreview(string path)
+        {
+            // Ya es la imagen actual: solo reabrir la tarjeta.
+            if (string.Equals(ImagePreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                ImagePreviewSection.Visibility = Visibility.Visible;
+                return;
+            }
+
+            // Otro preview (audio o imagen): cerrar el actual liberando su archivo.
+            StopAllPreviews();
+
+            ImagePreviewSection.Visibility = Visibility.Visible;
+            ImagePreviewFileNameText.Text = Path.GetFileName(path);
+            ImagePreviewInfoText.Text = "Cargando...";
+            ImagePreviewViewer.Load(path);
+        }
+
+        /// <summary>
+        /// Libera la imagen mostrada (memoria y posible bloqueo del archivo) y
+        /// oculta la tarjeta.
+        /// </summary>
+        private void ClearImagePreview()
+        {
+            ImagePreviewViewer.Clear();
+            ImagePreviewSection.Visibility = Visibility.Collapsed;
+            ImagePreviewFileNameText.Text = "";
+            ImagePreviewInfoText.Text = "";
+        }
+
+        private void ImagePreviewClose_Click(object sender, RoutedEventArgs e)
+        {
+            ClearImagePreview();
+        }
+
+        /// <summary>
+        /// Imagen decodificada correctamente: muestra sus dimensiones reales
+        /// (0 x 0 en SVG, cuyo tamaño no se expone) y el tamaño en disco.
+        /// </summary>
+        private void ImagePreviewViewer_ImageLoaded(int width, int height)
+        {
+            if (string.IsNullOrEmpty(ImagePreviewViewer.CurrentPath)) return;
+            var sizeText = DuplicateItem.FormatSize(new FileInfo(ImagePreviewViewer.CurrentPath).Length);
+            string dims = width > 0 && height > 0 ? $"{width} × {height} px" : "Vectorial (SVG)";
+            ImagePreviewInfoText.Text = $"{dims} · {sizeText}";
+        }
+
+        /// <summary>No se pudo leer la imagen: lo indica el propio visor y el pie de la tarjeta.</summary>
+        private void ImagePreviewViewer_ImageLoadFailed()
+        {
+            if (string.IsNullOrEmpty(ImagePreviewViewer.CurrentPath)) return;
+            ImagePreviewInfoText.Text = "No se pudo abrir la imagen.";
+        }
+
+        /// <summary>
+        /// Detiene y libera todos los previews activos (audio y/o imagen).
+        /// </summary>
+        private void StopAllPreviews()
+        {
+            StopPreviewCore(closeFile: true);
+            ClearImagePreview();
+        }
+
+        /// <summary>
+        /// Carga un archivo en el previsualizador: libera el anterior (para no
+        /// dejar el archivo bloqueado), carga el audio con NAudio en segundo
+        /// plano, extrae la forma de onda y reproduce.
+        /// </summary>
+        private async Task BeginPreviewAsync(string path)
+        {
+            // Ya es el archivo actual: solo mostrar la tarjeta y reproducir.
+            if (_previewPlayer.IsLoaded &&
+                string.Equals(_previewPlayer.CurrentFilePath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                PreviewSection.Visibility = Visibility.Visible;
+                if (_previewPlayer.State != AudioPreviewState.Playing)
+                    _previewPlayer.Play();
+                UpdateTransportControls();
+                return;
+            }
+
+            // Otro archivo (o ninguno): cierra el preview actual (audio o
+            // imagen) liberando su bloqueo.
+            StopAllPreviews();
+
+            PreviewSection.Visibility = Visibility.Visible;
+            PreviewFileNameText.Text = Path.GetFileName(path);
+            PreviewTimeText.Text = "Cargando...";
+            PreviewWaveform.SetData(new WaveformData());
+            UpdateTransportControls();
+
+            // Carga el archivo (NAudio) en segundo plano.
+            bool loaded = await _previewPlayer.LoadAsync(path);
+            if (!loaded)
+            {
+                PreviewTimeText.Text = "No se pudo leer el archivo.";
+                PreviewPlayButton.IsEnabled = false;
+                PreviewStopButton.IsEnabled = false;
+                return;
+            }
+
+            // Extrae los peaks de la onda en segundo plano. El número de
+            // columnas sigue el ancho del control (con un rango razonable).
+            double width = PreviewWaveform.ActualWidth > 0 ? PreviewWaveform.ActualWidth : 600;
+            int columns = (int)Math.Clamp(width, 200, 1200);
+            var peaks = await WaveformPeaks.ComputeAsync(path, columns);
+            PreviewWaveform.SetData(peaks);
+
+            _previewTimer.Start();
+            _previewPlayer.Play();
+            UpdateTransportControls();
+        }
+
+        /// <summary>Actualiza los botones de transporte según el estado del reproductor.</summary>
+        private void UpdateTransportControls()
+        {
+            bool loaded = _previewPlayer.IsLoaded;
+            bool playing = _previewPlayer.State == AudioPreviewState.Playing;
+            PreviewPlayButton.IsEnabled = loaded;
+            PreviewStopButton.IsEnabled = loaded;
+            PreviewPlayButton.Content = UiHelpers.Icon(
+                playing ? Icon.Pause : Icon.Play,
+                IconVariant.Regular,
+                IconSize.Size16,
+                foreground: PreviewPlayButton.Foreground);
+        }
+
+        private void PreviewPlayPause_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            _previewPlayer.TogglePlay();
+            UpdateTransportControls();
+        }
+
+        private void PreviewStop_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            _previewPlayer.Stop();
+            PreviewWaveform.SetPlayhead(0);
+            PreviewTimeText.Text = $"0:00 / {FormatTs(_previewPlayer.Duration)}";
+            UpdateTransportControls();
+        }
+
+        /// <summary>Cierra la tarjeta y libera el archivo (para poder borrarlo).</summary>
+        private void PreviewClose_Click(object sender, RoutedEventArgs e)
+        {
+            StopPreviewCore(closeFile: true);
+        }
+
+        /// <summary>Scrub sobre la onda: mueve la reproducción a la fracción elegida.</summary>
+        private void PreviewWaveform_SeekRequested(double fraction)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            _previewPlayer.SeekToFraction(fraction);
+        }
+
+        /// <summary>
+        /// Tick del timer: mientras se reproduce, actualiza el playhead de la
+        /// onda y el reloj (posición / duración).
+        /// </summary>
+        private void PreviewTimer_Tick(object? sender, object e)
+        {
+            if (!_previewPlayer.IsLoaded) return;
+            PreviewWaveform.SetPlayhead(_previewPlayer.PositionFraction);
+            PreviewTimeText.Text = $"{FormatTs(_previewPlayer.Position)} / {FormatTs(_previewPlayer.Duration)}";
+        }
+
+        /// <summary>
+        /// Fin natural de la reproducción (el evento llega desde un hilo de
+        /// audio, así que se marisme a la UI con DispatcherQueue): vuelve al
+        /// inicio y deja el botón en "Reproducir".
+        /// </summary>
+        private void PreviewPlayer_PlaybackEnded()
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _previewPlayer.Seek(TimeSpan.Zero);
+                PreviewWaveform.SetPlayhead(0);
+                PreviewTimeText.Text = $"0:00 / {FormatTs(_previewPlayer.Duration)}";
+                UpdateTransportControls();
+            });
+        }
+
+        /// <summary>
+        /// Detiene el previsualizador y, si se indica, cierra y libera el
+        /// archivo para que pueda ser borrado. Oculta la tarjeta.
+        /// </summary>
+        private void StopPreviewCore(bool closeFile)
+        {
+            _previewPlayer.Stop();
+            if (closeFile) _previewPlayer.Close();
+            _previewTimer.Stop();
+            PreviewSection.Visibility = Visibility.Collapsed;
+            PreviewFileNameText.Text = "";
+            PreviewTimeText.Text = "";
+            UpdateTransportControls();
+        }
+
+        /// <summary>Formatea una duración como m:ss (u h:mm:ss).</summary>
+        private static string FormatTs(TimeSpan t)
+        {
+            return t.TotalHours >= 1
+                ? $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
+                : $"{(int)t.TotalMinutes}:{t.Seconds:D2}";
+        }
+
+        /// <summary>Al salir de la página se detiene y libera la reproducción.</summary>
+        private void Page_Unloaded(object sender, RoutedEventArgs e)
+        {
+            StopAllPreviews();
         }
 
         // ================================================================
@@ -487,10 +835,10 @@ namespace Remove_Top.Features.DuplicateRemoval
                 _isScanning ? "Cancelar" : "Escanear duplicados",
                 foreground: ScanButton.Foreground);
 
-            // "Cancelar" está activo mientras haya una carpeta cargada (o un escaneo en curso)
-            CancelButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
+            // "Limpiar" está activo mientras haya una carpeta cargada (o un escaneo en curso)
+            CleanButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
 
-            // Fila de acciones: al cargar una carpeta solo aparece "Cancelar".
+            // Fila de acciones: al cargar una carpeta solo aparece "Limpiar".
             // La fila completa (Borrar todos / Eliminar...) solo tras un escaneo
             // con resultados. Si no hay duplicados ni dañados, no aparece nada.
             // Tras una eliminación, los botones desaparecen y solo quedan los resultados.
@@ -508,17 +856,33 @@ namespace Remove_Top.Features.DuplicateRemoval
                 SelectAllButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
                 DeleteButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
                 DeletePermanentButton.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
-                CancelButton.Visibility = Visibility.Visible;
+                CleanButton.Visibility = Visibility.Visible;
+            }
+
+            // La tarjeta premium solo aparece si el escaneo se truncó (carpeta
+            // con más de AppLimits.DuplicatesMaxFilesToScan archivos) y la
+            // limpieza ya terminó correctamente. En cualquier otro momento
+            // permanece oculta.
+            if (_deletionCompleted && _scanTruncated)
+            {
+                PremiumMessageText.Text = $"Se analizaron solo los primeros {_scannedFiles} de {_totalFound} " +
+                    "archivos encontrados. Con la versión premium podrás escanear carpetas completas " +
+                    "sin límites y eliminar todos los duplicados de una sola vez.";
+                PremiumSection.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                PremiumSection.Visibility = Visibility.Collapsed;
             }
 
             UpdateSelectionSummary();
         }
 
         /// <summary>
-        /// "Cancelar": si hay un escaneo en curso lo cancela (el catch reinicia
+        /// "Limpiar": si hay un escaneo en curso lo cancela (el catch reinicia
         /// todo desde cero); si no, limpia los resultados y la ruta seleccionada.
         /// </summary>
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        private void CleanButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isScanning)
             {

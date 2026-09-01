@@ -1,4 +1,6 @@
 using FluentIcons.Common;
+using Remove_Top.Features.AudioPreview;
+using Remove_Top.Features.ImagePreview;
 using System;
 using System.ComponentModel;
 using System.IO;
@@ -49,12 +51,38 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Duración de referencia del grupo (para comparar la coincidencia).</summary>
         public double? ReferenceDurationSeconds { get; set; }
 
-        /// <summary>
-        /// Indica si la duración del archivo coincide (dentro de la tolerancia)
+        /// <summary>Indica si la duración del archivo coincide (dentro de la tolerancia)
         /// con la de referencia del grupo: señal de que es la misma canción
         /// aunque tenga otro tamaño/codificación.
         /// </summary>
         public bool DurationMatches { get; set; }
+
+        /// <summary>
+        /// Indica si el archivo es de audio soportado por el previsualizador
+        /// (botón "Previsualizar" en las pestañas Exactos/Posibles). Los
+        /// archivos dañados quedan excluidos: su pestaña no ofrece preview.
+        /// </summary>
+        public bool IsAudio => AudioPreviewPlayer.IsSupportedAudio(FilePath);
+
+        /// <summary>Indica si el archivo es una imagen soportada por el previsualizador.</summary>
+        public bool IsImage => ImagePreviewSupport.IsImageFile(FilePath);
+
+        /// <summary>
+        /// Indica si el archivo tiene previsualización (audio o imagen). Solo
+        /// las pestañas Exactos/Posibles ofrecen preview (no los dañados).
+        /// </summary>
+        public bool IsPreviewable => IsAudio || IsImage;
+
+        /// <summary>
+        /// Icono del botón de previsualizar: play para audio, imagen para
+        /// imágenes y "sin vista previa" (EyeOff) para los tipos no
+        /// visualizables (video, documentos, etc.), que muestran el botón
+        /// deshabilitado en lugar de dejar el hueco vacío.
+        /// </summary>
+        public Icon PreviewIcon => IsAudio ? Icon.Play : IsImage ? Icon.Image : Icon.EyeOff;
+
+        /// <summary>Texto de ayuda del botón de previsualizar.</summary>
+        public string PreviewToolTip => IsPreviewable ? "Previsualizar" : "Sin previsualización";
 
         /// <summary>Nombre del archivo (sin ruta).</summary>
         public string FileName => Path.GetFileName(FilePath);
@@ -76,19 +104,21 @@ namespace Remove_Top.Features.DuplicateRemoval
         {
             DuplicateMatchKind.Exact => "Exacto",
             DuplicateMatchKind.SameName => "Exacto",
+            DuplicateMatchKind.SubsetMatch => "Exacto",
             DuplicateMatchKind.ProbableByName or DuplicateMatchKind.ProbableByKeyword => "Posible",
             _ => "Dañado"
         };
 
         /// <summary>
         /// Detalle adicional del tipo de coincidencia: nombre (y duración cuando
-        /// está disponible) para los "misma canción por nombre", tamaño para los
-        /// "posibles por nombre" y palabra clave + duración para los "posibles
-        /// por palabra".
+        /// está disponible) para los "misma canción por nombre", contenido para
+        /// los "nombre contenido", tamaño para los "posibles por nombre" y
+        /// palabra clave + duración para los "posibles por palabra".
         /// </summary>
         public string MatchDetailDisplay => MatchKind switch
         {
             DuplicateMatchKind.SameName => BuildSameNameDetail(),
+            DuplicateMatchKind.SubsetMatch => BuildSubsetDetail(),
             DuplicateMatchKind.ProbableByName => BuildNameDetail(),
             DuplicateMatchKind.ProbableByKeyword => BuildKeywordDetail(),
             _ => ""
@@ -102,6 +132,15 @@ namespace Remove_Top.Features.DuplicateRemoval
             if (DurationSeconds is double d)
                 return $"mismo nombre · duración muy distinta ({FormatDuration(d)})";
             return "mismo nombre";
+        }
+
+        private string BuildSubsetDetail()
+        {
+            if (DurationMatches) return $"nombre contenido · misma duración ({DurationDisplay})";
+            if (SameSize) return "nombre contenido · mismo tamaño";
+            if (DurationSeconds is double d)
+                return $"nombre contenido · duración muy distinta ({FormatDuration(d)})";
+            return "nombre contenido";
         }
 
         private string BuildNameDetail()
@@ -120,7 +159,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Icono visual del tipo de coincidencia.</summary>
         public Icon MatchIcon => MatchKind switch
         {
-            DuplicateMatchKind.Exact or DuplicateMatchKind.SameName => Icon.CheckmarkCircle,
+            DuplicateMatchKind.Exact or DuplicateMatchKind.SameName or DuplicateMatchKind.SubsetMatch => Icon.CheckmarkCircle,
             DuplicateMatchKind.ProbableByName or DuplicateMatchKind.ProbableByKeyword => Icon.Warning,
             _ => Icon.ErrorCircle
         };

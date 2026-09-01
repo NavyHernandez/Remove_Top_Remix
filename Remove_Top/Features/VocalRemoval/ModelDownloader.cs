@@ -1,3 +1,4 @@
+using Remove_Top.Helpers;
 using System;
 using System.IO;
 using System.Net.Http;
@@ -27,7 +28,7 @@ namespace Remove_Top.Features.VocalRemoval
 
         private static readonly string ModelsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Remove_Top", "models");
+            AppLimits.AppDataFolderName, "models");
 
         private const string ModelFile = "htdemucs_ft_vocals.onnx";
         private const string ModelUrl =

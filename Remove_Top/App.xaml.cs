@@ -1,7 +1,9 @@
 ﻿using Microsoft.UI.Xaml;
 using Remove_Top.Features.VocalRemoval;
+using Remove_Top.Helpers;
 using System;
 using System.IO;
+using Velopack;
 
 namespace Remove_Top
 {
@@ -24,7 +26,7 @@ namespace Remove_Top
 
         private static readonly string LogPath =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Remove_Top", "crash.log");
+                AppLimits.AppDataFolderName, "crash.log");
 
         /// <summary>
         /// Escribe en el archivo de log. Crea el directorio si no existe.
@@ -41,6 +43,15 @@ namespace Remove_Top
                     $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}: {message}{Environment.NewLine}{stackTrace}{Environment.NewLine}");
             }
             catch { }
+        }
+
+        /// <summary>
+        /// Registra un error en el crash.log desde cualquier módulo. Nunca lanza
+        /// excepciones (try-catch interno) para no interferir con la app.
+        /// </summary>
+        internal static void Log(string source, string message, string? stackTrace = null)
+        {
+            WriteCrashLog(source, message, stackTrace);
         }
 
         public App()
@@ -72,6 +83,18 @@ namespace Remove_Top
         {
             try
             {
+                // Velopack: aplicar actualizaciones pendientes al inicio.
+                try
+                {
+                    VelopackApp.Build()
+                        .SetAutoApplyOnStartup(true)
+                        .Run();
+                }
+                catch
+                {
+                    // Velopack no disponible (modo unpackaged/debug) — continuar normalmente.
+                }
+
                 MainWindow = new MainWindow();
                 MainWindow.Activate();
             }

@@ -9,7 +9,7 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
     /// <summary>
     /// Normaliza nombres de archivo para comparar duplicados de forma
     /// insensible a mayúsculas/minúsculas, acentos, guiones, espacios e
-    /// incluso guiones iniciales. También extrae hasta 4 palabras
+    /// incluso guiones iniciales. También extrae hasta 8 palabras
     /// significativas del BLOQUE DE TÍTULO (el último bloque separado por
     /// guiones) para la coincidencia difusa por pares de palabras, evitando
     /// que el artista ("ROSITA FLORES - AGUAS DEL RIO" vs "ROSITA FLORES -
@@ -57,13 +57,15 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         };
 
         /// <summary>
-        /// Normaliza el nombre base (sin extensión): FormD, elimina marcas de
-        /// acento, pasa a minúsculas y descarta todo lo que no sea alfanumérico
-        /// (guiones, espacios, guiones iniciales, signos).
+        /// Normaliza el nombre base (sin extensiones conocidas): FormD, elimina
+        /// marcas de acento, pasa a minúsculas y descarta todo lo que no sea
+        /// alfanumérico (guiones, espacios, guiones iniciales, signos).
+        /// Se eliminan todas las extensiones conocidas del final para que
+        /// "song.mp3" y "song.mp3.vdjstems" produzcan la misma normalización.
         /// </summary>
         public static string Normalize(string filePath)
         {
-            string name = Path.GetFileNameWithoutExtension(filePath);
+            string name = StripAllExtensions(Path.GetFileName(filePath));
             name = name.Normalize(NormalizationForm.FormD);
             var sb = new StringBuilder(name.Length);
             foreach (char c in name)
@@ -85,7 +87,7 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         /// array vacío si no hay ninguna palabra significativa.
         /// </summary>
         public static string[] GetSignificantWords(string filePath, int maxWords = 4)
-            => ExtractSignificantWords(Path.GetFileNameWithoutExtension(filePath), maxWords);
+            => ExtractSignificantWords(StripAllExtensions(Path.GetFileName(filePath)), maxWords);
 
         /// <summary>
         /// Extrae hasta <paramref name="maxWords"/> palabras significativas del
@@ -103,7 +105,7 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         /// </summary>
         public static string[] GetTitleWords(string filePath, int maxWords = 8)
         {
-            var blocks = SplitBlocks(Path.GetFileNameWithoutExtension(filePath));
+            var blocks = SplitBlocks(StripAllExtensions(Path.GetFileName(filePath)));
             for (int i = blocks.Count - 1; i >= 0; i--)
             {
                 var words = ExtractSignificantWords(blocks[i], maxWords);
@@ -120,12 +122,38 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         /// diferencia" a nivel de palabra (solo palabras de longitud suficiente).
         /// </summary>
         public static string[] GetAllNameWords(string filePath)
+            => ExtractAllWords(StripAllExtensions(Path.GetFileName(filePath)));
+
+        /// <summary>
+        /// Extrae TODAS las palabras del BLOQUE DE TÍTULO (el último bloque tras
+        /// los separadores habituales): minúsculas y sin acentos, conservando
+        /// dígitos y stop-words. A diferencia de <see cref="GetTitleWords"/> no
+        /// filtra nada: sirve para la detección de "nombre contenido" sin que el
+        /// ARTISTA actúe como hub (el artista es el bloque previo y no participa
+        /// de la comparación de subconjunto).
+        /// </summary>
+        public static string[] GetTitleWordsAll(string filePath)
+        {
+            var blocks = SplitBlocks(StripAllExtensions(Path.GetFileName(filePath)));
+            for (int i = blocks.Count - 1; i >= 0; i--)
+            {
+                var words = ExtractAllWords(blocks[i]);
+                if (words.Length > 0) return words;
+            }
+            return [];
+        }
+
+        /// <summary>
+        /// Extrae todas las palabras de un texto (sin filtros): minúsculas y sin
+        /// acentos, conservando dígitos y stop-words. Sirve de base para
+        /// <see cref="GetAllNameWords"/> y <see cref="GetTitleWordsAll"/>.
+        /// </summary>
+        private static string[] ExtractAllWords(string text)
         {
             var words = new List<string>();
             var token = new StringBuilder(32);
-            string name = Path.GetFileNameWithoutExtension(filePath);
 
-            foreach (char c in name)
+            foreach (char c in text)
             {
                 if (char.IsLetterOrDigit(c))
                 {
@@ -151,7 +179,45 @@ namespace Remove_Top.Features.DuplicateRemoval.Detection
         }
 
         /// <summary>
-        /// Quita acentos (FormD) y pasa a minúsculas, sin descartar stop-words ni
+        /// Extensiones conocidas de audio/DJ que se eliminan del nombre para
+        /// evitar falsos positivos (p.ej. "song.mp3.vdjstems" y "song.mp3"
+        /// se normalizan igual). Se quitan todas las que aparezcan al final.
+        /// </summary>
+        private static readonly HashSet<string> KnownExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // Audio
+            ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".oga",
+            ".opus", ".wma", ".aiff", ".aif", ".ape", ".wv", ".alac",
+            // DJ / stems
+            ".vdjstems", ".stems", ".lrx", ".rekordbox",
+            // Contenedores / video
+            ".mp4", ".m4b", ".avi", ".mkv", ".mov",
+            // Otros
+            ".zip", ".rar", ".txt", ".log", ".cue", ".m3u", ".nfo"
+        };
+
+        /// <summary>
+        /// Quita todas las extensiones conocidas del final del nombre base.
+        /// "song.mp3.vdjstems" → "song"; "track.flac.zip" → "track".
+        /// Si no termina en una extensión conocida, devuelve el nombre sin
+        /// la última extensión (comportamiento de GetFileNameWithoutExtension).
+        /// </summary>
+        private static string StripAllExtensions(string fileName)
+        {
+            string name = Path.GetFileNameWithoutExtension(fileName);
+            bool stripped;
+            do
+            {
+                stripped = false;
+                string ext = Path.GetExtension(name);
+                if (ext.Length > 1 && KnownExtensions.Contains(ext))
+                {
+                    name = Path.GetFileNameWithoutExtension(name);
+                    stripped = true;
+                }
+            } while (stripped);
+            return name;
+        }
         /// tokens numéricos. Devuelve "" solo si queda vacío.
         /// </summary>
         private static string CleanKeepAll(string raw)

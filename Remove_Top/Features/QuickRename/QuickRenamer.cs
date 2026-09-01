@@ -60,17 +60,6 @@ namespace Remove_Top.Features.QuickRename
         public string NewName { get; set; } = "";
         public bool Success { get; set; }
         public string Message { get; set; } = "";
-        public Icon StatusIcon => Success ? Icon.CheckmarkCircle : Icon.DismissCircle;
-    }
-
-    /// <summary>Progreso del proceso de renombrado para la UI.</summary>
-    public class QuickRenameProgress
-    {
-        public int CurrentIndex { get; set; }
-        public int TotalCount { get; set; }
-        public string CurrentFile { get; set; } = "";
-        public QuickRenameResult? Result { get; set; }
-        public double Percentage => TotalCount > 0 ? (double)CurrentIndex / TotalCount * 100.0 : 0;
     }
 
     /// <summary>
@@ -91,17 +80,21 @@ namespace Remove_Top.Features.QuickRename
         /// <summary>
         /// Busca archivos .mp3/.wav en la carpeta principal (sin recursión).
         /// Devuelve un array vacío si la carpeta no existe o hay error de permisos.
+        /// Si <paramref name="maxFiles"/> tiene valor, solo se devuelven los
+        /// primeros N archivos encontrados.
         /// </summary>
-        public static string[] GetAudioFiles(string folderPath)
+        public static string[] GetAudioFiles(string folderPath, int? maxFiles = null)
         {
             if (!Directory.Exists(folderPath))
                 return [];
 
             try
             {
-                return Directory.EnumerateFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
-                    .Where(IsSupportedFile)
-                    .ToArray();
+                var files = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(IsSupportedFile);
+                if (maxFiles.HasValue)
+                    files = files.Take(maxFiles.Value);
+                return files.ToArray();
             }
             catch
             {
@@ -121,40 +114,35 @@ namespace Remove_Top.Features.QuickRename
             if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
                 return "El nombre contiene caracteres no válidos";
 
-            if (name.Contains('/') || name.Contains('\\') || name.Contains(':') || name.Contains('.'))
+            if (name.Contains('/') || name.Contains('\\') || name.Contains(':'))
                 return "El nombre no puede contener rutas ni subdirectorios";
 
             return null;
         }
 
         /// <summary>
-        /// Aplica los cambios de nombre a los archivos.
-        /// Reporta cada resultado mediante IProgress y soporta cancelación.
-        /// Solo se procesan los ítems cuyo nombre cambió (IsDirty).
+        /// Aplica los cambios de nombre a los archivos y devuelve cuántos se
+        /// renombraron correctamente. Solo se procesan los ítems cuyo nombre
+        /// cambió (IsDirty). Soporta cancelación.
         /// </summary>
-        public async Task ApplyRenamesAsync(
+        public async Task<int> ApplyRenamesAsync(
             IEnumerable<QuickRenameItem> items,
-            IProgress<QuickRenameProgress> progress,
             CancellationToken cancellationToken = default)
         {
             var pending = items.Where(i => i.IsDirty).ToArray();
-            int total = pending.Length;
+            int ok = 0;
 
-            for (int i = 0; i < total; i++)
+            for (int i = 0; i < pending.Length; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var item = pending[i];
                 var result = RenameFile(item.OriginalPath, item.CurrentName);
-
-                progress.Report(new QuickRenameProgress
-                {
-                    CurrentIndex = i + 1,
-                    TotalCount = total,
-                    CurrentFile = item.OriginalName,
-                    Result = result
-                });
+                if (result.Success)
+                    ok++;
             }
+
+            return ok;
         }
 
         /// <summary>

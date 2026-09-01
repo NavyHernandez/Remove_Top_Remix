@@ -1,10 +1,13 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Remove_Top.Features.Account;
 using Remove_Top.Features.BatchRename;
 using Remove_Top.Features.DuplicateRemoval;
 using Remove_Top.Features.Normalization;
 using Remove_Top.Features.QuickRename;
 using Remove_Top.Features.VocalRemoval;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 
@@ -26,6 +29,18 @@ namespace Remove_Top
             try
             {
                 InitializeComponent();
+
+                // Icono de ventana (WinUI 3 unpackaged).
+                Win32Helper.SetWindowIcon(this);
+
+                // Identidad de la app centralizada en AppLimits (módulo de límites).
+                Title = AppLimits.AppName;
+                BrandNameText.Text = AppLimits.AppName;
+                BrandSubtitleText.Text = AppLimits.AppSubtitle;
+
+                // Fondo glass (Acrílico) para el menú lateral. El panel queda
+                // translúcido gracias a NavigationViewPaneBackground transparente.
+                SystemBackdrop = new DesktopAcrylicBackdrop();
             }
             catch (Exception ex)
             {
@@ -41,7 +56,7 @@ namespace Remove_Top
             {
                 var dir = System.IO.Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Remove_Top");
+                    AppLimits.AppDataFolderName);
                 System.IO.Directory.CreateDirectory(dir);
                 System.IO.File.AppendAllText(
                     System.IO.Path.Combine(dir, "crash.log"),
@@ -92,6 +107,7 @@ namespace Remove_Top
                         "edit" => typeof(QuickRenamePage),
                         "stems" => typeof(VocalRemovalPage),
                         "duplicates" => typeof(DuplicateRemovalPage),
+                        "account" => typeof(AccountPage),
                         _ => throw new InvalidOperationException($"Unknown tag: {tag}")
                     };
                     ContentFrame.Content = GetOrCreatePage(pageType);

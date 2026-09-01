@@ -1,10 +1,13 @@
 using FluentIcons.Common;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -63,14 +66,18 @@ namespace Remove_Top.Features.Normalization
             return ext != null && AudioExtensions.Contains(ext);
         }
 
-        /// <summary>Límite de archivos analizados/procesados por ejecución (versión gratuita).</summary>
-        public const int MaxFilesToScan = 1000;
+        /// <summary>
+        /// Límite de archivos analizados/procesados por ejecución (versión gratuita).
+        /// Valor centralizado en <see cref="AppLimits.NormalizationMaxFilesToScan"/>.
+        /// </summary>
+        public const int MaxFilesToScan = AppLimits.NormalizationMaxFilesToScan;
 
         /// <summary>
         /// Límite mostrado en la UI (versión gratuita). El procesamiento real
-        /// sigue usando <see cref="MaxFilesToScan"/>.
+        /// sigue usando <see cref="MaxFilesToScan"/>. Valor centralizado en
+        /// <see cref="AppLimits.NormalizationFreeLimitDisplay"/>.
         /// </summary>
-        public const int FreeLimitDisplay = 50;
+        public const int FreeLimitDisplay = AppLimits.NormalizationFreeLimitDisplay;
 
         /// <summary>Nombre de la subcarpeta donde se guardan los archivos procesados.</summary>
         public const string OutputFolderName = "RemoveTop_Normalized";
@@ -115,42 +122,72 @@ namespace Remove_Top.Features.Normalization
         /// <summary>
         /// Calcula la ruta donde se guardaría la salida procesada de un archivo:
         /// la subcarpeta "RemoveTop_Normalized" junto al origen, con el nombre
-        /// base del archivo y el sufijo "_normalized.wav".
+        /// base del archivo y extensión .wav.
         /// </summary>
         private static string GetExpectedOutputPath(string sourcePath)
         {
             return Path.Combine(
                 Path.GetDirectoryName(sourcePath)!,
                 OutputFolderName,
-                //Path.GetFileNameWithoutExtension(sourcePath) + "_top-remix_normalized.wav");
                 Path.GetFileNameWithoutExtension(sourcePath) + ".wav");
         }
 
         /// <summary>
+        /// Calcula la ruta corregida (ortografía) donde se guardaría la salida
+        /// procesada de un archivo, aplicando SpanishNameCorrector al nombre base.
+        /// </summary>
+        private static string GetCorrectedOutputPath(string sourcePath)
+        {
+            var baseName = Path.GetFileNameWithoutExtension(sourcePath);
+            var cleaned = CleanOutputName(baseName);
+            var corrected = SpanishNameCorrector.CorrectTitle(cleaned);
+            return Path.Combine(
+                Path.GetDirectoryName(sourcePath)!,
+                OutputFolderName,
+                corrected + ".wav");
+        }
+
+        /// <summary>
         /// Indica si un archivo ya fue procesado. Para considerarlo procesado,
-        /// la salida esperada debe existir y ser un WAV válido (cabecera RIFF/WAVE
-        /// y tamaño mínimo). Si el WAV está parcial o corrupto (p.ej. por un
-        /// proceso cortado), devuelve false para que se reprocese.
+        /// la salida esperada (con nombre original o corregido ortográficamente)
+        /// debe existir y ser un WAV válido (cabecera RIFF/WAVE y tamaño mínimo).
+        /// Si el WAV está parcial o corrupto (p.ej. por un proceso cortado),
+        /// devuelve false para que se reprocese.
         /// </summary>
         private static bool HasProcessedOutput(string sourcePath)
         {
+            // Verificar salida con nombre original
             var outputPath = GetExpectedOutputPath(sourcePath);
-            if (!File.Exists(outputPath))
+            if (IsValidWav(outputPath))
+                return true;
+
+            // Verificar salida con nombre corregido ortográficamente
+            var correctedPath = GetCorrectedOutputPath(sourcePath);
+            if (string.Equals(outputPath, correctedPath, StringComparison.OrdinalIgnoreCase))
+                return false; // No hay variante corregida distinta
+
+            return IsValidWav(correctedPath);
+        }
+
+        /// <summary>
+        /// Verifica si un archivo existe y es un WAV válido (cabecera RIFF/WAVE).
+        /// </summary>
+        private static bool IsValidWav(string path)
+        {
+            if (!File.Exists(path))
                 return false;
 
             try
             {
-                var info = new FileInfo(outputPath);
-                // Un WAV mínimo con cabecera RIFF tiene al menos 44 bytes.
+                var info = new FileInfo(path);
                 if (info.Length < 44)
                     return false;
 
-                using var stream = File.OpenRead(outputPath);
+                using var stream = File.OpenRead(path);
                 Span<byte> header = stackalloc byte[12];
                 if (stream.Read(header) != 12)
                     return false;
 
-                // La firma RIFF: bytes 0-3 "RIFF" y bytes 8-11 "WAVE".
                 return header[0] == (byte)'R' && header[1] == (byte)'I' &&
                        header[2] == (byte)'F' && header[3] == (byte)'F' &&
                        header[8] == (byte)'W' && header[9] == (byte)'A' &&
@@ -288,6 +325,7 @@ namespace Remove_Top.Features.Normalization
         public async Task ProcessFilesAsync(
             string[] files,
             double targetDbFs,
+            MasteringIntensity intensity,
             IProgress<NormalizationProgress> progress,
             CancellationToken cancellationToken = default)
         {
@@ -301,7 +339,7 @@ namespace Remove_Top.Features.Normalization
 
                 try
                 {
-                    result = await Task.Run(() => NormalizeFile(file, targetDbFs), cancellationToken);
+                    result = await Task.Run(() => NormalizeFile(file, targetDbFs, intensity), cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -339,7 +377,7 @@ namespace Remove_Top.Features.Normalization
         /// El archivo procesado se guarda en una subcarpeta "RemoveTop_Normalized"
         /// con el sufijo "_normalized.wav".
         /// </summary>
-        private NormalizationResult NormalizeFile(string inputPath, double targetDbFs)
+        private NormalizationResult NormalizeFile(string inputPath, double targetDbFs, MasteringIntensity intensity)
         {
             var outputDir = Path.Combine(
                 Path.GetDirectoryName(inputPath)!,
@@ -387,9 +425,14 @@ namespace Remove_Top.Features.Normalization
                 Volume = (float)gainLinear
             };
 
-            // ...y sobre ese audio ya normalizado, la cadena de masterización ligera
-            // (paso alto → EQ paramétrico → compresor → limitador a -0.3 dB).
-            var mastered = MasteringChain.Build(gained, format, new MasteringSettings());
+            // ...y sobre ese audio ya normalizado, la cadena de masterización
+            // según el perfil de intensidad elegido (el techo final es siempre -0.3 dB).
+            var mastered = MasteringChain.Build(gained, format, intensity);
+
+            // Medición del resultado: RMS (nivel promedio) y pico final real.
+            double sumSquares = 0.0;
+            long sampleCount = 0;
+            float finalPeak = 0f;
 
             using var writer = new WaveFileWriter(outputPath, format);
             while ((samplesRead = mastered.Read(sampleBuffer, 0, bufferSize)) > 0)
@@ -398,21 +441,138 @@ namespace Remove_Top.Features.Normalization
                 // una red de seguridad para no escribir floats fuera de rango.
                 for (int j = 0; j < samplesRead; j++)
                 {
-                    if (sampleBuffer[j] > 1f) sampleBuffer[j] = 1f;
-                    else if (sampleBuffer[j] < -1f) sampleBuffer[j] = -1f;
+                    float s = sampleBuffer[j];
+                    if (s > 1f) s = 1f;
+                    else if (s < -1f) s = -1f;
+
+                    sumSquares += (double)s * s;
+                    sampleCount++;
+                    float abs = Math.Abs(s);
+                    if (abs > finalPeak) finalPeak = abs;
+
+                    sampleBuffer[j] = s;
                 }
                 writer.WriteSamples(sampleBuffer, 0, samplesRead);
             }
+
+            double rmsDb = sampleCount > 0
+                ? 20.0 * Math.Log10(Math.Sqrt(sumSquares / sampleCount))
+                : double.NegativeInfinity;
+            double finalPeakDb = finalPeak > 0f
+                ? 20.0 * Math.Log10(finalPeak)
+                : double.NegativeInfinity;
 
             return new NormalizationResult
             {
                 FileName = Path.GetFileName(inputPath),
                 Success = true,
-                Message = $"Normalizado a {targetDbFs:F1} dBFS · masterizado ligero",
+                Message = $"Normalizado a {targetDbFs:F1} dBFS \u00b7 {MasteringChain.DisplayName(intensity)} \u00b7 Pico {finalPeakDb:F1} dB \u00b7 RMS {rmsDb:F1} dB",
                 OriginalPeakDb = originalPeakDb,
                 AppliedGainDb = gainDb,
                 OutputPath = outputPath
             };
+        }
+
+        /// <summary>
+        /// Limpia y formatea un nombre de archivo de salida:
+        /// 1. Elimina paréntesis () y corchetes [] junto con su contenido.
+        /// 2. Elimina las palabras "audio", "video" e "oficial" (cualquier caso).
+        /// 3. Convierte a Title Case (primera letra mayúscula, resto minúscula por palabra).
+        /// </summary>
+        public static string CleanOutputName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return name;
+
+            // 1. Eliminar contenido entre paréntesis o corchetes: (...), [...], ( [...] )
+            var cleaned = Regex.Replace(name, @"\s*[\(\[][^\)\]]*[\)\]]\s*", " ");
+
+            // 2. Eliminar palabras clave: audio, video, oficial (case-insensitive)
+            cleaned = Regex.Replace(cleaned, @"\b(audio|video|oficial)\b", " ",
+                RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+            // 3. Limpiar espacios múltiples resultantes
+            cleaned = Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+
+            if (string.IsNullOrWhiteSpace(cleaned))
+                return name; // Si quedó vacío, devolver el original
+
+            // 4. Title Case: primera letra mayúscula, resto minúscula por palabra
+            var sb = new StringBuilder(cleaned.Length);
+            bool capitalizeNext = true;
+            foreach (var c in cleaned)
+            {
+                if (char.IsWhiteSpace(c) || c == '-' || c == ',' || c == '.' || c == '&' || c == '\'')
+                {
+                    sb.Append(c);
+                    capitalizeNext = true;
+                }
+                else if (capitalizeNext)
+                {
+                    sb.Append(char.ToUpperInvariant(c));
+                    capitalizeNext = false;
+                }
+                else
+                {
+                    sb.Append(char.ToLowerInvariant(c));
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Corrige ortográficamente los nombres de las salidas procesadas.
+        /// Por cada resultado exitoso, calcula el nombre corregido con
+        /// <see cref="SpanishNameCorrector.CorrectTitle"/> y renombra el archivo
+        /// en disco si difiere del actual. Si el destino ya existe, agrega
+        /// sufijo " (1)", "(2)", etc.
+        /// Actualiza FileName, OutputPath y Message del resultado.
+        /// </summary>
+        public static void CorrectOutputNames(IReadOnlyList<NormalizationResult> results)
+        {
+            foreach (var result in results)
+            {
+                if (!result.Success || string.IsNullOrEmpty(result.OutputPath))
+                    continue;
+
+                var currentDir = Path.GetDirectoryName(result.OutputPath)!;
+                var currentNameWithoutExt = Path.GetFileNameWithoutExtension(result.OutputPath);
+                var ext = Path.GetExtension(result.OutputPath);
+
+                // Primero limpia: quita paréntesis/corchetes, palabras clave y aplica Title Case
+                var cleanedName = CleanOutputName(currentNameWithoutExt);
+                // Luego corrige ortografía (tildes)
+                var correctedNameWithoutExt = SpanishNameCorrector.CorrectTitle(cleanedName);
+
+                // Si el nombre ya es correcto, no hacer nada
+                if (string.Equals(currentNameWithoutExt, correctedNameWithoutExt, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var correctedPath = Path.Combine(currentDir, correctedNameWithoutExt + ext);
+
+                // Si el destino corregido ya existe, agregar sufijo numérico
+                if (File.Exists(correctedPath))
+                {
+                    var baseName = correctedNameWithoutExt;
+                    int counter = 1;
+                    while (File.Exists(Path.Combine(currentDir, baseName + $" ({counter})" + ext)))
+                        counter++;
+                    correctedPath = Path.Combine(currentDir, baseName + $" ({counter})" + ext);
+                }
+
+                try
+                {
+                    File.Move(result.OutputPath, correctedPath);
+                    result.FileName = Path.GetFileNameWithoutExtension(result.OutputPath) + ext;
+                    result.OutputPath = correctedPath;
+                    result.Message += " · nombre corregido";
+                }
+                catch
+                {
+                    // Si falla el renombrado, se deja el nombre original
+                }
+            }
         }
     }
 
