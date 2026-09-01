@@ -34,8 +34,8 @@ Aplicación WinUI 3 (Windows App SDK) para procesamiento de audio.
 - **UI:** WinUI 3 (XAML)
 - **Audio:** NAudio 2.3.0
 - **IA:** Microsoft.ML.OnnxRuntime 1.21.0 (HT-Demucs FT)
-- **Target:** Windows 10 build 19041+ (unpackaged)
-- **Runtime:** Windows App SDK Runtime 1.6+
+- **Target:** Windows 10 build 19041+ (unpackaged, self-contained)
+- **Runtime:** Windows App SDK Runtime 1.6+ (empaquetado con la app)
 
 ## Estructura del Proyecto
 
@@ -278,8 +278,8 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 
 | Campo | Valor |
 |-------|-------|
-| **Paquete** | Velopack 0.0.1298 (NuGet) |
-| **Versión actual** | `0.1.0` (en `Remove_Top.csproj`, `<Version>`) |
+| **Paquete** | Velopack 1.2.* (NuGet) |
+| **Versión actual** | `0.1.3` (en `Remove_Top.csproj`, `<Version>`) |
 | **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
 | **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
 | **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |
@@ -307,7 +307,7 @@ Para publicar una nueva versión, ejecutar el script `publish.ps1` desde la raí
 ```
 
 El script automatiza:
-1. `dotnet publish` (Release, win-x64, self-contained)
+1. `dotnet publish` (Release, win-x64, self-contained, **WindowsAppSDKSelfContained=true**)
 2. `vpk pack` (crea .nupkg en `releases/`)
 3. `vpk upload github` (sube a GitHub Releases con token)
 
@@ -353,7 +353,7 @@ bin\x64\Debug\net8.0-windows10.0.19041.0\win-x64\OneDjApp.exe
 1. Revisar `%LOCALAPPDATA%\Remove_Top\crash.log`
 2. Verificar que el perfil correcto sea "Unpackaged" (no "Package")
 3. Verificar que la plataforma sea "x64" (no "x86")
-4. Verificar que el Windows App SDK Runtime esté instalado:
+4. Verificar que la app esté compilada con `WindowsAppSDKSelfContained=true` (el Runtime se empaqueta automáticamente):
    ```powershell
    winget list "Windows App Runtime"
    ```
@@ -401,6 +401,7 @@ que no existen en todas las versiones de WinUI 3.
 ## Notas de compilación
 
 - El proyecto usa `<WindowsPackageType>None</WindowsPackageType>` para modo unpackaged
+- El proyecto usa `<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>` para empaquetar el Windows App SDK Runtime con la app (el usuario final NO necesita instalarlo aparte)
 - No requiere proyecto `.wapproj` separado
 - Los binarios se generan en `bin\$(Platform)\$(Configuration)\`
 - La compilación requiere .NET 8 SDK y Windows SDK 10.0.19041+

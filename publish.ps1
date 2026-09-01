@@ -60,6 +60,8 @@ dotnet publish $Csproj `
     --self-contained `
     -p:PublishSingleFile=false `
     -p:PublishTrimmed=false `
+    -p:WindowsAppSDKSelfContained=true `
+    -p:WindowsPackageType=None `
     -p:Version=$Version `
     -o $PublishDir
 
