@@ -11,3 +11,6 @@ nul
 
 ## Personal / agent progress tracking
 progress/releases/
+releases/
+progress/feature_list.json
+progress/.gitignore
