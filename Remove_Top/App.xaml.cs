@@ -1,4 +1,5 @@
 ﻿using Microsoft.UI.Xaml;
+using Remove_Top.Features.Telemetry;
 using Remove_Top.Features.VocalRemoval;
 using Remove_Top.Helpers;
 using System;
@@ -97,6 +98,17 @@ namespace Remove_Top
 
                 MainWindow = new MainWindow();
                 MainWindow.Activate();
+
+                // Telemetría de instalación/uso (Feature 16): fire-and-forget,
+                // no bloquea el arranque y nunca lanza.
+                try
+                {
+                    _ = TelemetryService.ReportLaunchAsync();
+                }
+                catch
+                {
+                    // La telemetría nunca debe impedir el arranque de la app.
+                }
             }
             catch (Exception ex)
             {

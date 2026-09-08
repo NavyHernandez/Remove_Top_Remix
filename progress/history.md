@@ -4,6 +4,23 @@ Cada vez que se cierra una sesión, su resumen se añade aquí. No edites entrad
 
 ---
 
+## 2026-09-08 — Feature 16 telemetría + fixes QuickRename + reorden de partes
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+1. **Telemetría (Feature 16)** — `Features/Telemetry/InstallTracker.cs` (ID anónimo + `install.json` local con `launchCount`/`lastLaunchAt`), `TelemetryService.cs` (fire-and-forget), `FirebaseRestApi.ReportInstallLaunchAsync` (upsert a Firestore `installs/{installId}` con API key), `FirebaseConfig.InstallsCollection`, hook en `App.OnLaunched`. Requiere reglas de Firestore `allow create, update: if request.auth == null` en la colección `installs`.
+2. **QuickRename — reporte de fallos por archivo** — `QuickRenamer` devuelve `QuickRenameResult[]` con `Item`/`NewPath`; la página muestra los errores en `ResultErrorsList`; badges verde `✓`/ámbar `✕`; fix case-only (`Ordinal`); validación pre-vuelo de conflictos (`ValidateBatch`); actualización en el lugar de los ítems (la lista muestra los nombres nuevos).
+3. **QuickRename — reorden de partes** — `NamePartReorderer` (bloques `BlockIndex`/`WordCount`, `Merge`/`Split`, `BuildSizes`, `ReorderName`); chips arrastrables horizontales; unir con doble clic (fuente → destino) y separar con clic derecho (solo separador espacio); botón deshacer; vista previa de los primeros 10 archivos; botón `UndoReorderButton`.
+4. **Fix deshacer del movimiento** — el undo del reorden ahora se dispara con `CollectionChanged` + `Action == Move` (el `ListView` reordena la colección) usando `_lastStableChips`, en vez de depender de `DragItemsStarting/Completed` (bloqueados por el `DropTargetControl` con `AllowDrop`). Se eliminó `NamePartOrderComparer`.
+5. **Fix cache de la guía** — `QuickRenameItem.LoadedName` (nombre al cargar, inmune a renames) + checkbox de **canción guía** por fila (selección única). La guía usa `LoadedName`, así que al reabrir "Reordenar" no arrastra posiciones previas.
+6. **`DropTargetControl`** — `OnDragOver` ya no fuerza `AcceptedOperation = None` para drags sin `StorageItems` (deja pasar drags internos de controles hijos, p. ej. el reorder de ListView).
+
+### Release v0.3.0
+- Publicado en GitHub Releases (dot de notificaciones, sync versiones, controles de arrastre, telemetría, reorden de partes).
+
+---
+
 ## 2026-09-08 — Versión 0.3.0: dot de notificaciones + sync versiones + controles arrastre
 
 **Agente:** humano + opencode (mimo-v2.5-free)

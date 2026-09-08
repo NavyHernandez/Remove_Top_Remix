@@ -29,5 +29,14 @@ namespace Remove_Top.Features.Account
         /// verificado). Solo lectura desde la consola/backend.
         /// </summary>
         public const string SuggestionsCollection = "suggestions";
+
+        /// <summary>
+        /// Colección de Firestore de telemetría de instalaciones (Feature 16).
+        /// Un documento por instalación (ID = installId anónimo). Contiene
+        /// SOLO datos no personales: installId, installedAt, appVersion,
+        /// launchCount y lastLaunchAt. La escritura usa la API key pública y
+        /// las reglas deben permitir create/update sin autenticación.
+        /// </summary>
+        public const string InstallsCollection = "installs";
     }
 }
