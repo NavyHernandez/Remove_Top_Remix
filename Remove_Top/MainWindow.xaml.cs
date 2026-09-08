@@ -23,7 +23,7 @@ namespace Remove_Top
     public sealed partial class MainWindow : Window
     {
         /// <summary>Instancia única de la ventana principal (para acceso desde páginas).</summary>
-        public static MainWindow? Current { get; private set; }
+        public new static MainWindow? Current { get; private set; }
 
         private readonly Dictionary<Type, Page> _pages = [];
 

@@ -105,8 +105,9 @@
                                 ToolTipService.ToolTip="Perfil, actualizaciones y estadísticas de uso">
                 <NavigationViewItem.InfoBadge>
                     <InfoBadge x:Name="AccountInfoBadge"
-                               Severity="Attention"
-                               Visibility="Collapsed" />
+                               Visibility="Collapsed"
+                               Background="#E67E22"
+                               Foreground="White" />
                 </NavigationViewItem.InfoBadge>
                 <NavigationViewItem.Resources>
                     <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#00A88F"/>
