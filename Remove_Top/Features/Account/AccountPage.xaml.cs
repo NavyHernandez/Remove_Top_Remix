@@ -576,6 +576,9 @@ namespace Remove_Top.Features.Account
                 UpdateStatusIcon.Icon = FluentIcons.Common.Icon.CheckmarkCircle;
                 UpdateStatusText.Text = "Al día";
                 DownloadUpdateButton.Visibility = Visibility.Collapsed;
+
+                // Ocultar el dot del menú si no hay actualización.
+                MainWindow.Current?.HideUpdateDot();
             }
         }
 
@@ -588,6 +591,9 @@ namespace Remove_Top.Features.Account
             CheckUpdatesButton.IsEnabled = false;
             DownloadProgressRing.Visibility = Visibility.Visible;
             DownloadProgressRing.Value = 0;
+
+            // Ocultar el dot del menú al iniciar la descarga.
+            MainWindow.Current?.HideUpdateDot();
 
             try
             {

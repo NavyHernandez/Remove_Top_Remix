@@ -6,6 +6,7 @@ using Remove_Top.Features.BatchRename;
 using Remove_Top.Features.DuplicateRemoval;
 using Remove_Top.Features.Normalization;
 using Remove_Top.Features.QuickRename;
+using Remove_Top.Features.TagRemoval;
 using Remove_Top.Features.VocalRemoval;
 using Remove_Top.Helpers;
 using System;
@@ -21,6 +22,9 @@ namespace Remove_Top
     /// </summary>
     public sealed partial class MainWindow : Window
     {
+        /// <summary>Instancia única de la ventana principal (para acceso desde páginas).</summary>
+        public static MainWindow? Current { get; private set; }
+
         private readonly Dictionary<Type, Page> _pages = [];
 
         /// <summary>Crea la ventana. Si InitializeComponent falla, registra el error y relanza.</summary>
@@ -29,6 +33,8 @@ namespace Remove_Top
             try
             {
                 InitializeComponent();
+
+                Current = this;
 
                 // Icono de ventana (WinUI 3 unpackaged).
                 Win32Helper.SetWindowIcon(this);
@@ -83,11 +89,43 @@ namespace Remove_Top
             {
                 NavView.SelectedItem = NavGain;
                 ContentFrame.Content = GetOrCreatePage(typeof(NormalizationPage));
+
+                // Auto-check de actualizaciones en background al iniciar.
+                _ = CheckForUpdatesOnStartup();
             }
             catch (Exception ex)
             {
                 WriteLog($"NavView_Loaded: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
             }
+        }
+
+        /// <summary>
+        /// Comprueba actualizaciones en background al iniciar la app.
+        /// Si hay una versión nueva, muestra el dot en "Cuenta".
+        /// </summary>
+        private async System.Threading.Tasks.Task CheckForUpdatesOnStartup()
+        {
+            try
+            {
+                var result = await UpdateChecker.Instance.CheckForUpdatesAsync();
+                if (result.IsUpdateAvailable)
+                {
+                    DispatcherQueue.TryEnqueue(() => ShowUpdateDot());
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Muestra el dot de notificación en el ítem "Cuenta".</summary>
+        public void ShowUpdateDot()
+        {
+            AccountInfoBadge.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>Oculta el dot de notificación en el ítem "Cuenta".</summary>
+        public void HideUpdateDot()
+        {
+            AccountInfoBadge.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
@@ -107,6 +145,7 @@ namespace Remove_Top
                         "edit" => typeof(QuickRenamePage),
                         "stems" => typeof(VocalRemovalPage),
                         "duplicates" => typeof(DuplicateRemovalPage),
+                        "tags" => typeof(TagRemovalPage),
                         "account" => typeof(AccountPage),
                         _ => throw new InvalidOperationException($"Unknown tag: {tag}")
                     };

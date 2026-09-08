@@ -120,6 +120,32 @@ namespace Remove_Top.Features.Normalization
         }
 
         /// <summary>
+        /// Filtra una lista ya obtenida de archivos de audio, dejando solo los
+        /// pendientes de procesar (los que ya tienen salida válida se omiten).
+        /// Aplica el límite de <see cref="MaxFilesToScan"/>. Mismos conteos que
+        /// <see cref="GetAudioFiles(string, out int, out int)"/> pero sobre una
+        /// lista (p. ej. archivos seleccionados o arrastrados directamente).
+        /// </summary>
+        public static string[] GetAudioFiles(
+            IEnumerable<string> files,
+            out int totalFound,
+            out int alreadyProcessed)
+        {
+            alreadyProcessed = 0;
+            var pending = new List<string>();
+            foreach (var file in files)
+            {
+                if (HasProcessedOutput(file))
+                    alreadyProcessed++;
+                else
+                    pending.Add(file);
+            }
+
+            totalFound = pending.Count;
+            return pending.Take(MaxFilesToScan).ToArray();
+        }
+
+        /// <summary>
         /// Calcula la ruta donde se guardaría la salida procesada de un archivo:
         /// la subcarpeta "RemoveTop_Normalized" junto al origen, con el nombre
         /// base del archivo y extensión .wav.

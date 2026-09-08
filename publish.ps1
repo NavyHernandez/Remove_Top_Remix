@@ -41,10 +41,9 @@ $ReleaseDir = Join-Path $PSScriptRoot "releases"
 
 # ─── 1. Leer versión del .csproj ────────────────────────────────
 if (-not $Version) {
-    [xml]$csprojXml = Get-Content $Csproj -Raw
-    $ns = [System.Xml.XmlNamespaceManager]::new($csprojXml.NameTable)
-    $ns.AddNamespace("ms", "http://schemas.microsoft.com/developer/msbuild/2003")
-    $Version = $csprojXml.SelectSingleNode("//ms:Version", $ns).'#InnerText'
+    $raw = Get-Content $Csproj -Raw
+    $match = [regex]::Match($raw, '<Version>([^<]+)</Version>')
+    if ($match.Success) { $Version = $match.Groups[1].Value.Trim() }
     if (-not $Version) {
         Write-Error "No se pudo leer la versión del .csproj. Usa -Version para especificarla."
         exit 1

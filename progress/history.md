@@ -4,6 +4,45 @@ Cada vez que se cierra una sesión, su resumen se añade aquí. No edites entrad
 
 ---
 
+## 2026-09-08 — Versión 0.3.0: dot de notificaciones + sync versiones + controles arrastre
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+1. **`MainWindow.xaml`** — `InfoBadge` con `Severity="Attention"` en el ítem "Cuenta" del NavigationView (dot de notificaciones).
+2. **`MainWindow.xaml.cs`** — `Current` estática, `CheckForUpdatesOnStartup()` en background al iniciar, `ShowUpdateDot()` / `HideUpdateDot()` públicos.
+3. **`AccountPage.xaml.cs`** — `ApplyUpdateResult()` oculta el dot cuando no hay actualización; `DownloadUpdateButton_Click()` oculta el dot al iniciar descarga.
+4. **`Remove_Top.csproj`** — `<Version>0.2.0</Version>` → `<Version>0.3.0</Version>` (sync con GitHub).
+5. **`Assets/release_notes.txt`** — actualizado a v0.3.0 con todas las features nuevas.
+6. **Duplicados** — `DuplicateRemovalPage.xaml/.cs` y `DuplicateScanner.cs` revertidos a la versión original (BrowseButton + FolderPicker, sin DropTargetControl/FileSourceControl).
+7. **Controles compartidos** — `DropTargetControl` y `FileSourceControl` creados y usados por las otras features (BatchRename, QuickRename, Normalization, VocalRemoval, Tags) pero no por Duplicados.
+
+### Investigación realizada
+- **Actualizaciones**: GitHub API `/releases/latest` devuelve v0.1.3 (publicado después de v0.2.0) a pesar de que v0.2.0 tiene tag mayor. Solución: bump a v0.3.0.
+- **Dot de notificaciones**: Investigado el mechanism existente (UpdateStatusBadge en AccountPage, 100% client-side, sin Firestore). Implementado dot en NavigationView con InfoBadge nativo de WinUI 3.
+
+### Release v0.3.0
+- Publicado en GitHub Releases con dot de notificaciones, sync de versiones y controles de arrastre.
+
+---
+
+## 2026-09-01 — Windows App SDK Runtime empaquetado (self-contained)
+
+**Agente:** humano + opencode (mimo-v2.5-free)
+
+### Cambios realizados
+1. **`Remove_Top.csproj`** — agregado `<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>` para empaquetar el Windows App SDK Runtime con la app.
+2. **`publish.ps1`** — agregados `-p:WindowsAppSDKSelfContained=true` y `-p:WindowsPackageType=None` al comando `dotnet publish`.
+3. **Build** — `dotnet publish` self-contained con SDK Runtime incluido (362 MB en directorio publish).
+4. **vpk pack** — generado instalador `OneDjApp-win-Setup.exe` (154 MB) con todo empaquetado.
+5. **Limpieza** — eliminados ejecutables anteriores (`bin/Debug`, `bin/Release`, `bin/x64/Debug`, `OneDjApp-0.1.2-full.nupkg`).
+6. **`AGENTS.md`** — actualizado: stack self-contained, notas de compilación, flujo de publicación, troubleshooting.
+
+### Problema resuelto
+Al instalar la app en otra PC aparecía el error "Required components of the Windows App Runtime are missing (MSIX package version >= 2.2.0.0)". Con `WindowsAppSDKSelfContained=true` el Runtime se incluye en el paquete y el usuario final NO necesita instalarlo aparte.
+
+---
+
 ## 2026-08-21 — Versión 0.1.3: versión visible + copyright + novedades
 
 **Agente:** humano + opencode (mimo-v2.5-free)

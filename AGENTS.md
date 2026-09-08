@@ -25,14 +25,16 @@ Aplicación WinUI 3 (Windows App SDK) para procesamiento de audio.
 | **Renombrado Masivo** (`BatchRenamePage`) | Elimina texto específico de los nombres de archivos en una carpeta (audio, video, imagen, documentos). Opera directamente sobre los archivos originales. El escaneo es **recursivo (incluye subcarpetas)** con **máximo 1.000 archivos por ejecución** (`AppLimits.BatchRenameMaxFilesToScan`). Persiste hasta **20 patrones** (`AppLimits.BatchRenameMaxPatterns`) en `%LOCALAPPDATA%\Remove_Top\patterns.json`. Etiqueta "Versión Gratuita" (badge verde) junto a los mensajes de límite (patrones y archivos, generados desde `AppLimits`). Si el escaneo se truncó y el renombrado terminó, aparece la **tarjeta premium** ("Adquiere la versión premium", mismo patrón que DuplicateRemoval). Botón **"Limpiar"** al final: resetea ruta, resultados, vista previa, progreso y sugerencias IA **conservando los patrones**. Botón **"Cancelar"** centrado debajo del botón principal para resetear la página en cualquier momento. |
 | **Edición Rápida** (`QuickRenamePage`) | Lista los `.mp3`/`.wav` de la carpeta principal y permite editar cada nombre en una caja de texto inline (nombre completo, incluida la extensión). Aplica los cambios con `File.Move` directamente sobre los originales. Tope de **200 archivos** (`AppLimits.QuickRenameMaxFilesToScan`, solo los primeros N). Badge **"Versión Gratuita"** + mensaje de límite junto a la carpeta de origen (generado desde `AppLimits.QuickRenameLimitMessage`). Marca `www.top-remix.com` centrado en la línea de "Nombres editables". Botón **"Limpiar"** al final (resetea ruta, lista y resultado). Al terminar muestra una etiqueta con cuántos archivos se renombraron y recarga la lista con los nombres nuevos. Sin barra de progreso ni lista de resultados. |
 | **Extracción de Stems** (`VocalRemovalPage`) | Separa la voz del instrumental usando IA (modelo HT-Demucs FT en ONNX). Exporta vocal mono en subcarpeta `RemoveTop_Vocals`. Máximo **5 canciones** estéreo por lote (`AppLimits.VocalRemovalMaxFilesPerBatch`). |
+| **Etiquetas** (`TagRemovalPage`) | Elimina o reemplaza las etiquetas (título, intérprete, artistas, álbum, género, año, comentario) y la portada de archivos de audio usando **TagLib#**. El origen acepta **carpetas y archivos** (carpetas escaneadas de forma recursiva o archivos sueltos; también por **arrastre**). Dos acciones en **pestañas** (color dorado `#B8860B`): **Eliminar etiquetas** — borra TODAS las tags + portada incrustada y además las **portadas externas** de la carpeta (`folder/cover/front/back/album/artwork` × `jpg/jpeg/png/webp/bmp/gif`); **Reemplazar etiquetas** — 7 campos que se aplican en lote a TODOS los archivos (el menú de inputs solo aparece cuando hay archivos cargados), con portada opcional (si no se elige una nueva, conserva la existente). Maneja archivos **de solo lectura** (quita el atributo para poder escribir). Límite **1.000 archivos** (`AppLimits.TagsMaxFilesToScan`) + tarjeta premium si se trunca. |
 | **Eliminación de Duplicados** (`DuplicateRemovalPage`) | Escanea una carpeta (recursivo, incluye subcarpetas, máx. **1.000 archivos** `AppLimits.DuplicatesMaxFilesToScan`). Pipeline de detección por prioridad: **nombre normalizado → nombre contenido (subconjunto) → hash → palabra clave**. La MISMA CANCIÓN por nombre normalizado (`SameName`) se clasifica como **exacta** y se marca por defecto; también se detectan nombres que difieren en **una sola letra** (falta ortográfica). El detector de **nombre contenido** (`SubsetNameDetector`) agrupa archivos donde todas las palabras del **título** (último bloque) del nombre más corto aparecen en el título del más largo (máx. 3 palabras de diferencia; tope de 6 miembros por cluster). Fix: `StripAllExtensions` elimina extensiones múltiples conocidas (`.mp3.vdjstems` → `.mp3`). Exactos por hash SHA-256 solo sobre los no reclamados por nombre con tamaño repetido (en paralelo). Los "posibles" por palabra clave se verifican por duración de audio. Eliminación con dos opciones: Papelera de Windows (recuperable) o borrado definitivo, ambas con confirmación. Detecta además archivos < **6 KB** (`AppLimits.DuplicatesMinValidFileSizeBytes`) como "dañados" en una 3.ª pestaña. **Previsualizador unificado**: botón en cada fila de las pestañas Exactos/Posibles (módulos `Features/AudioPreview/` y `Features/ImagePreview/`, no disponible en dañados) con icono según tipo (`Play` para audio, `Image` para imágenes) que muestra una **tarjeta con forma de onda + scrub** y transporte **Play/Pausa/Stop** para el audio, o la **imagen ajustada al espacio** (Stretch Uniform, sin zoom) en la tarjeta de imágenes. Un solo preview activo a la vez (abrir uno cierra el otro). Icono check verde cuando no hay duplicados. Botones de acciones centrados. Botón **"Limpiar"** al final de los resultados de eliminación (resetea ruta + resultados). |
-| **Cuenta** (`AccountPage`) | Centro de perfil y actualizaciones. La página muestra: logo profesional vectorial (`Assets/BrandLogo.xaml`, gradiente + nota + forma de onda), sección **Perfil** con **autenticación real de Firebase (Email/Password)** — sin sesión muestra un formulario de login/registro; con sesión muestra el perfil y "Cerrar sesión". **Gate de verificación de correo**: solo se admiten cuentas con correo verificado — el login de una cuenta sin verificar NO abre sesión y muestra un panel ámbar con "Reenviar enlace de verificación"; el registro envía el enlace y no deja sesión (panel verde de éxito); el refresh token se conserva como "pendiente" y un polling (`AccountPage`, cada 5 s) detecta la confirmación del correo y hace el **auto-login**. El login de una cuenta inexistente la crea automáticamente y envía el correo de verificación (`AuthService.LoginOrRegisterAsync`). El correo se envía por REST de Identity Toolkit (`FirebaseRestApi`, el paquete v4 no lo expone). La sesión se restaura al iniciar la app. Sección **Sugerencias** (visible SOLO con sesión): cuadro de feedback con tope de 1000 caracteres (contador) que guarda en **Cloud Firestore** vía REST (`FirebaseRestApi.AddSuggestionAsync`, colección `suggestions`). Sección **Actualizaciones** (`UpdateChecker` con **Velopack** — consulta GitHub Releases; badge que se ilumina verde/ámbar; botón "Descargar vX.Y.Z" con ProgressRing de progreso; al llegar a 100% aplica y reinicia; `VelopackApp.Build().Run()` aplica updates pendientes al inicio). Ítem de menú "Cuenta" con icono `Person` y color teal `#00A88F`. Textos del encabezado centralizados en `AppLimits` (`AccountPageTitle/Subtitle`). |
+| **Cuenta** (`AccountPage`) | Centro de perfil y actualizaciones. La página muestra: logo profesional vectorial (`Assets/BrandLogo.xaml`, gradiente + nota + forma de onda), sección **Perfil** con **autenticación real de Firebase (Email/Password)** — sin sesión muestra un formulario de login/registro; con sesión muestra el perfil y "Cerrar sesión". **Gate de verificación de correo**: solo se admiten cuentas con correo verificado — el login de una cuenta sin verificar NO abre sesión y muestra un panel ámbar con "Reenviar enlace de verificación"; el registro envía el enlace y no deja sesión (panel verde de éxito); el refresh token se conserva como "pendiente" y un polling (`AccountPage`, cada 5 s) detecta la confirmación del correo y hace el **auto-login**. El login de una cuenta inexistente la crea automáticamente y envía el correo de verificación (`AuthService.LoginOrRegisterAsync`). El correo se envía por REST de Identity Toolkit (`FirebaseRestApi`, el paquete v4 no lo expone). La sesión se restaura al iniciar la app. Sección **Sugerencias** (visible SOLO con sesión): cuadro de feedback con tope de 1000 caracteres (contador) que guarda en **Cloud Firestore** vía REST (`FirebaseRestApi.AddSuggestionAsync`, colección `suggestions`). Sección **Actualizaciones** (`UpdateChecker` con **Velopack** — consulta GitHub Releases; badge que se ilumina verde/ámbar; botón "Descargar vX.Y.Z" con ProgressRing de progreso; al llegar a 100% aplica y reinicia; `VelopackApp.Build().Run()` aplica updates pendientes al inicio). **Dot de notificaciones** en el ítem "Cuenta" del menú (`InfoBadge` con `Severity="Attention"`) — se muestra cuando el auto-check al iniciar detecta una versión nueva; se oculta al revisar actualizaciones o al iniciar descarga. Auto-check en background al iniciar (`CheckForUpdatesOnStartup`). Ítem de menú "Cuenta" con icono `Person` y color teal `#00A88F`. Textos del encabezado centralizados en `AppLimits` (`AccountPageTitle/Subtitle`). |
 
 ## Stack Tecnológico
 
 - **Framework:** .NET 8.0 + Windows App SDK 2.2.0
 - **UI:** WinUI 3 (XAML)
 - **Audio:** NAudio 2.3.0
+- **Tags/metadatos:** TagLibSharp 2.3.0
 - **IA:** Microsoft.ML.OnnxRuntime 1.21.0 (HT-Demucs FT)
 - **Target:** Windows 10 build 19041+ (unpackaged, self-contained)
 - **Runtime:** Windows App SDK Runtime 1.6+ (empaquetado con la app)
@@ -103,6 +105,19 @@ Remove_Top/
         │           ├── SubsetNameDetector.cs        # Nombre contenido: subconjunto de palabras
         │           ├── FileRecord.cs                # Registro con tamaño/hash/nombre/palabras precalculados
         │           └── DamagedFileDetector.cs       # Archivos < 6 KB ("dañados")
+        │   └── TagRemoval/
+        │       ├── TagRemovalPage.xaml / .cs        # Eliminar/Reemplazar etiquetas (pestañas, inputs, portada)
+        │       ├── TagService.cs                    # TagLib#: recolección, análisis, borrado y reemplazo (EnsureWritable, portadas externas)
+        │       ├── TagSourceControl.xaml / .cs      # Origen + análisis de tags (por pestaña)
+        │       ├── TagMode.cs                       # enum Clear / Replace
+        │       ├── TagValues.cs                     # DTO de los 7 campos + portada
+        │       ├── TagFileItem.cs                   # Ítem del análisis (tags actuales + portada)
+        │       ├── TagResult.cs                     # Resultado por archivo
+        │       └── TagProgress.cs                   # Progreso del análisis/procesamiento
+        ├── Controls/                    # Controles reutilizables entre features
+        │   ├── DropTargetControl.xaml / .cs         # Toda la página como destino de arrastre + overlay (AccentColor, FilesDropped)
+        │   ├── DropFilesEventArgs.cs                # Rutas soltadas
+        │   └── FileSourceControl.xaml / .cs         # Origen genérico: carpeta/archivos + "Limpiar" + tinte (FileFilter, ScanRecursive, MaxFiles)
         ├── Helpers/
         │   ├── AppLimits.cs              # LÍMITES centralizados de la versión gratuita (cambiar aquí)
         │   ├── PremiumLinks.cs           # Enlace premium centralizado (UpgradeUrl, cambiar aquí)
@@ -126,7 +141,11 @@ App.xaml.cs (Application)
         ├── QuickRenamePage   → QuickRenamer
         ├── VocalRemovalPage  → VocalSeparator (ONNX) + ModelDownloader
         ├── DuplicateRemovalPage → DuplicateScanner + DuplicateRemover + RecycleBinHelper + AudioPreview (AudioPreviewPlayer + WaveformView)
+        ├── TagRemovalPage    → TagService (TagLib#) + TagSourceControl
         └── AccountPage → AuthService (Firebase Email/Password + PasswordVault) + UpdateChecker (Velopack)
+
+Todas las páginas de funcionalidad envuelven su raíz en DropTargetControl (arrastre) y usan
+FileSourceControl (selección de origen carpeta/archivos).
 ```
 
 - **Features/<Feature>/:** Cada feature es un módulo autocontenido que agrupa su página (con ViewModel inline en el code-behind) y su lógica de negocio. Los servicios se comunican con la UI via `IProgress<T>` y `CancellationToken`.
@@ -184,7 +203,7 @@ Elimina TODAS las extensiones conocidas del final del nombre (no solo la última
 ## Renombrado masivo (detalle)
 
 - Máximo **20 patrones** (`AppLimits.BatchRenameMaxPatterns`), persistidos en `%LOCALAPPDATA%\Remove_Top\patterns.json`.
-- Etiqueta **"Versión Gratuita"** (badge #70AD47) junto al mensaje "Máximo 20 patrones. La búsqueda no distingue mayúsculas/minúsculas." (texto generado desde `AppLimits.BatchRenameLimitMessage`).
+- Etiqueta **"Versión Gratuita"** (badge #70AD47) junto al mensaje "Máx. 20 patrones." (texto generado desde `AppLimits.BatchRenameLimitMessage`).
 - **Máximo 1.000 archivos por ejecución** (`AppLimits.BatchRenameMaxFilesToScan` → `FileRenamer.MaxFilesToScan`). El escaneo es **recursivo e incluye subcarpetas** (`SearchOption.AllDirectories`). Aviso de límite junto al badge (generado desde `AppLimits.BatchRenameFilesLimitMessage`).
 - **Tarjeta premium** (`PremiumSection`): si el escaneo se truncó (la carpeta tenía más de 1.000 archivos afectados) y el renombrado terminó, aparece el botón **"Adquiere la versión premium"** (mismo patrón que DuplicateRemoval; enlace en `PremiumLinks.UpgradeUrl`).
 - Botón **"Limpiar"** (`RestartButton`) al final de los resultados: resetea ruta, resultados, vista previa, progreso, badge y sugerencias IA, pero **CONSERVA los patrones**.
@@ -210,11 +229,32 @@ Módulo reutilizable `Features/ImagePreview/` (solo API nativa de WinUI 3, sin d
 - **Un solo preview activo**: `StopAllPreviews()` (cierra audio con `StopPreviewCore(closeFile: true)` y libera la imagen con `ClearImagePreview()`) se invoca al cambiar de preview, de carpeta (`ResetResults`), antes de borrar (`RunDeletionAsync`) y al salir de la página (`Unloaded`). `ClearImagePreview()` pone `Source = null` para liberar memoria y el posible bloqueo del archivo antes de resetear/borrar.
 - **Pestaña Dañados**: sin botón de preview (sin cambios en su template).
 
+## Eliminar y reemplazar etiquetas (detalle)
+
+Módulo `Features/TagRemoval/` con **TagLib#** (paquete `TagLibSharp` 2.3.0). El origen acepta **carpetas (recursivas) y archivos sueltos** — botones "Carpeta..."/"Archivos...", pista de arrastre, botón **"Limpiar"** cuando hay carga y **tinte dorado** (`#B8860B`) en la tarjeta. `TagSourceControl` (una por pestaña) analiza las tags actuales (título/artista/álbum + portada).
+
+- **Modo Eliminar** (`TagMode.Clear`): `RemoveTags(TagTypes.AllTags)` + `Save()` borra ID3v1/ID3v2 **y la portada incrustada**. Además, `DeleteExternalCovers` borra las **portadas externas** de la carpeta (`folder/cover/front/back/album/artwork` × `jpg/jpeg/png/webp/bmp/gif`).
+- **Modo Reemplazar** (`TagMode.Replace`): primero vacía las tags (encoge el archivo) y reescribe los **7 campos** (Título, Intérprete, Artistas, Álbum, Género, Año, Comentario) — los vacíos se limpian. Portada: si se elige una nueva la reemplaza; si no, **conserva** la existente. Los inputs solo aparecen cuando hay archivos cargados.
+- **Solo lectura**: `EnsureWritable` quita el atributo `FileAttributes.ReadOnly` antes de escribir (el archivo queda grabable). Si no se puede, el archivo reporta "Archivo de solo lectura...".
+- **Límite**: `TagsMaxFilesToScan = 1000` (InfoBar/badge compacto "Versión Gratuita") + **tarjeta premium** si el escaneo se truncó.
+- Formatos soportados: `.mp3 .flac .m4a .mp4 .wma .asf .ogg .oga .opus .aiff .aif .wav .ape .wv .mka .tta .dsf` (se excluye `.aac` suelto, que TagLib no soporta).
+
+## Arrastre en toda la app (controles reutilizables)
+
+Carpeta `Controls/` con dos controles compartidos por todas las páginas de funcionalidad:
+
+- **`DropTargetControl`** — `UserControl` que envuelve el contenido de la página (`Host` DP), habilita `AllowDrop` en TODA la página, muestra un **overlay oscuro** al arrastrar (título/subtítulo configurables + `AccentColor`) y notifica las rutas vía `FilesDropped` (carpetas y archivos). Timer anti-parpadeo de 250 ms.
+- **`FileSourceControl`** — tarjeta "Origen" genérica (carpeta/archivos + pista de arrastre + "Limpiar" + tinte al cargar). Configurable: `FileFilter`, `ScanRecursive`, `MaxFiles`, `AccentColor`, `PickerExtensions`. Expone `Files/HasFiles/Truncated/TotalFound`, `StateChanged`, `LoadSource/Reset/SetEnabled/SetStatus`.
+
+**Integración:** cada página envuelve su raíz en `DropTargetControl` (con `AccentColor` = color de su feature) y reemplaza su tarjeta de carpeta por `FileSourceControl`. Al soltar/escoger, `StateChanged` dispara la lógica de la página con `Files` (ya no se escanea la carpeta a mano). **Excepción: Duplicados** usa la versión original (BrowseButton + FolderPicker, sin DropTargetControl/FileSourceControl tras reversión). **Guardas**: si la página está procesando/analizando/escaneando/sugiriendo, el arrastre se ignora y `SetEnabled(false)` deshabilita los pickers. Sobrecargas por lista en servicios: `AudioNormalizer.GetAudioFiles(list, out totalFound, out alreadyProcessed)`, `FileRenamer.GetAffectedFiles(list, patterns, out totalFound)`.
+
+**Colores por feature** (en `MainWindow.xaml` + overlay/tarjetas): Normalizar `#5B9BD5`, Renombrar `#70AD47`, Editar `#E67E22`, Stems `#9B59B6`, Duplicados `#E74C3C`, **Etiquetas `#B8860B` (dorado)**, Cuenta `#00A88F` (teal).
+
 ## Normalización (límite gratuito)
 
 - `AppLimits.NormalizationMaxFilesToScan = 1000` → límite REAL de archivos analizados.
 - `AppLimits.NormalizationFreeLimitDisplay = 50` → límite PUBLICADO en la UI (solo texto de marketing; el escaneo real sigue el límite real).
-- El `InfoBar` de la página se construye en runtime (`NormalizationPage` constructor) usando `AppLimits.NormalizationInfoBarTitle/Message`.
+- El aviso de límite (badge "Versión Gratuita" + título/mensaje en **letra reducida**) se construye en runtime (`NormalizationPage` constructor) usando `AppLimits.NormalizationInfoBarTitle/Message`.
 
 ## Normalización (masterización por intensidad)
 
@@ -238,10 +278,11 @@ Selector `IntensityComboBox` en `NormalizationPage` con 3 perfiles (`MasteringIn
 | Renombrado masivo | `BatchRenameMaxPatterns` | 20 |
 | Stems | `VocalRemovalMaxFilesPerBatch` | 5 |
 | Duplicados | `DuplicatesMaxFilesToScan` · `DuplicatesMaxDeletionsPerRun` · `DuplicatesMinValidFileSizeBytes` | 1.000 · 1.000 · 6 KB |
+| Etiquetas | `TagsMaxFilesToScan` | 1.000 |
 
 Las funcionalidades **consumen la lógica y los textos de UI desde `AppLimits`**: los servicios los usan en sus `Take(n)`/topes reales y las páginas montan los InfoBars, contadores y descripciones en runtime desde las propiedades de texto (`AppLimits.NormalizationInfoBar*`, `DuplicatesInfoBar*`, `BatchRenameLimitMessage`, `VocalRemovalPageDescription`). Así los textos nunca se desincronizan de los límites reales. Para cambiar un límite, editar el valor aquí y recompilar.
 
-Además de los límites, `AppLimits` centraliza los **textos del encabezado de cada página** (título, subtítulo) y el badge **"Versión Gratuita"** (`AppLimits.FreeBadgeText`): `NormalizationPageTitle/Subtitle`, `BatchRenamePageTitle/Subtitle`, `QuickRenamePageTitle/Subtitle`, `VocalRemovalPageTitle/Subtitle`, `DuplicatesPageTitle/Subtitle`, `AccountPageTitle/Subtitle`. Cada página los monta en su constructor desde estas propiedades, por lo que todos los textos de las funcionalidades se cambian en un solo lugar.
+Además de los límites, `AppLimits` centraliza los **textos del encabezado de cada página** (título, subtítulo) y el badge **"Versión Gratuita"** (`AppLimits.FreeBadgeText`): `NormalizationPageTitle/Subtitle`, `BatchRenamePageTitle/Subtitle`, `QuickRenamePageTitle/Subtitle`, `VocalRemovalPageTitle/Subtitle`, `DuplicatesPageTitle/Subtitle`, `TagsPageTitle/Subtitle`, `AccountPageTitle/Subtitle`. Cada página los monta en su constructor desde estas propiedades, por lo que todos los textos de las funcionalidades se cambian en un solo lugar. También `TagsClearInfoText`/`TagsReplaceInfoText` (descripciones de las pestañas de Etiquetas) y los avisos de la versión gratuita (`TagsInfoBarTitle`, `BatchRenameLimitMessage`, `BatchRenameFilesLimitMessage`, `QuickRenameLimitMessage`, `VocalRemovalPageDescription`), mostrados con badge + **letra reducida** (11-12 px).
 
 ### Identidad de la aplicación (branding)
 
@@ -249,7 +290,7 @@ También en `AppLimits` se centraliza la identidad de la app, para cambiar el no
 
 | Constante | Valor | Dónde se usa |
 |-----------|-------|--------------|
-| `AppName` | `One Dj App` | Título de ventana, nombre del menú (`BrandNameText`), badges de marca de las 5 páginas (`BrandText`) |
+| `AppName` | `One Dj App` | Título de ventana, nombre del menú (`BrandNameText`), badges de marca de las 6 páginas (`BrandText`) |
 | `AppSubtitle` | `Mejorador de Audio` | Subtítulo del menú (`BrandSubtitleText`) |
 | `AppBrandSite` | `www.top-remix.com` | `SiteBrandText` (QuickRename) y `BrandSiteRun` (DuplicateRemoval). **No cambiar el dominio** |
 | `AppDataFolderName` | `Remove_Top` | Carpeta de datos en `%LOCALAPPDATA%` (crash.log, patterns.json, models). Conservar para no perder datos |
@@ -279,7 +320,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 | Campo | Valor |
 |-------|-------|
 | **Paquete** | Velopack 1.2.* (NuGet) |
-| **Versión actual** | `0.1.3` (en `Remove_Top.csproj`, `<Version>`) |
+| **Versión actual** | `0.3.0` (en `Remove_Top.csproj`, `<Version>`) |
 | **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
 | **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
 | **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |
@@ -296,7 +337,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 Para publicar una nueva versión, ejecutar el script `publish.ps1` desde la raíz del repo:
 
 ```powershell
-# Publicar con versión del .csproj (0.1.0, 0.2.0, etc.)
+# Publicar con versión del .csproj (0.3.0, etc.)
 .\publish.ps1
 
 # Forzar versión específica
@@ -313,6 +354,22 @@ El script automatiza:
 
 **Requisitos:** .NET 8 SDK + Velopack CLI (`dotnet tool install -g Velopack`).
 **Token:** via parámetro `-Token` o variable de entorno `GH_TOKEN` (no hardcodeado).
+
+### Cómo hacer un NUEVO BUILD (empaquetado para otra PC)
+
+Cuando el usuario pida "hacer un nuevo build" o "empaquetar para pasar a otras PC", el proceso correcto es:
+
+1. **Subir la versión** en `Remove_Top/Remove_Top/Remove_Top.csproj` → `<Version>` (fuente única). Velopack exige versión mayor que la publicada (p. ej. `0.2.0 → 0.2.1`, `0.2.0 → 0.3.0`).
+2. **Empaquetar** desde la raíz del repo (autorizado explícitamente por el usuario):
+   ```powershell
+   .\publish.ps1 -SkipUpload      # Solo genera el paquete en releases/ (sin subir a GitHub)
+   ```
+   (Para además subir a GitHub Releases: `.\publish.ps1` con `GH_TOKEN` definido.)
+3. **El instalador para otra PC es `releases\OneDjApp-win-Setup.exe`** (doble clic → instala). También se generan `OneDjApp-<ver>-full.nupkg`, `OneDjApp-<ver>-delta.nupkg` (update/autoupdate de Velopack) y `OneDjApp-win-Portable.zip` (portátil).
+4. **Verificar** que `releases\` contenga los archivos de la nueva versión y que el Setup.exe tenga fecha actual.
+5. **CI automático**: al pushear a `main`, el workflow `.github/workflows/publish.yml` ejecuta `publish.ps1` y sube la release a GitHub Releases (requiere el secret `GH_TOKEN` en GitHub). En `staging` NO se publica.
+
+> NUNCA sustituyas esto por un `dotnet build` a secas: un build normal no produce el instalador. El entregable instalable SIEMPRE es el `Setup.exe` de `releases/` generado por `publish.ps1`.
 
 ### Workflow de branches
 ```
@@ -383,6 +440,7 @@ que no existen en todas las versiones de WinUI 3.
   - **SameName por normalización:** `Jessi Uribe Sobreviviré` ↔ `JESSI URIBE - SOBREVIVIRE`.
   - **Difusa "1 letra":** `Segundo Rosero Incomprencion.wav` ↔ `Segundo rosero Incomprension.wav`; `Ni perdono ni olvido` ↔ `Ni Perdón Ni Olvido`.
   - **NO deben agruparse:** la serie "mosaico 1 / mosaico 2 / mosaico" (dígitos).
+- Etiquetas: caso de **solo lectura** real en `F:\GS FARRA 23\SUCIO\98 - 7A - Dani Flow - LMPDGTO (Harmony Extended).mp3` (el módulo quita el atributo, borra tags + portada incrustada + `folder.jpg`).
 
 ## Cómo agregar una nueva página
 
@@ -390,6 +448,7 @@ que no existen en todas las versiones de WinUI 3.
 2. Crear archivos `NuevaPagina.xaml` y `NuevaPagina.xaml.cs` en esa carpeta (namespace `Remove_Top.Features.<Feature>`)
 3. Agregar un `NavigationViewItem` en `MainWindow.xaml` con un Tag único
 4. Agregar el case correspondiente en `MainWindow.xaml.cs` → `NavView_ItemInvoked`
+5. Si recibe archivos/carpetas: envolver la raíz en `Controls/DropTargetControl` (con `AccentColor` del feature) y usar `Controls/FileSourceControl` para el origen (ver "Arrastre en toda la app").
 
 ## Cómo agregar un nuevo servicio
 

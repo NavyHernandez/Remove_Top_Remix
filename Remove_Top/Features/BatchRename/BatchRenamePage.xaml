@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Remove_Top.Features.BatchRename"
     xmlns:helpers="using:Remove_Top.Helpers"
+    xmlns:controls="using:Remove_Top.Controls"
     xmlns:ic="using:FluentIcons.WinUI"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -14,7 +15,14 @@
         <helpers:FileTypeIconConverter x:Key="FileTypeIcon" />
     </Page.Resources>
 
-    <Grid Margin="24">
+    <controls:DropTargetControl
+        FilesDropped="DropTarget_FilesDropped"
+        Caption="Suelta para cargar"
+        Subtitle="Arrastra una carpeta o archivos para renombrar"
+        AccentColor="#70AD47">
+
+        <controls:DropTargetControl.Host>
+        <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -48,33 +56,14 @@
             <StackPanel Spacing="16">
 
                 <!-- ==================================================== -->
-                <!-- SECCIÓN: Carpeta de origen                           -->
+                <!-- SECCIÓN: Origen (carpeta / archivos / arrastre)      -->
                 <!-- ==================================================== -->
-                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Carpeta de origen"
-                                   FontSize="16" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <TextBox x:Name="FolderPathBox"
-                                     PlaceholderText="Selecciona una carpeta con archivos..."
-                                     IsReadOnly="True"
-                                     CornerRadius="4" />
-                            <Button Grid.Column="1"
-                                    x:Name="BrowseButton"
-                                    Content="Examinar..."
-                                    Click="BrowseButton_Click"
-                                    CornerRadius="4"
-                                    Background="Transparent"
-                                    BorderBrush="#70AD47"
-                                    Foreground="#70AD47"
-                                    BorderThickness="1.5" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                <controls:FileSourceControl
+                    x:Name="Source"
+                    AccentColor="#70AD47"
+                    ScanRecursive="True"
+                    MaxFiles="1000"
+                    StateChanged="Source_StateChanged" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Patrones a eliminar (chips con X)           -->
@@ -166,12 +155,12 @@
                                            FontSize="11" FontWeight="SemiBold" Foreground="White" />
                             </Border>
                             <TextBlock x:Name="LimitInfoText"
-                                       FontSize="12"
+                                       FontSize="11"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        VerticalAlignment="Center" />
                         </StackPanel>
                         <TextBlock x:Name="FilesLimitInfoText"
-                                   FontSize="12"
+                                   FontSize="11"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap" />
                     </StackPanel>
@@ -505,5 +494,7 @@
 
             </StackPanel>
         </ScrollViewer>
-    </Grid>
+        </Grid>
+        </controls:DropTargetControl.Host>
+    </controls:DropTargetControl>
 </Page>

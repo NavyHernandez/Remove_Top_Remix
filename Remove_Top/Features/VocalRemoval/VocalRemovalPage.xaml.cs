@@ -2,8 +2,10 @@ using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using NAudio.Wave;
+using Remove_Top.Controls;
 using Remove_Top.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -22,6 +24,7 @@ namespace Remove_Top.Features.VocalRemoval
     public sealed partial class VocalRemovalPage : Page
     {
         private readonly ObservableCollection<string> _queue = [];
+        private readonly List<string> _queuePaths = [];
         private readonly ObservableCollection<StemResult> _results = [];
         private CancellationTokenSource? _cts;
         private bool _isProcessing;
@@ -31,9 +34,12 @@ namespace Remove_Top.Features.VocalRemoval
             InitializeComponent();
             QueueListView.ItemsSource = _queue;
             ResultsListView.ItemsSource = _results;
-            BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             DownloadButton.Content = UiHelpers.Content(Icon.ArrowDownload, "Descargar modelo", semibold: false, foreground: DownloadButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Mic, "Extraer voces (stems)", foreground: StartButton.Foreground);
+
+            // Configuración del control de origen: solo audio, sin subcarpetas.
+            Source.FileFilter = VocalSeparator.IsAudioFile;
+            Source.PickerExtensions = [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma"];
 
             // Título y descripción del encabezado, centralizados en AppLimits
             // para que el máximo de canciones por lote coincida siempre con el real.
@@ -135,43 +141,69 @@ namespace Remove_Top.Features.VocalRemoval
             }
         }
 
-        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+/// <summary>
+        /// Al soltar contenido sobre la página (carpetas o archivos) se carga en
+        /// el control de origen. Solo se acepta si el modelo ya está cargado y la
+        /// app no está procesando.
+        /// </summary>
+        private void DropTarget_FilesDropped(object? sender, DropFilesEventArgs e)
         {
-            var picker = new FolderPicker
+            if (_isProcessing) return;
+            if (FolderSection.Visibility != Visibility.Visible) return;
+            Source.LoadSource(e.Paths);
+        }
+
+        /// <summary>
+        /// Al cambiar el estado del origen (carga/reset) se reconstruye la cola
+        /// de canciones estéreo (máx. <see cref="AppLimits.VocalRemovalMaxFilesPerBatch"/>).
+        /// </summary>
+        private void Source_StateChanged(object? sender, EventArgs e)
+        {
+            if (_isProcessing) return;
+            if (Source.HasFiles)
+                LoadQueue();
+            else
             {
-                ViewMode = PickerViewMode.List,
-                SuggestedStartLocation = PickerLocationId.MusicLibrary
-            };
-            picker.FileTypeFilter.Add("*");
-
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
-            {
-                FolderPathBox.Text = folder.Path;
-                var files = VocalSeparator.GetAudioFiles(folder.Path);
-                var stereoFiles = files.Where(f => IsStereo(f)).Take(AppLimits.VocalRemovalMaxFilesPerBatch).ToArray();
-
                 _queue.Clear();
-                foreach (var f in stereoFiles)
-                    _queue.Add(Path.GetFileName(f));
-
-                if (_queue.Count > 0)
-                {
-                    QueueSection.Visibility = Visibility.Visible;
-                    QueueCountText.Text = $"{_queue.Count}/{AppLimits.VocalRemovalMaxFilesPerBatch}";
-                    FileCountText.Text = $"{files.Length} archivo(s) de audio encontrado(s) · {_queue.Count} compatible(s)";
-                }
-                else
-                {
-                    QueueSection.Visibility = Visibility.Collapsed;
-                    FileCountText.Text = $"{files.Length} archivo(s) de audio encontrado(s) · Ninguno compatible (se requiere est\u00e9reo)";
-                }
-                FileCountText.Visibility = Visibility.Visible;
-                StartButton.IsEnabled = _queue.Count > 0 && !_isProcessing;
+                _queuePaths.Clear();
+                QueueSection.Visibility = Visibility.Collapsed;
+                FileCountText.Visibility = Visibility.Collapsed;
+                StartButton.IsEnabled = false;
             }
+        }
+
+        /// <summary>
+        /// Llena la cola con las canciones estéreo de los archivos cargados
+        /// (hasta el máximo por lote) y actualiza los contadores de la UI.
+        /// </summary>
+        private void LoadQueue()
+        {
+            var stereoFiles = Source.Files
+                .Where(f => IsStereo(f))
+                .Take(AppLimits.VocalRemovalMaxFilesPerBatch)
+                .ToArray();
+
+            _queue.Clear();
+            _queuePaths.Clear();
+            foreach (var f in stereoFiles)
+            {
+                _queue.Add(Path.GetFileName(f));
+                _queuePaths.Add(f);
+            }
+
+            if (_queue.Count > 0)
+            {
+                QueueSection.Visibility = Visibility.Visible;
+                QueueCountText.Text = $"{_queue.Count}/{AppLimits.VocalRemovalMaxFilesPerBatch}";
+                FileCountText.Text = $"{Source.Files.Count} archivo(s) de audio encontrado(s) \u00b7 {_queue.Count} compatible(s)";
+            }
+            else
+            {
+                QueueSection.Visibility = Visibility.Collapsed;
+                FileCountText.Text = $"{Source.Files.Count} archivo(s) de audio encontrado(s) \u00b7 Ninguno compatible (se requiere est\u00e9reo)";
+            }
+            FileCountText.Visibility = Visibility.Visible;
+            StartButton.IsEnabled = _queue.Count > 0 && !_isProcessing;
         }
 
         private static bool IsStereo(string path)
@@ -192,17 +224,15 @@ namespace Remove_Top.Features.VocalRemoval
                 return;
             }
 
-            var folderPath = FolderPathBox.Text;
-            if (string.IsNullOrEmpty(folderPath) || _queue.Count == 0) return;
+            if (_queuePaths.Count == 0) return;
 
-            var files = _queue.Select(f => Path.Combine(folderPath, f)).ToArray();
+            var files = _queuePaths.ToArray();
 
             _results.Clear();
             _isProcessing = true;
             CompleteBadge.Visibility = Visibility.Collapsed;
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
-            BrowseButton.IsEnabled = false;
-            FolderPathBox.IsEnabled = false;
+            Source.SetEnabled(false);
             ProgressSection.Visibility = Visibility.Visible;
             ResultsSection.Visibility = Visibility.Visible;
             OverallProgressBar.Value = 0;
@@ -265,8 +295,7 @@ namespace Remove_Top.Features.VocalRemoval
             {
                 _isProcessing = false;
                 StartButton.Content = UiHelpers.Content(Icon.Mic, "Extraer voces (stems)", foreground: StartButton.Foreground);
-                BrowseButton.IsEnabled = true;
-                FolderPathBox.IsEnabled = true;
+                Source.SetEnabled(true);
                 _cts?.Dispose();
                 _cts = null;
             }

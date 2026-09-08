@@ -113,6 +113,18 @@ namespace Remove_Top.Helpers
         public const int VocalRemovalMaxFilesPerBatch = 5;
 
         // ====================================================================
+        // ETIQUETAS (Features/TagRemoval)
+        // ====================================================================
+
+        /// <summary>
+        /// Límite REAL de archivos que se analizan/procesan por ejecución en
+        /// Eliminar/Reemplazar Etiquetas (TagService). El escaneo es recursivo
+        /// e incluye las subcarpetas; por encima de esta cantidad el resto de
+        /// archivos se omite.
+        /// </summary>
+        public const int TagsMaxFilesToScan = 1000;
+
+        // ====================================================================
         // ELIMINACIÓN DE DUPLICADOS (Features/DuplicateRemoval)
         // ====================================================================
 
@@ -151,8 +163,7 @@ namespace Remove_Top.Helpers
 
         /// <summary>Mensaje del InfoBar de la página de Normalización.</summary>
         public static string NormalizationInfoBarMessage =>
-            $"El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de " +
-            $"{N0(NormalizationFreeLimitDisplay)} archivos.";
+            $"Se analizan hasta {N0(NormalizationFreeLimitDisplay)} archivos por carpeta.";
 
         /// <summary>Título del InfoBar de la página de Eliminación de Duplicados.</summary>
         public static string DuplicatesInfoBarTitle =>
@@ -160,25 +171,27 @@ namespace Remove_Top.Helpers
 
         /// <summary>Mensaje del InfoBar de la página de Eliminación de Duplicados.</summary>
         public static string DuplicatesInfoBarMessage =>
-            $"El escaneo es recursivo e incluye las subcarpetas. Si la carpeta tiene más de " +
-            $"{N0(DuplicatesMaxFilesToScan)} archivos, se analizan los primeros {N0(DuplicatesMaxFilesToScan)}.";
+            $"Se escanean hasta {N0(DuplicatesMaxFilesToScan)} archivos (incluye subcarpetas).";
 
         /// <summary>Aviso de límite de patrones en el Renombrado Masivo.</summary>
         public static string BatchRenameLimitMessage =>
-            $"Máximo {BatchRenameMaxPatterns} patrones. La búsqueda no distingue mayúsculas/minúsculas.";
+            $"M\u00e1x. {BatchRenameMaxPatterns} patrones.";
 
         /// <summary>Aviso de límite de archivos en el Renombrado Masivo (junto al badge "Versión Gratuita").</summary>
         public static string BatchRenameFilesLimitMessage =>
-            $"Se procesan hasta {N0(BatchRenameMaxFilesToScan)} archivos por ejecución. El escaneo es recursivo e incluye las subcarpetas.";
+            $"Hasta {N0(BatchRenameMaxFilesToScan)} archivos por ejecuci\u00f3n.";
 
         /// <summary>Aviso de límite de archivos en la Edición Rápida.</summary>
         public static string QuickRenameLimitMessage =>
-            $"Se muestran los primeros {N0(QuickRenameMaxFilesToScan)} archivos .mp3/.wav de la carpeta.";
+            $"Se muestran los primeros {N0(QuickRenameMaxFilesToScan)} archivos .mp3/.wav.";
+
+        /// <summary>Título del InfoBar de la página de Eliminar/Reemplazar Etiquetas.</summary>
+        public static string TagsInfoBarTitle =>
+            $"Versión gratuita: hasta {N0(TagsMaxFilesToScan)} archivos";
 
         /// <summary>Descripción de la página de Extracción de Stems.</summary>
         public static string VocalRemovalPageDescription =>
-            $"Separa la voz del instrumental usando IA (HD-Demucs). Máximo " +
-            $"{VocalRemovalMaxFilesPerBatch} canciones por lote.";
+            $"Separa la voz del instrumental con IA. M\u00e1x. {VocalRemovalMaxFilesPerBatch} canciones por lote.";
 
         // ====================================================================
         // TÍTULOS, SUBTÍTULOS Y BADGES DE LAS PÁGINAS
@@ -226,6 +239,24 @@ namespace Remove_Top.Helpers
         /// <summary>Subtítulo del encabezado de la página de Eliminación de Duplicados.</summary>
         public const string DuplicatesPageSubtitle =
             "Escanea una carpeta (incluye subcarpetas), detecta duplicados, posibles y archivos dañados";
+
+        /// <summary>Título del encabezado de la página de Eliminar/Reemplazar Etiquetas.</summary>
+        public const string TagsPageTitle = "Eliminar y reemplazar etiquetas";
+
+        /// <summary>Subtítulo del encabezado de la página de Eliminar/Reemplazar Etiquetas.</summary>
+        public const string TagsPageSubtitle =
+            "Borra o reemplaza las etiquetas (título, artista, álbum, portada...) de tus archivos de audio.";
+
+        /// <summary>Descripción de la tarjeta "Eliminar etiquetas".</summary>
+        public static string TagsClearInfoText =>
+            "Borra TODAS las etiquetas de los archivos cargados (título, artista, álbum, género, " +
+            "comentario...) y la imagen de portada incrustada. También elimina las portadas externas " +
+            "de la carpeta (folder.jpg, cover.jpg, front.jpg, back.jpg). La operación no se puede deshacer.";
+
+        /// <summary>Descripción de la tarjeta "Reemplazar etiquetas".</summary>
+        public static string TagsReplaceInfoText =>
+            "Escribe los valores nuevos: se aplicarán a TODOS los archivos cargados. " +
+            "Los campos que dejes vacíos se limpian.";
 
         /// <summary>Título del encabezado de la página Cuenta (perfil/uso/actualizaciones).</summary>
         public const string AccountPageTitle = "Cuenta";
