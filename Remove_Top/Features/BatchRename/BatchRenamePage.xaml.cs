@@ -2,16 +2,16 @@ using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Remove_Top.Controls;
 using Remove_Top.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 
 namespace Remove_Top.Features.BatchRename
 {
@@ -32,6 +32,7 @@ namespace Remove_Top.Features.BatchRename
         private CancellationTokenSource? _cts;
         private bool _isProcessing;
         private bool _isSuggesting;
+        private IReadOnlyList<string> _selectedFiles = [];
 
         // Control de la tarjeta premium: se muestra solo si el escaneo se
         // truncó (la carpeta tenía más de FileRenamer.MaxFilesToScan archivos
@@ -46,7 +47,7 @@ namespace Remove_Top.Features.BatchRename
             PatternsItemsControl.ItemsSource = _patterns;
             ResultsListView.ItemsSource = _results;
             PatternSuggestionsListView.ItemsSource = _patternSuggestions;
-            BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
+            Source.FileFilter = FileRenamer.IsSupportedFile;
             AddPatternButton.Content = UiHelpers.Content(Icon.Add, "Agregar", semibold: false, foreground: AddPatternButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Delete, "Eliminar patrones de los nombres", foreground: StartButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
@@ -109,26 +110,32 @@ namespace Remove_Top.Features.BatchRename
         // SELECCIÓN DE CARPETA
         // ================================================================
 
-        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+        // ================================================================
+        // SELECCIÓN DE ORIGEN (carpeta / archivos / arrastre)
+        // ================================================================
+
+        /// <summary>
+        /// Al soltar contenido sobre la página (carpetas o archivos) se carga en
+        /// el control de origen. Si la app está procesando o sugiriendo, se ignora.
+        /// </summary>
+        private void DropTarget_FilesDropped(object? sender, DropFilesEventArgs e)
         {
-            var picker = new FolderPicker
-            {
-                ViewMode = PickerViewMode.List,
-                SuggestedStartLocation = PickerLocationId.MusicLibrary
-            };
-            picker.FileTypeFilter.Add("*");
+            if (_isProcessing || _isSuggesting) return;
+            Source.LoadSource(e.Paths);
+        }
 
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        /// <summary>
+        /// Al cambiar el estado del origen (carga/reset) se guardan los archivos
+        /// seleccionados y se recalculan la vista previa y la UI.
+        /// </summary>
+        private void Source_StateChanged(object? sender, EventArgs e)
+        {
+            if (_isProcessing || _isSuggesting) return;
 
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
-            {
-                FolderPathBox.Text = folder.Path;
-                ClearSuggestions();
-                UpdatePreview();
-                UpdateUI();
-            }
+            _selectedFiles = Source.HasFiles ? Source.Files : [];
+            ClearSuggestions();
+            UpdatePreview();
+            UpdateUI();
         }
 
         // ================================================================
@@ -200,10 +207,9 @@ namespace Remove_Top.Features.BatchRename
 
         private void UpdatePreview()
         {
-            var folderPath = FolderPathBox.Text;
             var patterns = _patterns.Select(p => p.Text).ToArray();
 
-            if (string.IsNullOrEmpty(folderPath) || patterns.Length == 0)
+            if (_selectedFiles.Count == 0 || patterns.Length == 0)
             {
                 PreviewSection.Visibility = Visibility.Collapsed;
                 UpdateUI();
@@ -212,7 +218,7 @@ namespace Remove_Top.Features.BatchRename
 
             try
             {
-                var files = FileRenamer.GetAffectedFiles(folderPath, patterns);
+                var files = FileRenamer.GetAffectedFiles(_selectedFiles, patterns, out _);
 
                 if (files.Length > 0)
                 {
@@ -248,13 +254,14 @@ namespace Remove_Top.Features.BatchRename
             AddPatternButton.IsEnabled = !string.IsNullOrWhiteSpace(PatternInput.Text)
                                          && _patterns.Count < AppLimits.BatchRenameMaxPatterns;
             bool hasResults = _results.Count > 0;
-            StartButton.IsEnabled = !string.IsNullOrEmpty(FolderPathBox.Text)
+            bool hasSource = _selectedFiles.Count > 0;
+            StartButton.IsEnabled = hasSource
                                     && _patterns.Count > 0 && !_isProcessing && !hasResults;
             StartButton.Visibility = hasResults ? Visibility.Collapsed : Visibility.Visible;
-            bool showCancel = !string.IsNullOrEmpty(FolderPathBox.Text) && !_isProcessing && !hasResults;
+            bool showCancel = hasSource && !_isProcessing && !hasResults;
             CancelButton.Visibility = showCancel ? Visibility.Visible : Visibility.Collapsed;
             CancelButton.IsEnabled = showCancel;
-            AiSection.Visibility = !string.IsNullOrEmpty(FolderPathBox.Text) && _patterns.Count > 0
+            AiSection.Visibility = hasSource && _patterns.Count > 0
                 && !hasResults
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -290,11 +297,10 @@ namespace Remove_Top.Features.BatchRename
                 return;
             }
 
-            var folderPath = FolderPathBox.Text;
             var patterns = _patterns.Select(p => p.Text).ToArray();
-            if (string.IsNullOrEmpty(folderPath) || patterns.Length == 0) return;
+            if (_selectedFiles.Count == 0 || patterns.Length == 0) return;
 
-            var files = FileRenamer.GetAffectedFiles(folderPath, patterns, out int totalFound);
+            var files = FileRenamer.GetAffectedFiles(_selectedFiles, patterns, out int totalFound);
             if (files.Length == 0) return;
 
             // El escaneo se truncó si la carpeta tenía más archivos afectados de
@@ -314,8 +320,7 @@ namespace Remove_Top.Features.BatchRename
             UpdateAiStatus();
             CompleteBadge.Visibility = Visibility.Collapsed;
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
-            BrowseButton.IsEnabled = false;
-            FolderPathBox.IsEnabled = false;
+            Source.SetEnabled(false);
             PatternInput.IsEnabled = false;
             AddPatternButton.IsEnabled = false;
             ProgressSection.Visibility = Visibility.Visible;
@@ -373,8 +378,7 @@ namespace Remove_Top.Features.BatchRename
             {
                 _isProcessing = false;
                 StartButton.Content = UiHelpers.Content(Icon.Delete, "Eliminar patrones de los nombres", foreground: StartButton.Foreground);
-                BrowseButton.IsEnabled = true;
-                FolderPathBox.IsEnabled = true;
+                Source.SetEnabled(true);
                 PatternInput.IsEnabled = true;
                 AddPatternButton.IsEnabled = true;
                 _cts?.Dispose();
@@ -401,7 +405,8 @@ namespace Remove_Top.Features.BatchRename
         {
             if (_isProcessing) return;
 
-            FolderPathBox.Text = "";
+            _selectedFiles = [];
+            Source.Reset();
             _results.Clear();
             _renamingCompleted = false;
             _batchTruncated = false;
@@ -432,7 +437,8 @@ namespace Remove_Top.Features.BatchRename
         {
             if (_isProcessing) return;
 
-            FolderPathBox.Text = "";
+            _selectedFiles = [];
+            Source.Reset();
             _results.Clear();
             _renamingCompleted = false;
             _batchTruncated = false;
@@ -483,12 +489,12 @@ namespace Remove_Top.Features.BatchRename
 
         private void UpdateAiStatus()
         {
-            bool ready = !string.IsNullOrEmpty(FolderPathBox.Text)
+            bool ready = _selectedFiles.Count > 0
                          && _patterns.Count > 0 && !_isProcessing && !_isSuggesting;
 
             AiStatusText.Text = ready
                 ? "Se enviarán los patrones y los primeros 10 nombres de archivos afectados al servidor Topremix."
-                : "Selecciona una carpeta y agrega patrones para habilitar la sugerencia de IA.";
+                : "Carga una carpeta o archivos y agrega patrones para habilitar la sugerencia de IA.";
             SuggestPatternsButton.IsEnabled = ready;
         }
 
@@ -497,7 +503,7 @@ namespace Remove_Top.Features.BatchRename
             if (_isSuggesting) return;
 
             var patterns = _patterns.Select(p => p.Text).ToArray();
-            var fileNames = FileRenamer.GetAffectedFiles(FolderPathBox.Text, patterns)
+            var fileNames = FileRenamer.GetAffectedFiles(_selectedFiles, patterns, out _)
                 .Select(Path.GetFileNameWithoutExtension)
                 .Where(n => !string.IsNullOrEmpty(n))
                 .Cast<string>()
@@ -506,14 +512,13 @@ namespace Remove_Top.Features.BatchRename
 
             if (patterns.Length == 0 || fileNames.Length == 0)
             {
-                AiStatusText.Text = "Se necesita una carpeta con archivos afectados y al menos un patrón.";
+                AiStatusText.Text = "Se necesita cargar archivos afectados y al menos un patrón.";
                 return;
             }
 
             _isSuggesting = true;
             SuggestPatternsButton.IsEnabled = false;
-            BrowseButton.IsEnabled = false;
-            FolderPathBox.IsEnabled = false;
+            Source.SetEnabled(false);
             PatternInput.IsEnabled = false;
             AddPatternButton.IsEnabled = false;
             AiProgressBar.Visibility = Visibility.Visible;
@@ -545,8 +550,7 @@ namespace Remove_Top.Features.BatchRename
             {
                 _isSuggesting = false;
                 AiProgressBar.Visibility = Visibility.Collapsed;
-                BrowseButton.IsEnabled = true;
-                FolderPathBox.IsEnabled = true;
+                Source.SetEnabled(true);
                 PatternInput.IsEnabled = true;
                 AddPatternButton.IsEnabled = true;
                 UpdateAiStatus();

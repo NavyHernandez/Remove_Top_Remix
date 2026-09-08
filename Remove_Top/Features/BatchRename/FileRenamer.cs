@@ -117,6 +117,29 @@ namespace Remove_Top.Features.BatchRename
         }
 
         /// <summary>
+        /// Filtra una lista ya obtenida de archivos, dejando solo los afectados
+        /// por algún patrón (mismo criterio que la versión por carpeta, sin
+        /// escanear el disco). Aplica el límite de <see cref="MaxFilesToScan"/>.
+        /// </summary>
+        public static string[] GetAffectedFiles(
+            IEnumerable<string> files,
+            string[] patterns,
+            out int totalFound)
+        {
+            var affected = new List<string>();
+            foreach (var file in files)
+            {
+                if (!IsSupportedFile(file)) continue;
+                var name = Path.GetFileNameWithoutExtension(file);
+                if (patterns.Any(p => name.Contains(p, StringComparison.OrdinalIgnoreCase)))
+                    affected.Add(file);
+            }
+
+            totalFound = affected.Count;
+            return affected.Take(MaxFilesToScan).ToArray();
+        }
+
+        /// <summary>
         /// Procesa los archivos aplicando todos los patrones a cada nombre.
         /// Reporta progreso mediante IProgress y soporta cancelación.
         /// Los archivos no soportados se omiten con mensaje informativo.

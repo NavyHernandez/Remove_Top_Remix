@@ -91,8 +91,24 @@
                     <ic:FluentIcon Icon="Copy" IconVariant="Regular" IconSize="Size20" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem x:Name="NavTags" Tag="tags" Content="Etiquetas"
+                                ToolTipService.ToolTip="Eliminar o reemplazar etiquetas de audio">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#B8860B"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#B8860B"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="Tag" IconVariant="Regular" IconSize="Size20" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem x:Name="NavAccount" Tag="account" Content="Cuenta"
                                 ToolTipService.ToolTip="Perfil, actualizaciones y estadísticas de uso">
+                <NavigationViewItem.InfoBadge>
+                    <InfoBadge x:Name="AccountInfoBadge"
+                               Visibility="Collapsed"
+                               Background="#E67E22"
+                               Foreground="White" />
+                </NavigationViewItem.InfoBadge>
                 <NavigationViewItem.Resources>
                     <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#00A88F"/>
                     <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#00A88F"/>

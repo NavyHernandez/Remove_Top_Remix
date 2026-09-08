@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Remove_Top.Features.TagRemoval.TagRemovalPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Remove_Top.Features.TagRemoval"
+    xmlns:controls="using:Remove_Top.Controls"
+    xmlns:ic="using:FluentIcons.WinUI"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Unloaded="Page_Unloaded">
+
+    <!--
+        Toda la página es destino de arrastre (DropTargetControl reutilizable):
+        acepta carpetas y archivos, muestra un overlay oscuro al arrastrar y
+        notifica las rutas mediante FilesDropped.
+    -->
+    <controls:DropTargetControl
+        x:Name="DropTarget"
+        FilesDropped="DropTarget_FilesDropped"
+        Caption="Suelta para cargar"
+        Subtitle="Carpetas o archivos de audio — las carpetas se escanean incluyendo subcarpetas"
+        AccentColor="#B8860B">
+
+        <controls:DropTargetControl.Host>
+            <Grid Margin="24">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- HEADER: Branding + Título y descripción                     -->
+        <!-- ============================================================ -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#B8860B">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="Tag" IconVariant="Regular" IconSize="Size12"
+                                   Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
+                       FontSize="28" FontWeight="SemiBold" />
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
+                       FontSize="14"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- ============================================================ -->
+        <!-- CONTENT                                                      -->
+        <!-- ============================================================ -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="16">
+
+                <!-- ==================================================== -->
+                <!-- AVISO: Límite de la versión gratuita                 -->
+                <!-- ==================================================== -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Border CornerRadius="4" Padding="8,2" Background="#70AD47"
+                            VerticalAlignment="Top">
+                        <TextBlock Text="Versión Gratuita"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    </Border>
+                    <TextBlock Grid.Column="1"
+                               x:Name="LimitInfoTitle"
+                               FontSize="12" FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- ==================================================== -->
+                <!-- PESTAÑAS: Eliminar etiquetas | Reemplazar etiquetas   -->
+                <!-- Cada pestaña tiene su propia selección de origen.     -->
+                <!-- ==================================================== -->
+                <TabView x:Name="ActionsTabView"
+                         TabWidthMode="SizeToContent"
+                         IsAddTabButtonVisible="False"
+                         SelectionChanged="ActionsTabView_SelectionChanged">
+                    <TabView.Resources>
+                        <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33B8860B" />
+                        <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelectedPressed" Color="#33B8860B" />
+                        <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOver" Color="#1AB8860B" />
+                        <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPointerOverPressed" Color="#1AB8860B" />
+                        <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#1AB8860B" />
+                        <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="#B8860B" />
+                    </TabView.Resources>
+
+                    <!-- TAB 1: Eliminar etiquetas -->
+                    <TabViewItem x:Name="ClearTab" IsClosable="False">
+                        <TabViewItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:FluentIcon Icon="Tag" IconVariant="Regular" IconSize="Size16"
+                                               VerticalAlignment="Center" />
+                                <TextBlock Text="Eliminar etiquetas" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </TabViewItem.Header>
+                        <StackPanel Spacing="16">
+                            <local:TagSourceControl x:Name="ClearSource" StateChanged="Source_StateChanged" />
+                            <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16"
+                                    Background="{ThemeResource LayerFillColorDefaultBrush}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Eliminar etiquetas"
+                                               FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="ClearInfoText"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+                                    <Button x:Name="ClearButton"
+                                            FontSize="16" FontWeight="SemiBold"
+                                            Height="44"
+                                            HorizontalAlignment="Stretch"
+                                            CornerRadius="6"
+                                            Click="ClearButton_Click"
+                                            IsEnabled="False"
+                                            Background="#B8860B" Foreground="White" BorderThickness="0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </TabViewItem>
+
+                    <!-- TAB 2: Reemplazar etiquetas -->
+                    <TabViewItem x:Name="ReplaceTab" IsClosable="False">
+                        <TabViewItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <ic:FluentIcon Icon="Edit" IconVariant="Regular" IconSize="Size16"
+                                               VerticalAlignment="Center" />
+                                <TextBlock Text="Reemplazar etiquetas" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </TabViewItem.Header>
+                        <StackPanel Spacing="16">
+                            <local:TagSourceControl x:Name="ReplaceSource" StateChanged="Source_StateChanged" />
+                            <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="16"
+                                    Background="{ThemeResource LayerFillColorDefaultBrush}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="Reemplazar etiquetas"
+                                               FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="ReplaceInfoText"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+
+                                    <!-- Solo visible cuando hay archivos cargados -->
+                                    <StackPanel x:Name="ReplaceInputsSection"
+                                                Spacing="12"
+                                                Visibility="Collapsed">
+                                        <Grid ColumnDefinitions="110,*" ColumnSpacing="8" RowSpacing="8">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Título" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1" x:Name="TitleBox" CornerRadius="4" />
+
+                                        <TextBlock Grid.Row="1" Text="Intérprete" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="1" Grid.Column="1" x:Name="ArtistBox" CornerRadius="4" />
+
+                                        <TextBlock Grid.Row="2" Text="Artistas" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="AlbumArtistBox" CornerRadius="4" />
+
+                                        <TextBlock Grid.Row="3" Text="Álbum" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="3" Grid.Column="1" x:Name="AlbumBox" CornerRadius="4" />
+
+                                        <TextBlock Grid.Row="4" Text="Género" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="4" Grid.Column="1" x:Name="GenreBox" CornerRadius="4" />
+
+                                        <TextBlock Grid.Row="5" Text="Año" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="5" Grid.Column="1" x:Name="YearBox" CornerRadius="4"
+                                                 PlaceholderText="Solo números" />
+
+                                        <TextBlock Grid.Row="6" Text="Comentario" VerticalAlignment="Center" />
+                                        <TextBox Grid.Row="6" Grid.Column="1" x:Name="CommentBox" CornerRadius="4" />
+                                    </Grid>
+
+                                    <!-- Portada: preview + selección de imagen nueva -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                                        <Border Width="44" Height="44"
+                                                CornerRadius="4"
+                                                BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                                BorderThickness="1"
+                                                Background="{ThemeResource ControlFillColorDefaultBrush}">
+                                            <Image x:Name="CoverPreview" Stretch="Uniform" />
+                                        </Border>
+                                        <TextBox Grid.Column="1"
+                                                 x:Name="CoverPathBox"
+                                                 IsReadOnly="True"
+                                                 CornerRadius="4"
+                                                 VerticalAlignment="Center"
+                                                 PlaceholderText="Sin portada nueva: se conserva la actual" />
+                                        <Button Grid.Column="2"
+                                                x:Name="CoverBrowseButton"
+                                                Content="Reemplazar portada..."
+                                                Click="CoverBrowseButton_Click"
+                                                CornerRadius="4"
+                                                Background="Transparent"
+                                                BorderBrush="#B8860B"
+                                                Foreground="#B8860B"
+                                                BorderThickness="1.5" />
+                                        <Button Grid.Column="3"
+                                                x:Name="CoverClearButton"
+                                                Content="Quitar"
+                                                Click="CoverClearButton_Click"
+                                                Visibility="Collapsed"
+                                                CornerRadius="4"
+                                                Background="Transparent"
+                                                BorderBrush="#B8860B"
+                                                Foreground="#B8860B"
+                                                BorderThickness="1.5" />
+                                    </Grid>
+
+                                    <Button x:Name="ReplaceButton"
+                                            FontSize="16" FontWeight="SemiBold"
+                                            Height="44"
+                                            HorizontalAlignment="Stretch"
+                                            CornerRadius="6"
+                                            Click="ReplaceButton_Click"
+                                            IsEnabled="False"
+                                            Background="#B8860B" Foreground="White" BorderThickness="0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </TabViewItem>
+                </TabView>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Progreso (compartida)                       -->
+                <!-- ==================================================== -->
+                <Border x:Name="ProgressSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Procesando..."
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="ProgressCountText"
+                                       FontSize="13"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <ProgressBar x:Name="OverallProgressBar"
+                                     Value="0" ShowPaused="False" CornerRadius="2" />
+                        <TextBlock x:Name="ProgressText"
+                                   FontSize="13"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Resultados (compartida)                     -->
+                <!-- ==================================================== -->
+                <Border x:Name="ResultsSection"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                            <TextBlock Text="Resultados"
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <Border Grid.Column="1"
+                                    x:Name="CompleteBadge"
+                                    CornerRadius="4"
+                                    Padding="8,2"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    Visibility="Collapsed">
+                                <TextBlock x:Name="CompleteText"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="White" />
+                            </Border>
+                            <TextBlock Grid.Column="2"
+                                       x:Name="SummaryText"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <ListView x:Name="ResultsListView"
+                                  SelectionMode="None"
+                                  MaxHeight="260">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="Auto,*,Auto"
+                                          Margin="0,2"
+                                          ColumnSpacing="8">
+                                        <ic:FluentIcon Icon="{Binding StatusIcon}"
+                                                       IconVariant="Regular" IconSize="Size16"
+                                                       VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding FileName}"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Message}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <Button x:Name="RestartButton"
+                                Content="Limpiar"
+                                Click="RestartButton_Click"
+                                CornerRadius="4"
+                                HorizontalAlignment="Center"
+                                MinWidth="220"
+                                Margin="0,4,0,0"
+                                Visibility="Collapsed"
+                                Background="Transparent"
+                                BorderBrush="#B8860B"
+                                Foreground="#B8860B"
+                                BorderThickness="1.5" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Upgrade a la versión premium (compartida)   -->
+                <!-- ==================================================== -->
+                <Border x:Name="PremiumSection"
+                        BorderBrush="#2ECC71"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <Border Width="40" Height="40"
+                                    CornerRadius="20"
+                                    Background="#332ECC71"
+                                    VerticalAlignment="Center">
+                                <ic:FluentIcon Icon="Star" IconVariant="Filled" IconSize="Size20"
+                                               Foreground="#2ECC71"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Adquiere la versión premium"
+                                           FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="PremiumMessageText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="UpgradeButton"
+                                Content="Adquiere la versión premium"
+                                Click="UpgradeButton_Click"
+                                Height="40"
+                                FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Stretch"
+                                CornerRadius="6"
+                                Background="#2ECC71"
+                                Foreground="White"
+                                BorderThickness="0" />
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+            </Grid>
+        </controls:DropTargetControl.Host>
+    </controls:DropTargetControl>
+</Page>

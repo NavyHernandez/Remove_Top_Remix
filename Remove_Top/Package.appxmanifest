@@ -38,10 +38,10 @@
         DisplayName="Remove_Top"
         Description="Remove_Top"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        Square150x150Logo="Assets\StoreLogo.png"
+        Square44x44Logo="Assets\StoreLogo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\StoreLogo.png" />
+        <uap:SplashScreen Image="Assets\StoreLogo.png" />
       </uap:VisualElements>
     </Application>
   </Applications>

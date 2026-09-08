@@ -1,6 +1,7 @@
 using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Remove_Top.Controls;
 using Remove_Top.Helpers;
 using System;
 using System.Collections.ObjectModel;
@@ -9,15 +10,14 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Storage;
-using Windows.Storage.Pickers;
 
 namespace Remove_Top.Features.QuickRename
 {
     /// <summary>
-    /// Página de Edición Rápida: lista los .mp3/.wav de la carpeta principal y
-    /// permite editar cada nombre en una caja de texto inline (con extensión).
-    /// Aplica los cambios con File.Move directamente sobre los originales.
+    /// Página de Edición Rápida: selecciona una carpeta o archivos .mp3/.wav
+    /// (carpeta, botones o arrastre) y permite editar cada nombre en una caja
+    /// de texto inline (con extensión). Aplica los cambios con File.Move
+    /// directamente sobre los originales.
     /// </summary>
     public sealed partial class QuickRenamePage : Page
     {
@@ -29,12 +29,15 @@ namespace Remove_Top.Features.QuickRename
         {
             InitializeComponent();
             FilesListView.ItemsSource = _items;
-            BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             ResetButton.Content = UiHelpers.Content(Icon.ArrowUndo, "Restaurar originales", semibold: false, foreground: ResetButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar cambios", foreground: StartButton.Foreground);
             RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
             FreeBadgeText.Text = AppLimits.FreeBadgeText;
             LimitInfoText.Text = AppLimits.QuickRenameLimitMessage;
+
+            // Configuración del control de origen: solo .mp3/.wav, sin subcarpetas.
+            Source.FileFilter = QuickRenamer.IsSupportedFile;
+            Source.PickerExtensions = [".mp3", ".wav"];
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.QuickRenamePageTitle;
@@ -43,54 +46,55 @@ namespace Remove_Top.Features.QuickRename
             SiteBrandText.Text = AppLimits.AppBrandSite;
         }
 
-        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+        // ================================================================
+        // ARRASTRE / CARGA DE ORIGEN
+        // ================================================================
+
+        /// <summary>
+        /// Al soltar contenido sobre la página (toda la página es destino de
+        /// arrastre) se carga en el control de origen, que escanea carpetas o
+        /// usa archivos sueltos. Si la app está procesando, se ignora.
+        /// </summary>
+        private void DropTarget_FilesDropped(object? sender, DropFilesEventArgs e)
         {
-            var picker = new FolderPicker
-            {
-                ViewMode = PickerViewMode.List,
-                SuggestedStartLocation = PickerLocationId.MusicLibrary
-            };
-            picker.FileTypeFilter.Add("*");
-
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
-            {
-                FolderPathBox.Text = folder.Path;
-                LoadFiles(folder.Path);
-            }
-        }
-
-        private void LoadFiles(string folderPath)
-        {
-            ResultSection.Visibility = Visibility.Collapsed;
-            CompleteBadge.Visibility = Visibility.Collapsed;
-            RestartButton.Visibility = Visibility.Collapsed;
-            PopulateItems(folderPath);
-            UpdateUI();
+            if (_isProcessing) return;
+            Source.LoadSource(e.Paths);
         }
 
         /// <summary>
-        /// Reconstruye la lista editable de archivos (primeros
-        /// <see cref="AppLimits.QuickRenameMaxFilesToScan"/> de la carpeta)
-        /// sin tocar las secciones de progreso/resultados.
+        /// Al cambiar el estado del origen (carga/reset) se reconstruye la lista
+        /// editable a partir de los archivos seleccionados.
         /// </summary>
-        private void PopulateItems(string folderPath)
+        private void Source_StateChanged(object? sender, EventArgs e)
+        {
+            if (_isProcessing) return;
+
+            ResultSection.Visibility = Visibility.Collapsed;
+            CompleteBadge.Visibility = Visibility.Collapsed;
+            RestartButton.Visibility = Visibility.Collapsed;
+
+            if (Source.HasFiles)
+                PopulateItems();
+            else
+                ClearItems();
+
+            UpdateUI();
+        }
+
+        /// <summary>Reconstruye la lista editable a partir de los archivos cargados.</summary>
+        private void PopulateItems()
         {
             foreach (var item in _items)
                 item.PropertyChanged -= Item_PropertyChanged;
 
             _items.Clear();
 
-            var files = QuickRenamer.GetAudioFiles(folderPath, AppLimits.QuickRenameMaxFilesToScan);
-            foreach (var f in files)
+            foreach (var file in Source.Files)
             {
-                var name = Path.GetFileName(f);
+                var name = Path.GetFileName(file);
                 var item = new QuickRenameItem
                 {
-                    OriginalPath = f,
+                    OriginalPath = file,
                     OriginalName = name,
                     CurrentName = name
                 };
@@ -101,6 +105,16 @@ namespace Remove_Top.Features.QuickRename
             FileCountText.Text = $"{_items.Count} archivo(s) .mp3/.wav encontrado(s)";
             FileCountText.Visibility = Visibility.Visible;
             ListSection.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>Limpia la lista editable (cuando el origen queda sin archivos).</summary>
+        private void ClearItems()
+        {
+            foreach (var item in _items)
+                item.PropertyChanged -= Item_PropertyChanged;
+            _items.Clear();
+            FileCountText.Visibility = Visibility.Collapsed;
+            ListSection.Visibility = Visibility.Collapsed;
         }
 
         private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -135,13 +149,11 @@ namespace Remove_Top.Features.QuickRename
                 return;
             }
 
-            var folderPath = FolderPathBox.Text;
-            if (string.IsNullOrEmpty(folderPath) || _items.Count == 0) return;
+            if (_items.Count == 0) return;
 
             _isProcessing = true;
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
-            BrowseButton.IsEnabled = false;
-            FolderPathBox.IsEnabled = false;
+            Source.SetEnabled(false);
             ResetButton.IsEnabled = false;
 
             _cts = new CancellationTokenSource();
@@ -158,7 +170,7 @@ namespace Remove_Top.Features.QuickRename
                 ResultSection.Visibility = Visibility.Visible;
                 RestartButton.Visibility = Visibility.Visible;
 
-                PopulateItems(folderPath);
+                PopulateItems();
             }
             catch (OperationCanceledException)
             {
@@ -171,8 +183,7 @@ namespace Remove_Top.Features.QuickRename
             finally
             {
                 _isProcessing = false;
-                BrowseButton.IsEnabled = true;
-                FolderPathBox.IsEnabled = true;
+                Source.SetEnabled(true);
                 _cts?.Dispose();
                 _cts = null;
                 UpdateUI();
@@ -180,21 +191,19 @@ namespace Remove_Top.Features.QuickRename
         }
 
         /// <summary>
-        /// "Limpiar": vuelve la página a su estado inicial tras el
-        /// renombrado. Limpia la ruta, la lista editable y el resultado.
+        /// "Limpiar": vuelve la página a su estado inicial tras el renombrado.
+        /// Limpia el origen, la lista editable y el resultado.
         /// </summary>
         private void RestartButton_Click(object sender, RoutedEventArgs e)
         {
             if (_isProcessing) return;
 
-            FolderPathBox.Text = "";
-            _items.Clear();
+            Source.Reset();
+            ClearItems();
 
-            ListSection.Visibility = Visibility.Collapsed;
             ResultSection.Visibility = Visibility.Collapsed;
             CompleteBadge.Visibility = Visibility.Collapsed;
             RestartButton.Visibility = Visibility.Collapsed;
-            FileCountText.Visibility = Visibility.Collapsed;
 
             UpdateUI();
         }

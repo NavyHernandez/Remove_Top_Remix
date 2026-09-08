@@ -2,6 +2,7 @@ using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Remove_Top.Controls;
 using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
@@ -9,8 +10,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Storage.Pickers;
-using Windows.Storage;
 
 namespace Remove_Top.Features.Normalization
 {
@@ -26,6 +25,8 @@ namespace Remove_Top.Features.Normalization
         private bool _isProcessing;
         private bool _isAnalyzing;
         private bool _isUpdatingSlider;
+        private bool _resetting;
+        private string[] _pendingFiles = [];
 
         public NormalizationPage()
         {
@@ -33,21 +34,26 @@ namespace Remove_Top.Features.Normalization
             AnalysisListView.ItemsSource = _analysisResults;
             ResultsListView.ItemsSource = _results;
             TargetSlider.Value = -1.0;
-            BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CancelButton.Foreground);
             ClearButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: ClearButton.Foreground);
+
+            // Configuración del control de origen: solo audio, escaneo recursivo.
+            Source.FileFilter = AudioNormalizer.IsAudioFile;
+            Source.PickerExtensions =
+                [".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma", ".aiff", ".aif", ".wv"];
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.NormalizationPageTitle;
             PageSubtitleText.Text = AppLimits.NormalizationPageSubtitle;
             BrandText.Text = AppLimits.AppName;
 
-            // Muestra el límite de la versión gratuita. El texto (título y
-            // mensaje) se genera a partir de AppLimits: usa el límite publicitado
+            // Muestra el límite de la versión gratuita (badge + texto compacto).
+            // El texto se genera a partir de AppLimits: usa el límite publicitado
             // (NormalizationFreeLimitDisplay); el procesamiento real sigue el de
             // NormalizationMaxFilesToScan.
-            LimitInfoBar.Title = AppLimits.NormalizationInfoBarTitle;
-            LimitInfoBar.Message = AppLimits.NormalizationInfoBarMessage;
+            FreeBadgeText.Text = AppLimits.FreeBadgeText;
+            LimitInfoTitle.Text = AppLimits.NormalizationInfoBarTitle;
+            LimitInfoMessage.Text = AppLimits.NormalizationInfoBarMessage;
 
             PopulateIntensityOptions();
             UpdateStartButtonText();
@@ -82,29 +88,40 @@ namespace Remove_Top.Features.Normalization
             return MasteringIntensity.HardLimiter;
         }
 
-        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Al soltar contenido sobre la página (carpetas o archivos) se carga en
+        /// el control de origen. Si la app está analizando o procesando, se ignora.
+        /// </summary>
+        private void DropTarget_FilesDropped(object? sender, DropFilesEventArgs e)
         {
-            var picker = new FolderPicker
-            {
-                ViewMode = PickerViewMode.List,
-                SuggestedStartLocation = PickerLocationId.MusicLibrary
-            };
-            picker.FileTypeFilter.Add("*");
+            if (_isProcessing || _isAnalyzing) return;
+            Source.LoadSource(e.Paths);
+        }
 
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow);
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        /// <summary>
+        /// Al cambiar el estado del origen (carga/reset) se filtran los archivos
+        /// pendientes de procesar, se muestran los conteos y se lanza el análisis.
+        /// </summary>
+        private async void Source_StateChanged(object? sender, EventArgs e)
+        {
+            if (_isProcessing || _isAnalyzing || _resetting) return;
 
-            var folder = await picker.PickSingleFolderAsync();
-            if (folder != null)
+            if (!Source.HasFiles)
             {
-                FolderPathBox.Text = folder.Path;
-                var files = AudioNormalizer.GetAudioFiles(folder.Path, out int totalFound, out int alreadyProcessed);
-                FileCountText.Text = BuildFileCountText(files.Length, totalFound, alreadyProcessed);
-                FileCountText.Visibility = Visibility.Visible;
-                StartButton.IsEnabled = false;
-                await AnalyzeFilesAsync(files);
-                UpdateStartButtonText();
+                ResetPageState();
+                return;
             }
+
+            // Solo los pendientes (los que ya tienen salida válida se omiten),
+            // con los mismos conteos que el flujo por carpeta original.
+            _pendingFiles = AudioNormalizer.GetAudioFiles(
+                Source.Files, out int totalFound, out int alreadyProcessed);
+
+            FileCountText.Text = BuildFileCountText(_pendingFiles.Length, totalFound, alreadyProcessed);
+            FileCountText.Visibility = Visibility.Visible;
+            StartButton.IsEnabled = false;
+            await AnalyzeFilesAsync(_pendingFiles);
+            UpdateStartButtonText();
         }
 
         /// <summary>
@@ -133,7 +150,7 @@ namespace Remove_Top.Features.Normalization
             AnalysisSection.Visibility = Visibility.Visible;
             AnalysisProgressBar.IsIndeterminate = true;
             AnalysisStatusText.Text = "Analizando archivos...";
-            BrowseButton.IsEnabled = false;
+            Source.SetEnabled(false);
             CancelButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", semibold: false, foreground: CancelButton.Foreground);
             CancelButton.Visibility = Visibility.Visible;
 
@@ -180,7 +197,7 @@ namespace Remove_Top.Features.Normalization
             {
                 _isAnalyzing = false;
                 AnalysisProgressBar.IsIndeterminate = false;
-                BrowseButton.IsEnabled = true;
+                Source.SetEnabled(true);
                 CancelButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CancelButton.Foreground);
                 _cts?.Dispose();
                 _cts = null;
@@ -232,14 +249,10 @@ namespace Remove_Top.Features.Normalization
                 return;
             }
 
-            var folderPath = FolderPathBox.Text;
-            if (string.IsNullOrEmpty(folderPath)) return;
-
-            var files = AudioNormalizer.GetAudioFiles(folderPath, out int totalFound, out int alreadyProcessed);
+            var files = _pendingFiles;
             if (files.Length == 0) return;
 
             // Mantiene el aviso de límite/omitidos visible al iniciar el procesamiento
-            FileCountText.Text = BuildFileCountText(files.Length, totalFound, alreadyProcessed);
             FileCountText.Visibility = Visibility.Visible;
 
             if (!double.TryParse(TargetValueBox.Text.Replace(',', '.'), out var targetDb))
@@ -249,8 +262,7 @@ namespace Remove_Top.Features.Normalization
             _isProcessing = true;
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
             CancelButton.Visibility = Visibility.Collapsed;
-            BrowseButton.IsEnabled = false;
-            FolderPathBox.IsEnabled = false;
+            Source.SetEnabled(false);
             ProgressSection.Visibility = Visibility.Visible;
             ResultsSection.Visibility = Visibility.Visible;
             ProcessingRing.IsActive = true;
@@ -333,8 +345,7 @@ namespace Remove_Top.Features.Normalization
             {
                 _isProcessing = false;
                 UpdateStartButtonText();
-                BrowseButton.IsEnabled = true;
-                FolderPathBox.IsEnabled = true;
+                Source.SetEnabled(true);
                 _cts?.Dispose();
                 _cts = null;
             }
@@ -349,30 +360,39 @@ namespace Remove_Top.Features.Normalization
 
         /// <summary>
         /// Limpia los resultados y restablece la página a su estado inicial:
-        /// quita la carpeta seleccionada, oculta las secciones y deshabilita el
+        /// quita el origen seleccionado, oculta las secciones y deshabilita el
         /// botón de inicio.
         /// </summary>
         private void ResetPageState()
         {
-            _results.Clear();
-            _analysisResults.Clear();
+            _resetting = true;
+            try
+            {
+                _pendingFiles = [];
+                _results.Clear();
+                _analysisResults.Clear();
 
-            FolderPathBox.Text = "";
-            FileCountText.Text = "";
-            FileCountText.Visibility = Visibility.Collapsed;
+                Source.Reset();
+                FileCountText.Text = "";
+                FileCountText.Visibility = Visibility.Collapsed;
 
-            AnalysisSection.Visibility = Visibility.Collapsed;
-            ProgressSection.Visibility = Visibility.Collapsed;
-            ResultsSection.Visibility = Visibility.Collapsed;
+                AnalysisSection.Visibility = Visibility.Collapsed;
+                ProgressSection.Visibility = Visibility.Collapsed;
+                ResultsSection.Visibility = Visibility.Collapsed;
 
-            ProgressBar.Value = 0;
-            ProcessingRing.IsActive = false;
-            CompletedIcon.Visibility = Visibility.Collapsed;
-            ClearButton.Visibility = Visibility.Collapsed;
-            CancelButton.Visibility = Visibility.Collapsed;
+                ProgressBar.Value = 0;
+                ProcessingRing.IsActive = false;
+                CompletedIcon.Visibility = Visibility.Collapsed;
+                ClearButton.Visibility = Visibility.Collapsed;
+                CancelButton.Visibility = Visibility.Collapsed;
 
-            StartButton.IsEnabled = false;
-            UpdateStartButtonText();
+                StartButton.IsEnabled = false;
+                UpdateStartButtonText();
+            }
+            finally
+            {
+                _resetting = false;
+            }
         }
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)

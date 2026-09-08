@@ -4,11 +4,19 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Remove_Top.Features.Normalization"
+    xmlns:controls="using:Remove_Top.Controls"
     xmlns:ic="using:FluentIcons.WinUI"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <controls:DropTargetControl
+        FilesDropped="DropTarget_FilesDropped"
+        Caption="Suelta para cargar"
+        Subtitle="Arrastra una carpeta o archivos de audio"
+        AccentColor="#5B9BD5">
+
+        <controls:DropTargetControl.Host>
     <!-- Margen uniforme alrededor de todo el contenido -->
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -44,47 +52,38 @@
             <StackPanel Spacing="16">
 
                 <!-- ==================================================== -->
-                <!-- AVISO: Límite de la versión gratuita                 -->
+                <!-- AVISO: Límite de la versión gratuita (compacto)        -->
                 <!-- ==================================================== -->
-                <InfoBar x:Name="LimitInfoBar"
-                         Severity="Informational"
-                         IsOpen="True"
-                         IsClosable="False"
-                         Title=""
-                         Message="" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border CornerRadius="4" Padding="8,2" Background="#70AD47"
+                            VerticalAlignment="Top">
+                        <TextBlock x:Name="FreeBadgeText"
+                                   Text=""
+                                   FontSize="11" FontWeight="SemiBold" Foreground="White" />
+                    </Border>
+                    <StackPanel>
+                        <TextBlock x:Name="LimitInfoTitle"
+                                   FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="LimitInfoMessage"
+                                   FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
 
                 <!-- ==================================================== -->
-                <!-- SECCIÓN: Selección de carpeta de origen              -->
+                <!-- SECCIÓN: Selección de origen (carpeta / archivos / arrastre) -->
                 <!-- ==================================================== -->
-                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="16"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Carpeta de origen"
-                                   FontSize="16" FontWeight="SemiBold" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <TextBox x:Name="FolderPathBox"
-                                     PlaceholderText="Selecciona una carpeta con archivos de audio..."
-                                     IsReadOnly="True"
-                                     CornerRadius="4" />
-                            <Button Grid.Column="1"
-                                    x:Name="BrowseButton"
-                                    Content="Examinar..."
-                                    Click="BrowseButton_Click"
-                                    CornerRadius="4"
-                                    Background="Transparent"
-                                    BorderBrush="#5B9BD5"
-                                    Foreground="#5B9BD5"
-                                    BorderThickness="1.5" />
-                        </Grid>
-                        <TextBlock x:Name="FileCountText"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   Visibility="Collapsed" />
-                    </StackPanel>
-                </Border>
+                <controls:FileSourceControl
+                    x:Name="Source"
+                    AccentColor="#5B9BD5"
+                    ScanRecursive="True"
+                    MaxFiles="1000"
+                    StateChanged="Source_StateChanged" />
+                <TextBlock x:Name="FileCountText"
+                           FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Visibility="Collapsed" />
 
                 <!-- ==================================================== -->
                 <!-- SECCIÓN: Análisis de nivel actual                    -->
@@ -324,5 +323,7 @@
 
             </StackPanel>
         </ScrollViewer>
-    </Grid>
+        </Grid>
+        </controls:DropTargetControl.Host>
+    </controls:DropTargetControl>
 </Page>
