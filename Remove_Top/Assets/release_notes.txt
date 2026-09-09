@@ -1,8 +1,4 @@
-=== One Dj App v0.3.2 ===
+=== One Dj App v0.3.3 ===
 
-✓ Menú de caso en Edición Rápida: MAYÚSCULAS / minúsculas / Capitalizar Palabras (botón compacto)
-✓ Marca www.top-remix.com centrada en la línea "Origen"
-✓ Nuevo icono de intercambio en el botón Reordenar partes
-✓ Aviso "(mostrando los primeros 200 de N)" si la carpeta trae más archivos
-✓ Archivos de solo lectura: se desbloquean antes de renombrar
-✓ Errores de renombrado ahora distinguen "ya existe" vs "en uso"
+✓ Nueva tarjeta de Soporte en Cuenta: código QR + botón de WhatsApp
+✓ Diseño glass neutro con sombra, integrado a la base de la app

@@ -620,5 +620,15 @@ namespace Remove_Top.Features.Account
             }
         }
 
+        /// <summary>
+        /// Si el QR de soporte aún no existe en Assets, se oculta la imagen y
+        /// queda visible el placeholder ("QR próximamente").
+        /// </summary>
+        private void SupportQrImage_Failed(object sender, ExceptionRoutedEventArgs e)
+        {
+            SupportQrImage.Visibility = Visibility.Collapsed;
+            SupportQrPlaceholder.Visibility = Visibility.Visible;
+        }
+
     }
 }

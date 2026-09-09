@@ -10,6 +10,10 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <ThemeShadow x:Name="SupportCardShadow" />
+    </Page.Resources>
+
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -384,6 +388,83 @@
 
 
                     </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Soporte (glass neutro con sombra)           -->
+                <!-- ==================================================== -->
+                <Border CornerRadius="12"
+                        BorderThickness="1"
+                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Padding="0"
+                        Translation="0,4,24"
+                        Shadow="{StaticResource SupportCardShadow}">
+                    <Grid>
+                        <!-- Velo superior glass -->
+                        <Border CornerRadius="12,12,0,0" Height="48" VerticalAlignment="Top"
+                                Background="White" Opacity="0.05" />
+                        <!-- Línea de luz superior -->
+                        <Rectangle Height="1" Fill="White" Opacity="0.35"
+                                   VerticalAlignment="Top" Margin="16,0,16,0" />
+                        <!-- Acento teal lateral -->
+                        <Border Width="4" CornerRadius="2" Background="#00A88F"
+                                HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                                Margin="10,14,0,14" />
+
+                        <StackPanel Spacing="10" Padding="14" HorizontalAlignment="Center">
+                            <!-- Cuerpo compacto centrado: QR + acción -->
+                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="14"
+                                  HorizontalAlignment="Center">
+                                <!-- Tarjeta QR -->
+                                <Border Width="96" Height="96" CornerRadius="10"
+                                        Background="White" Padding="6"
+                                        BorderThickness="1"
+                                        BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid>
+                                        <StackPanel x:Name="SupportQrPlaceholder"
+                                                    Spacing="2"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <ic:FluentIcon Icon="QrCode" IconVariant="Regular" IconSize="Size24"
+                                                           Foreground="#00A88F"
+                                                           HorizontalAlignment="Center" />
+                                            <TextBlock Text="QR&#x0a;próximamente"
+                                                       FontSize="10" TextAlignment="Center"
+                                                       Foreground="#00A88F" />
+                                        </StackPanel>
+                                        <Image x:Name="SupportQrImage"
+                                               Source="ms-appx:///Assets/SupportQr.jpeg"
+                                               Stretch="Uniform"
+                                               ImageFailed="SupportQrImage_Failed" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Info + CTA -->
+                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center"
+                                            HorizontalAlignment="Center">
+                                    <TextBlock Text="Soporte"
+                                               FontSize="16" FontWeight="Bold"
+                                               HorizontalAlignment="Center" />
+                                    <HyperlinkButton NavigateUri="https://wa.me/593982311600?text=Hola%2C%20necesito%20ayuda%20con%20One%20Dj%20App"
+                                                     Padding="0">
+                                        <Border CornerRadius="16" Padding="12,6"
+                                                Background="#00A88F">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <ic:FluentIcon Icon="Chat" IconVariant="Filled" IconSize="Size16"
+                                                               Foreground="White"
+                                                               VerticalAlignment="Center" />
+                                                <TextBlock Text="Abrir chat de WhatsApp"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="White"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </HyperlinkButton>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
             </StackPanel>

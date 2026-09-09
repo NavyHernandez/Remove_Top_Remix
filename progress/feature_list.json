@@ -481,6 +481,20 @@
         "Build 0 errores"
       ],
       "status": "done"
+    },
+    {
+      "id": 33,
+      "name": "account_support_card",
+      "title": "Tarjeta de Soporte en Cuenta (QR + WhatsApp)",
+      "description": "Tarjeta compacta al final de AccountPage con QR de soporte (Assets/SupportQr.jpeg) y botón a WhatsApp (wa.me/593982311600). Estilo glass neutro sobre la base de la app: LayerFillColorDefaultBrush, sombra ThemeShadow como recurso, velo superior y línea de luz, acento teal #00A88F, botón sólido teal. Placeholder con icono QrCode si falta la imagen (ImageFailed).",
+      "acceptance": [
+        "Tarjeta compacta centrada: QR 96px + 'Soporte' + botón WhatsApp",
+        "QR desde Assets/SupportQr.jpeg registrado como Content en el csproj",
+        "Placeholder visible si la imagen falta (SupportQrImage_Failed)",
+        "Glass neutro: sombra ThemeShadow (recurso) + velo + línea de luz, sin verdes",
+        "Build 0 errores"
+      ],
+      "status": "done"
     }
   ]
 }

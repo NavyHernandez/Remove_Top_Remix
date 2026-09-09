@@ -176,3 +176,19 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ### Release v0.3.2
 - Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload`; push a `main`, Release publicado por CI.
+
+---
+
+## 2026-09-09 — Versión 0.3.3: tarjeta de Soporte en Cuenta (QR + WhatsApp)
+
+**Agente:** humano + opencode (muse-spark)
+
+### Cambios realizados
+1. **Tarjeta Soporte** (`AccountPage.xaml/.cs`) — al final de Cuenta: QR (`Assets/SupportQr.jpeg`, registrado como Content) + título "Soporte" + botón sólido teal "Abrir chat de WhatsApp" (`wa.me/593982311600`, centrado y compacto 96px).
+2. **Estilo glass neutro** — base de la app (`LayerFillColorDefaultBrush`), sombra `ThemeShadow` como recurso (`SupportCardShadow` + `Translation`), velo superior + línea de luz + acento teal lateral; sin verdes (se descartó el degradado inicial).
+3. **Placeholder QR** — `SupportQrImage_Failed` muestra icono `QrCode` + "QR próximamente" si falta la imagen.
+4. **Fixes de compilación** — `Shadow="{ThemeShadow}"` → recurso + `StaticResource` (error 0x09e1); `>>` duplicado en el `Border` (error "Child no admite String"). Build x64 0 errores.
+5. **Docs** — `AGENTS.md` (fila Cuenta + sección Soporte), `feature_list.json` (feature 33 `account_support_card`), `release_notes.txt` v0.3.3.
+
+### Release v0.3.3
+- Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload`; push a `main`, Release publicado por CI.
