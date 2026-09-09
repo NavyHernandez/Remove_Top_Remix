@@ -139,11 +139,11 @@ namespace Remove_Top.Features.Telemetry
         {
             try
             {
-                return typeof(InstallTracker).Assembly.GetName().Version?.ToString(3) ?? "0.3.0";
+                return typeof(InstallTracker).Assembly.GetName().Version?.ToString(3) ?? "0.3.1";
             }
             catch
             {
-                return "0.3.0";
+                return "0.3.1";
             }
         }
 

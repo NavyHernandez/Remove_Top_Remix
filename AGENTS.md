@@ -320,7 +320,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 | Campo | Valor |
 |-------|-------|
 | **Paquete** | Velopack 1.2.* (NuGet) |
-| **Versión actual** | `0.3.0` (en `Remove_Top.csproj`, `<Version>`) |
+| **Versión actual** | `0.3.1` (en `Remove_Top.csproj`, `<Version>`) |
 | **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
 | **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
 | **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |
@@ -337,7 +337,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 Para publicar una nueva versión, ejecutar el script `publish.ps1` desde la raíz del repo:
 
 ```powershell
-# Publicar con versión del .csproj (0.3.0, etc.)
+# Publicar con versión del .csproj (0.3.1, etc.)
 .\publish.ps1
 
 # Forzar versión específica
