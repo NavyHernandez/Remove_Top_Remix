@@ -64,6 +64,7 @@
                     x:Name="Source"
                     AccentColor="#E67E22"
                     ScanRecursive="False"
+                    ShowBrandSite="True"
                     StateChanged="Source_StateChanged" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Border CornerRadius="4" Padding="8,2" Background="#70AD47">
@@ -96,20 +97,13 @@
                             <TextBlock Text="Nombres editables"
                                        FontSize="16" FontWeight="SemiBold" />
                             <TextBlock Grid.Column="1"
-                                       x:Name="SiteBrandText"
-                                       Text=""
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Center" />
-                            <TextBlock Grid.Column="2"
                                        x:Name="DirtyCountText"
                                        FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       VerticalAlignment="Center" />
-                            <Button Grid.Column="3"
-                                    x:Name="ReorderButton"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Right" />
+                            <Button Grid.Column="2"
+                                     x:Name="ReorderButton"
                                     Click="ReorderButton_Click"
                                     CornerRadius="4"
                                     IsEnabled="False"
@@ -118,8 +112,38 @@
                                     Foreground="#E67E22"
                                     BorderThickness="1.5"
                                     ToolTipService.ToolTip="Dividir el nombre en partes y reordenarlas (guion o espacio)" />
+                            <DropDownButton Grid.Column="3"
+                                     x:Name="CaseButton"
+                                     CornerRadius="4"
+                                     Padding="6"
+                                     IsEnabled="False"
+                                     Background="Transparent"
+                                     BorderBrush="#E67E22"
+                                     Foreground="#E67E22"
+                                     BorderThickness="1.5"
+                                     ToolTipService.ToolTip="Cambiar mayúsculas / minúsculas">
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem x:Name="UppercaseItem"
+                                                        Text="MAYÚSCULAS"
+                                                        Tag="upper"
+                                                        FontSize="12"
+                                                        Click="CaseItem_Click" />
+                                        <MenuFlyoutItem x:Name="LowercaseItem"
+                                                        Text="minúsculas"
+                                                        Tag="lower"
+                                                        FontSize="12"
+                                                        Click="CaseItem_Click" />
+                                        <MenuFlyoutItem x:Name="TitleCaseItem"
+                                                        Text="Capitalizar Palabras"
+                                                        Tag="title"
+                                                        FontSize="12"
+                                                        Click="CaseItem_Click" />
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
                             <Button Grid.Column="4"
-                                    x:Name="ResetButton"
+                                     x:Name="ResetButton"
                                     Content="Restaurar originales"
                                     Click="ResetButton_Click"
                                     CornerRadius="4"

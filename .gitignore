@@ -12,3 +12,9 @@ nul
 ## Personal / agent progress tracking
 progress/releases/
 releases/
+
+# opencode - plugins solo desarrollo local (no commitear)
+.opencode/
+opencode.json
+opencode.jsonc
+AGENTS.snippet.md

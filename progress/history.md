@@ -160,3 +160,19 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 4. **DuplicateRemoval** — `SubsetNameDetector` (nombre contenido), fix extensiones múltiples, botones centrados.
 5. **Helpers** — `AppLimits.cs` (límites centralizados), `PremiumLinks.cs`.
 6. **`progress/`** — estructura de agentes con `history.md` y `feature_list.json`.
+
+---
+
+## 2026-09-09 — Versión 0.3.2: menú de caso + marca en Origen (QuickRename)
+
+**Agente:** humano + opencode (muse-spark)
+
+### Cambios realizados
+1. **Menú de caso** — `CaseButton` (DropDownButton compacto icon-only `TextChangeCase`, opciones 12px): `MAYÚSCULAS` / `minúsculas` / `Capitalizar Palabras` (cultura `es`), solo base sin tocar extensión, pre-llenado en vivo reversible con "Restaurar originales".
+2. **Marca al Origen** — `www.top-remix.com` sale del header de la lista y pasa centrada a la línea "Origen" (`FileSourceControl.ShowBrandSite`, opt-in solo en QuickRename; grid `Auto,*,Auto`).
+3. **Icono Reordenar** — `ArrowBidirectionalUpDown` → `ArrowSwap`.
+4. **P1 robustez** — aviso "(mostrando los primeros 200 de N)" al truncar; `EnsureWritable` antes de `File.Move`; `IOException` distingue "ya existe" vs "en uso".
+5. **Docs** — `AGENTS.md`: orden standing "empuja al repositorio" + fila QuickRename actualizada + `ShowBrandSite` en controles.
+
+### Release v0.3.2
+- Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload`; push a `main`, Release publicado por CI.

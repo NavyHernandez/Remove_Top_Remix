@@ -1,11 +1,8 @@
-=== One Dj App v0.3.1 ===
+=== One Dj App v0.3.2 ===
 
-✓ Reordenar partes del nombre con chips arrastrables (guion o espacio)
-✓ Canción guía seleccionable (checkbox) para el reordenador
-✓ Unir bloques con doble clic y separarlos con clic derecho
-✓ Botón deshacer del último cambio en el reordenador
-✓ Vista previa en vivo de los primeros 10 archivos
-✓ Reporte de errores por archivo al aplicar cambios
-✓ Detección de conflictos y renombrado solo de mayúsculas corregido
-✓ Telemetría de instalación (ID único anónimo + uso) con Firebase
-✓ Botón deshacer y cancelación al navegar fuera de la página
+✓ Menú de caso en Edición Rápida: MAYÚSCULAS / minúsculas / Capitalizar Palabras (botón compacto)
+✓ Marca www.top-remix.com centrada en la línea "Origen"
+✓ Nuevo icono de intercambio en el botón Reordenar partes
+✓ Aviso "(mostrando los primeros 200 de N)" si la carpeta trae más archivos
+✓ Archivos de solo lectura: se desbloquean antes de renombrar
+✓ Errores de renombrado ahora distinguen "ya existe" vs "en uso"

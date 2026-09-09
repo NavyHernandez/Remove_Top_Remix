@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Remove_Top.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -38,6 +39,11 @@ namespace Remove_Top.Controls
         public static readonly DependencyProperty MaxFilesProperty =
             DependencyProperty.Register(nameof(MaxFiles), typeof(int), typeof(FileSourceControl),
                 new PropertyMetadata(1000));
+
+        /// <summary>Muestra la marca del sitio centrada en la línea "Origen". Opt-in por página.</summary>
+        public static readonly DependencyProperty ShowBrandSiteProperty =
+            DependencyProperty.Register(nameof(ShowBrandSite), typeof(bool), typeof(FileSourceControl),
+                new PropertyMetadata(false, OnShowBrandSiteChanged));
 
         private List<string> _files = [];
         private bool _enabled = true;
@@ -98,12 +104,25 @@ namespace Remove_Top.Controls
             set => SetValue(MaxFilesProperty, value);
         }
 
+        /// <summary>Muestra la marca del sitio centrada en la línea "Origen".</summary>
+        public bool ShowBrandSite
+        {
+            get => (bool)GetValue(ShowBrandSiteProperty);
+            set => SetValue(ShowBrandSiteProperty, value);
+        }
+
+        private static void OnShowBrandSiteChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is FileSourceControl c) c.ApplyBrandSite();
+        }
+
         public FileSourceControl()
         {
             InitializeComponent();
             _sourceCardBackground = SourceCard.Background;
             _sourceCardBorder = SourceCard.BorderBrush;
             ApplyAccent();
+            ApplyBrandSite();
             UpdateState();
         }
 
@@ -296,6 +315,13 @@ namespace Remove_Top.Controls
             DropZoneText.Text = ScanRecursive
                 ? "Arrastra aquí carpetas o archivos (los archivos se usan tal cual; las carpetas se escanean incluyendo subcarpetas)."
                 : "Arrastra aquí carpetas o archivos (los archivos se usan tal cual; las carpetas se escanean sin subcarpetas).";
+        }
+
+        /// <summary>Muestra u oculta la marca del sitio en la línea "Origen".</summary>
+        private void ApplyBrandSite()
+        {
+            BrandSiteText.Text = AppLimits.AppBrandSite;
+            BrandSiteText.Visibility = ShowBrandSite ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>Al cambiar el color de acento se recolorean los elementos de la tarjeta.</summary>

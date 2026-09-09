@@ -263,6 +263,8 @@ namespace Remove_Top.Features.QuickRename
 
             try
             {
+                if (!EnsureWritable(filePath))
+                    return Fail(item, "El archivo es de solo lectura y no se pudo desbloquear");
                 File.Move(filePath, newPath);
             }
             catch (UnauthorizedAccessException)
@@ -271,7 +273,13 @@ namespace Remove_Top.Features.QuickRename
             }
             catch (IOException)
             {
-                return Fail(item, "El nombre ya existe o el archivo está en uso");
+                // Distingue colisión real de bloqueo: ValidateBatch ya filtró los
+                // conflictos conocidos, pero otro proceso pudo crear el destino
+                // o bloquear el origen entre la validación y el File.Move.
+                if (File.Exists(newPath) &&
+                    !string.Equals(newPath, filePath, StringComparison.OrdinalIgnoreCase))
+                    return Fail(item, "El nombre ya existe en la carpeta");
+                return Fail(item, "El archivo está en uso por otra aplicación");
             }
             catch (Exception ex)
             {
@@ -303,6 +311,25 @@ namespace Remove_Top.Features.QuickRename
                 Success = false,
                 Message = message
             };
+        }
+
+        /// <summary>
+        /// Quita el atributo de solo lectura si está presente (igual que
+        /// TagService.EnsureWritable). Devuelve false si no se pudo desbloquear.
+        /// </summary>
+        private static bool EnsureWritable(string path)
+        {
+            try
+            {
+                var attrs = File.GetAttributes(path);
+                if ((attrs & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                    File.SetAttributes(path, attrs & ~FileAttributes.ReadOnly);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

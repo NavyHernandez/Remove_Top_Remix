@@ -22,10 +22,19 @@
             Padding="16"
             Background="{ThemeResource LayerFillColorDefaultBrush}">
         <StackPanel Spacing="12">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                 <TextBlock Text="Origen"
                            FontSize="16" FontWeight="SemiBold" />
-                <Button Grid.Column="1"
+                <TextBlock Grid.Column="1"
+                           x:Name="BrandSiteText"
+                           Text=""
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Visibility="Collapsed" />
+                <Button Grid.Column="2"
                         x:Name="ClearLoadedButton"
                         Content="Limpiar"
                         Click="ClearLoadedButton_Click"

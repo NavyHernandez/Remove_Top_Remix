@@ -39,10 +39,11 @@ namespace Remove_Top.Features.QuickRename
         {
             InitializeComponent();
             FilesListView.ItemsSource = _items;
-            ResetButton.Content = UiHelpers.Content(Icon.ArrowUndo, "Restaurar originales", semibold: false, foreground: ResetButton.Foreground);
+            ResetButton.Content = UiHelpers.Content(Icon.ArrowUndo, "Restaurar", semibold: false, foreground: ResetButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar cambios", foreground: StartButton.Foreground);
             RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
-            ReorderButton.Content = UiHelpers.Content(Icon.ArrowBidirectionalUpDown, "Reordenar partes", semibold: false, foreground: ReorderButton.Foreground);
+            ReorderButton.Content = UiHelpers.Content(Icon.ArrowSwap, "Reordenar", semibold: false, foreground: ReorderButton.Foreground);
+            CaseButton.Content = UiHelpers.Icon(Icon.TextChangeCase, foreground: CaseButton.Foreground);
             ApplyReorderButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar a todos", foreground: ApplyReorderButton.Foreground, textSize: 13);
             UndoReorderButton.Content = UiHelpers.Icon(Icon.ArrowUndo, foreground: UndoReorderButton.Foreground);
             FreeBadgeText.Text = AppLimits.FreeBadgeText;
@@ -67,7 +68,6 @@ namespace Remove_Top.Features.QuickRename
             PageTitleText.Text = AppLimits.QuickRenamePageTitle;
             PageSubtitleText.Text = AppLimits.QuickRenamePageSubtitle;
             BrandText.Text = AppLimits.AppName;
-            SiteBrandText.Text = AppLimits.AppBrandSite;
 
             // Al salir de la página se cancela cualquier renombrado en curso.
             // Las páginas se cachean en MainWindow, así que sin esto el proceso
@@ -150,7 +150,9 @@ namespace Remove_Top.Features.QuickRename
             if (_items.Count > 0 && !_items.Any(i => i.IsGuide))
                 _items[0].IsGuide = true;
 
-            FileCountText.Text = $"{_items.Count} archivo(s) .mp3/.wav encontrado(s)";
+            FileCountText.Text = Source.Truncated
+                ? $"{Source.ScannedFiles} archivo(s) .mp3/.wav (mostrando los primeros {Source.ScannedFiles} de {Source.TotalFound})"
+                : $"{_items.Count} archivo(s) .mp3/.wav encontrado(s)";
             FileCountText.Visibility = Visibility.Visible;
             ListSection.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -178,6 +180,63 @@ namespace Remove_Top.Features.QuickRename
             UpdateUI();
         }
 
+        /// <summary>
+        /// Cambia el caso de la base (sin extensión) de TODOS los nombres
+        /// cargados según la opción del menú (upper/lower/title). Es solo
+        /// pre-llenado en vivo: cada TextBox se actualiza al instante vía
+        /// CurrentName y "Restaurar originales" lo revierte; el renombrado
+        /// real sigue por "Aplicar cambios".
+        /// </summary>
+        private void CaseItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_items.Count == 0 || _isProcessing) return;
+            if (sender is not MenuFlyoutItem { Tag: string mode }) return;
+
+            foreach (var item in _items)
+            {
+                var converted = mode switch
+                {
+                    "lower" => LowercaseBase(item.CurrentName),
+                    "title" => TitleCaseBase(item.CurrentName),
+                    _ => UppercaseBase(item.CurrentName),
+                };
+                if (!string.Equals(converted, item.CurrentName, StringComparison.Ordinal))
+                    item.CurrentName = converted;
+            }
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// Mayúsculas solo a la base del nombre, conservando la extensión tal
+        /// cual (.mp3 no se toca). ToUpperInvariant respeta ñ/tildes.
+        /// </summary>
+        private static string UppercaseBase(string fileName)
+        {
+            var ext = Path.GetExtension(fileName);
+            var baseName = Path.GetFileNameWithoutExtension(fileName);
+            return baseName.ToUpperInvariant() + ext;
+        }
+
+        /// <summary>Minúsculas solo a la base, extensión intacta.</summary>
+        private static string LowercaseBase(string fileName)
+        {
+            var ext = Path.GetExtension(fileName);
+            var baseName = Path.GetFileNameWithoutExtension(fileName);
+            return baseName.ToLowerInvariant() + ext;
+        }
+
+        /// <summary>
+        /// Primera letra de cada palabra en mayúscula (cultura es, respeta
+        /// ñ/tildes), extensión intacta.
+        /// </summary>
+        private static string TitleCaseBase(string fileName)
+        {
+            var ext = Path.GetExtension(fileName);
+            var baseName = Path.GetFileNameWithoutExtension(fileName);
+            var culture = new System.Globalization.CultureInfo("es");
+            return culture.TextInfo.ToTitleCase(baseName.ToLower(culture)) + ext;
+        }
+
         private void UpdateUI()
         {
             int dirty = _items.Count(i => i.IsDirty);
@@ -189,6 +248,7 @@ namespace Remove_Top.Features.QuickRename
                 foreground: StartButton.Foreground);
 
             ReorderButton.IsEnabled = _items.Count > 0 && !_isProcessing;
+            CaseButton.IsEnabled = _items.Count > 0 && !_isProcessing;
         }
 
         // ================================================================
@@ -534,6 +594,8 @@ namespace Remove_Top.Features.QuickRename
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
             Source.SetEnabled(false);
             ResetButton.IsEnabled = false;
+            CaseButton.IsEnabled = false;
+            ReorderButton.IsEnabled = false;
 
             _cts = new CancellationTokenSource();
             var renamer = new QuickRenamer();
