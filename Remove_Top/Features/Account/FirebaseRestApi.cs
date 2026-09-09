@@ -122,6 +122,49 @@ namespace Remove_Top.Features.Account
         }
 
         /// <summary>
+        /// Reporta la instalación/uso de la app a Cloud Firestore (Feature 16).
+        /// Hace un upsert sobre el documento <c>installs/{installId}</c> usando la
+        /// API key pública (sin sesión de usuario: aún no hay login en el primer
+        /// inicio). Contiene SOLO datos no personales.
+        /// </summary>
+        /// <param name="installId">ID anónimo de la instalación (GUID).</param>
+        /// <param name="installedAt">Fecha (UTC) de la primera ejecución.</param>
+        /// <param name="appVersion">Versión de la app al instalar.</param>
+        /// <param name="launchCount">Contador de aperturas (empieza en 1).</param>
+        /// <param name="lastLaunchAt">Última fecha/hora (UTC) de apertura.</param>
+        /// <exception cref="FirebaseApiException">Si Firestore rechaza la petición.</exception>
+        public static async Task ReportInstallLaunchAsync(
+            string installId,
+            DateTime installedAt,
+            string appVersion,
+            int launchCount,
+            DateTime lastLaunchAt)
+        {
+            var url =
+                $"https://firestore.googleapis.com/v1/projects/{FirebaseConfig.ProjectId}/databases/(default)/documents/{FirebaseConfig.InstallsCollection}/{installId}" +
+                $"?key={FirebaseConfig.ApiKey}" +
+                $"&updateMask.fieldPaths=installId" +
+                $"&updateMask.fieldPaths=installedAt" +
+                $"&updateMask.fieldPaths=appVersion" +
+                $"&updateMask.fieldPaths=launchCount" +
+                $"&updateMask.fieldPaths=lastLaunchAt";
+
+            var body = new JsonObject
+            {
+                ["fields"] = new JsonObject
+                {
+                    ["installId"] = Field("stringValue", installId),
+                    ["installedAt"] = Field("timestampValue", installedAt.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'")),
+                    ["appVersion"] = Field("stringValue", appVersion),
+                    ["launchCount"] = Field("integerValue", launchCount.ToString()),
+                    ["lastLaunchAt"] = Field("timestampValue", lastLaunchAt.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'"))
+                }
+            };
+
+            await PatchAsync(url, body);
+        }
+
+        /// <summary>
         /// Envía un POST JSON a Firebase y lanza <see cref="FirebaseApiException"/>
         /// con mensaje amigable si la respuesta no es exitosa.
         /// </summary>
@@ -146,6 +189,25 @@ namespace Remove_Top.Features.Account
             }
         }
 
+        /// <summary>
+        /// Envía un PATCH JSON a Firebase (upsert de un documento de Firestore)
+        /// con la misma traducción de errores que <see cref="PostAsync"/>.
+        /// </summary>
+        private static async Task PatchAsync(string url, object? body)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Patch, url);
+            if (body != null)
+            {
+                request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+            }
+
+            using var response = await Http.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                throw FromError(content, response.StatusCode);
+            }
+        }
         /// <summary>Construye un campo de Firestore del tipo y valor indicados.</summary>
         private static JsonObject Field(string type, string value) => new() { [type] = value };
 

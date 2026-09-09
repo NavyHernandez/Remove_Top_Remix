@@ -1,10 +1,11 @@
-=== One Dj App v0.3.0 ===
+=== One Dj App v0.3.1 ===
 
-✓ Dot de notificaciones en el menú cuando hay actualización disponible
-✓ Auto-check de actualizaciones al iniciar la app (background)
-✓ Controles reutilizables de arrastre (DropTargetControl + FileSourceControl)
-✓ Controles de origen (FileSourceControl) integrados en todas las features
-✓ Reversión de Duplicados: selector de carpeta original restaurado
-✓ Badge de estado de actualizaciones sincronizado con GitHub Releases
-✓ Release notes actualizadas para cada versión
-✓ Documentación completa del proyecto actualizada
+✓ Reordenar partes del nombre con chips arrastrables (guion o espacio)
+✓ Canción guía seleccionable (checkbox) para el reordenador
+✓ Unir bloques con doble clic y separarlos con clic derecho
+✓ Botón deshacer del último cambio en el reordenador
+✓ Vista previa en vivo de los primeros 10 archivos
+✓ Reporte de errores por archivo al aplicar cambios
+✓ Detección de conflictos y renombrado solo de mayúsculas corregido
+✓ Telemetría de instalación (ID único anónimo + uso) con Firebase
+✓ Botón deshacer y cancelación al navegar fuera de la página

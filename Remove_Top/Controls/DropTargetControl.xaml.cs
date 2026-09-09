@@ -113,8 +113,12 @@ namespace Remove_Top.Controls
         /// <summary>
         /// Mientras se arrastra sobre la página: si el contenido incluye
         /// elementos del sistema de archivos se acepta la operación y se muestra
-        /// el overlay; si no, se rechaza. Reinicia el timer anti-parpadeo en cada
-        /// paso para mantener el overlay visible mientras se está encima.
+        /// el overlay; si no, se oculta el overlay pero NO se rechaza la operación.
+        /// Dejar AcceptedOperation sin tocar permite que los drags internos de
+        /// controles hijos (p. ej. el reorder con CanReorderItems de un ListView)
+        /// sigan funcionando, en vez de cancelarse por este ancestro.
+        /// Reinicia el timer anti-parpadeo en cada paso para mantener el overlay
+        /// visible mientras se está encima.
         /// </summary>
         private void OnDragOver(object sender, DragEventArgs e)
         {
@@ -127,7 +131,6 @@ namespace Remove_Top.Controls
             }
             else
             {
-                e.AcceptedOperation = DataPackageOperation.None;
                 HideOverlay();
             }
         }
