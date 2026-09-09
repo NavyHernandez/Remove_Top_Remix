@@ -110,17 +110,61 @@ if (-not $Token) {
     exit 0
 }
 
-Write-Host "`n==> Subiendo a GitHub Releases ($RepoOwner/$RepoName)..." -ForegroundColor Yellow
-vpk upload github `
-    --repoUrl "https://github.com/$RepoOwner/$RepoName" `
-    --tag "v$Version" `
-    --releaseName "v$Version" `
-    --token $Token `
-    --outputDir $ReleaseDir
+$Tag = "v$Version"
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "vpk upload github falló."
+# ─── 4a. Limpieza idempotente ────────────────────────────────────
+# vpk upload github FALLA si ya existe una release con el mismo tag
+# (incluidos drafts huérfanos que dejan los uploads fallidos a medias).
+# Antes de subir, se borra cualquier release o tag v$Version existente.
+Write-Host "`n==> Limpiando release/tag existente $Tag (idempotente)..." -ForegroundColor Yellow
+
+$headers = @{
+    Authorization = "Bearer $Token"
+    "User-Agent"  = "publish.ps1"
+    Accept        = "application/vnd.github+json"
+}
+$baseApi = "https://api.github.com/repos/$RepoOwner/$RepoName"
+
+try {
+    # 1. Buscar la release cuyo tag_name coincida (funciona con drafts sin tag visible).
+    $releases = Invoke-RestMethod -Uri "$baseApi/releases?per_page=100" -Headers $headers -Method Get
+    $existing = $releases | Where-Object { $_.tag_name -eq $Tag }
+    if ($existing) {
+        $id = $existing[0].id
+        Invoke-RestMethod -Uri "$baseApi/releases/$id" -Headers $headers -Method Delete | Out-Null
+        Write-Host "    Release $Tag borrada (id $id)." -ForegroundColor DarkYellow
+    }
+
+    # 2. Borrar el tag si quedó huérfano.
+    try {
+        Invoke-RestMethod -Uri "$baseApi/git/refs/tags/$Tag" -Headers $headers -Method Delete | Out-Null
+        Write-Host "    Tag $Tag borrado." -ForegroundColor DarkYellow
+    }
+    catch {
+        # El tag no existe: no es un error.
+    }
+}
+catch {
+    Write-Host "    No se pudo limpiar (se continúa): $($_.Exception.Message)" -ForegroundColor DarkYellow
+}
+
+# ─── 4b. vpk upload github (con salida real en vivo) ─────────────
+Write-Host "`n==> Subiendo a GitHub Releases ($RepoOwner/$RepoName)..." -ForegroundColor Yellow
+
+# Se captura la salida y el exit code del comando nativo por separado:
+# con "2>&1 | Tee-Object" PowerShell pierde $LASTEXITCODE de vpk.
+$vpkOutput = & vpk upload github `
+    --repoUrl "https://github.com/$RepoOwner/$RepoName" `
+    --tag $Tag `
+    --releaseName $Tag `
+    --token $Token `
+    --outputDir $ReleaseDir 2>&1
+$vpkExit = $LASTEXITCODE
+$vpkOutput | ForEach-Object { Write-Host $_ }
+
+if ($vpkExit -ne 0) {
+    Write-Error "vpk upload github falló (código $vpkExit). Revisa el mensaje de vpk arriba."
     exit 1
 }
 
-Write-Host "`n==> ¡Publicado! Release: https://github.com/$RepoOwner/$RepoName/releases/tag/v$Version" -ForegroundColor Green
+Write-Host "`n==> ¡Publicado! Release: https://github.com/$RepoOwner/$RepoName/releases/tag/$Tag" -ForegroundColor Green

@@ -4,9 +4,16 @@ name: Publish release
 # Ejecuta publish.ps1: dotnet publish (Release, win-x64, self-contained) →
 # vpk pack → vpk upload github.
 #
+# VERSIÓN AUTOMÁTICA (auto-bump):
+#   La versión se deriva del ÚLTIMO TAG de GitHub sumándole 1 al patch
+#   (p. ej. último tag v0.3.0 → se publica 0.3.1; v0.3.1 → 0.3.2...).
+#   Así cada push a main genera una versión nueva sin gestionarla a mano.
+#   Para subir de minor/major, basta con forzar la versión con el parámetro
+#   -Version de publish.ps1 (manual) o creando el tag correspondiente.
+#
 # Requisito manual en GitHub: crear el secret GH_TOKEN (token con permiso
-# write:packages). Si el secret no existe, el workflow empaqueta en releases/
-# pero omite la subida (publish.ps1 salta el upload sin token).
+# contents: write, para crear releases y subir assets). Si el secret no
+# existe, el workflow empaqueta en releases/ pero omite la subida.
 
 on:
   push:
@@ -20,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # necesario para leer los tags y calcular la versión
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -32,8 +41,26 @@ jobs:
           dotnet tool install -g vpk
           echo "$HOME/.dotnet/tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
+      - name: Auto-bump version (patch desde último tag)
+        id: version
+        shell: pwsh
+        run: |
+          # Asegura que los tags estén disponibles.
+          git fetch --tags --force
+          # Último tag ordenado por versión (p. ej. v0.3.0).
+          $lastTag = git tag --sort=-v:refname | Select-Object -First 1
+          if (-not $lastTag) { $lastTag = "v0.1.0" }
+          $parts = $lastTag.TrimStart('v').Split('.')
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = if ($parts.Length -gt 2) { [int]$parts[2] } else { 0 }
+          $patch += 1
+          $version = "$major.$minor.$patch"
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "Último tag: $lastTag -> nueva versión: $version"
+
       - name: Publish + pack + upload
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: ./publish.ps1
+        run: ./publish.ps1 -Version $env:VERSION

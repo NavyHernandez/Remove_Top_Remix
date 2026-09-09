@@ -340,19 +340,20 @@ Para publicar una nueva versión, ejecutar el script `publish.ps1` desde la raí
 # Publicar con versión del .csproj (0.3.1, etc.)
 .\publish.ps1
 
-# Forzar versión específica
+# Forzar versión específica (p. ej. subir de minor/major manualmente)
 .\publish.ps1 -Version "1.0.0"
 
-# Solo empaquetear (sin subir a GitHub)
+# Solo empaquetar (sin subir a GitHub)
 .\publish.ps1 -SkipUpload
 ```
 
 El script automatiza:
 1. `dotnet publish` (Release, win-x64, self-contained, **WindowsAppSDKSelfContained=true**)
 2. `vpk pack` (crea .nupkg en `releases/`)
-3. `vpk upload github` (sube a GitHub Releases con token)
+3. **Limpieza idempotente**: borra cualquier release/tag `v$Version` existente (incluidos drafts huérfanos) vía REST API antes de subir. Así re-ejecutar con la misma versión nunca falla con "already exists".
+4. `vpk upload github` (sube a GitHub Releases con token), mostrando la salida real de vpk.
 
-**Requisitos:** .NET 8 SDK + Velopack CLI (`dotnet tool install -g Velopack`).
+**Requisitos:** .NET 8 SDK + Velopack CLI (`dotnet tool install -g vpk`).
 **Token:** via parámetro `-Token` o variable de entorno `GH_TOKEN` (no hardcodeado).
 
 ### Cómo hacer un NUEVO BUILD (empaquetado para otra PC)
@@ -367,17 +368,23 @@ Cuando el usuario pida "hacer un nuevo build" o "empaquetar para pasar a otras P
    (Para además subir a GitHub Releases: `.\publish.ps1` con `GH_TOKEN` definido.)
 3. **El instalador para otra PC es `releases\OneDjApp-win-Setup.exe`** (doble clic → instala). También se generan `OneDjApp-<ver>-full.nupkg`, `OneDjApp-<ver>-delta.nupkg` (update/autoupdate de Velopack) y `OneDjApp-win-Portable.zip` (portátil).
 4. **Verificar** que `releases\` contenga los archivos de la nueva versión y que el Setup.exe tenga fecha actual.
-5. **CI automático**: al pushear a `main`, el workflow `.github/workflows/publish.yml` ejecuta `publish.ps1` y sube la release a GitHub Releases (requiere el secret `GH_TOKEN` en GitHub). En `staging` NO se publica.
+5. **CI automático**: al pushear a `main`, el workflow `.github/workflows/publish.yml` ejecuta `publish.ps1` y sube la release a GitHub Releases (requiere el secret `GH_TOKEN` en GitHub).
 
 > NUNCA sustituyas esto por un `dotnet build` a secas: un build normal no produce el instalador. El entregable instalable SIEMPRE es el `Setup.exe` de `releases/` generado por `publish.ps1`.
 
+### Auto-bump de versión (CI)
+
+El workflow **deriva la versión automáticamente** del último tag de GitHub sumando 1 al patch:
+- Último tag `v0.3.0` → publica `0.3.1` · `v0.3.1` → `0.3.2` · etc.
+- Así cada push a `main` genera una versión nueva sin gestionarla a mano.
+- Para subir de **minor/major**, forzar la versión manualmente (`publish.ps1 -Version "0.4.0"`) o crear el tag correspondiente.
+
 ### Workflow de branches
-```
-feature branches → staging (testing) → main (producción/Velopack)
-```
-- **`main`** — producción. Los releases de GitHub se publican desde esta rama.
-- **`staging`** — integración y testing antes de producción.
-- **`feat/*`** — desarrollo de features individuales.
+
+- **`main`** — única rama de trabajo y producción. Los releases de GitHub se publican automáticamente al pushear a `main` (push directo, sin PR obligatorio).
+- **Protección**: `main` está protegida en GitHub con "Restrict who can push → solo `NavyHernandez`". Otros usuarios pueden abrir PRs (repo público), pero solo el dueño puede pushear o mergear.
+- **Regla de push**: SOLO el usuario puede pedir que se empuje al repositorio. Los agentes NUNCA hacen push sin orden explícita.
+- No hay rama `staging`; el desarrollo se hace en `main` (o en branches temporales que se fusionan directo).
 
 ## Cómo ejecutar
 
