@@ -81,7 +81,7 @@ namespace Remove_Top.Helpers
         /// vez en el Renombrado Masivo. Los patrones se persisten en
         /// %LOCALAPPDATA%\Remove_Top\patterns.json y la UI los limita a este tope.
         /// </summary>
-        public const int BatchRenameMaxPatterns = 20;
+        public const int BatchRenameMaxPatterns = 30;
 
         /// <summary>
         /// Límite REAL de archivos que se procesan por ejecución en el
@@ -96,10 +96,10 @@ namespace Remove_Top.Helpers
 
         /// <summary>
         /// Máximo de archivos .mp3/.wav que se listan por ejecución en la
-        /// Edición Rápida (QuickRenamer). Solo se muestran los primeros N
-        /// archivos de la carpeta.
+        /// Edición Rápida (QuickRenamer). El escaneo es recursivo e incluye
+        /// las subcarpetas; solo se muestran los primeros N archivos.
         /// </summary>
-        public const int QuickRenameMaxFilesToScan = 200;
+        public const int QuickRenameMaxFilesToScan = 1000;
 
         // ====================================================================
         // EXTRACCIÓN DE STEMS (Features/VocalRemoval)

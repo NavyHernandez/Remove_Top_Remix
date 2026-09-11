@@ -154,6 +154,17 @@ namespace Remove_Top.Features.VocalRemoval
         }
 
         /// <summary>
+        /// Si el arrastre no se pudo leer (fallo Win10), se muestra el motivo
+        /// en la línea de estado del origen en vez de quedarse en silencio.
+        /// </summary>
+        private void DropTarget_DropFailed(object? sender, DropFailedEventArgs e)
+        {
+            if (_isProcessing) return;
+            if (FolderSection.Visibility != Visibility.Visible) return;
+            Source.SetStatus(e.Reason);
+        }
+
+        /// <summary>
         /// Al cambiar el estado del origen (carga/reset) se reconstruye la cola
         /// de canciones estéreo (máx. <see cref="AppLimits.VocalRemovalMaxFilesPerBatch"/>).
         /// </summary>

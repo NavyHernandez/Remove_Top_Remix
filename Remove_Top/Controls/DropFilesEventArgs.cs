@@ -19,4 +19,21 @@ namespace Remove_Top.Controls
             Paths = paths;
         }
     }
+
+    /// <summary>
+    /// Argumentos del evento <see cref="DropTargetControl.DropFailed"/>:
+    /// el arrastre se mostró pero no se pudo leer lo soltado (p. ej.
+    /// GetStorageItemsAsync falló en Windows 10 o las rutas venían vacías).
+    /// </summary>
+    public sealed class DropFailedEventArgs : EventArgs
+    {
+        /// <summary>Motivo legible para mostrar en la línea de estado del origen.</summary>
+        public string Reason { get; }
+
+        /// <summary>Crea los argumentos con el motivo del fallo.</summary>
+        public DropFailedEventArgs(string reason)
+        {
+            Reason = reason;
+        }
+    }
 }

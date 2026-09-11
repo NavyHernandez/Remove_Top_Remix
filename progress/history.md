@@ -192,3 +192,19 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ### Release v0.3.3
 - Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload`; push a `main`, Release publicado por CI.
+
+---
+
+## 2026-09-11 — Versión 0.3.4: QuickRename 1000+recursivo, patrones 30, arrastre Win10, BatchRename más rápido
+
+**Agente:** humano + opencode (muse-spark)
+
+### Cambios realizados
+1. **Edición Rápida: tope 1000 + recursivo** — `AppLimits.QuickRenameMaxFilesToScan` 200 → 1000 (única fuente); `QuickRenamePage.xaml` `ScanRecursive="False" → "True"` (antes no traía subcarpetas); comentario actualizado en el code-behind. Textos y contadores se actualizan solos desde la constante.
+2. **Renombrado masivo: 30 patrones** — `AppLimits.BatchRenameMaxPatterns` 20 → 30; carga, validación, contador `n/30` y sugerencias IA ya consumían la constante. Sin migración (`patterns.json` con ≤20 sigue válido).
+3. **Arrastre robusto en Win10** — `DropTargetControl`: raíz con `Background="Transparent"` (requisito de la doc de drag-and-drop); `OnDrop` captura fallos de `GetStorageItemsAsync` (bug Win10 aunque el overlay se muestre) y rutas vacías (virtuales/ZIP): registra en `crash.log` (`App.Log`) y notifica el nuevo evento `DropFailed`; las 5 páginas lo conectan y muestran el motivo con `SetStatus`. Ruta de éxito intacta.
+4. **BatchRename más rápido (opción A)** — `FileRenamer.ProcessFilesAsync` por lotes de 10 (`ChunkSize`, un `Task.Run` por lote: 700 archivos = 70 saltos en vez de 1400); `Regex` de espacios precompilado; página sin `ScrollIntoView` por fila (uno solo al final), contadores O(1), nombre cada 10 + siempre en el último. Con <10 archivos todo se pinta en una pasada.
+5. **Docs** — `AGENTS.md` (filas QuickRename/BatchRename + DropTargetControl + rendimiento), `feature_list.json` (features 2 y 3), `release_notes.txt` v0.3.4.
+
+### Release v0.3.4
+- Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload`; push a `main`, Release publicado por CI.

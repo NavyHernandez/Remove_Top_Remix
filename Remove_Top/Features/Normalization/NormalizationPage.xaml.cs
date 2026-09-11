@@ -99,6 +99,16 @@ namespace Remove_Top.Features.Normalization
         }
 
         /// <summary>
+        /// Si el arrastre no se pudo leer (fallo Win10), se muestra el motivo
+        /// en la línea de estado del origen en vez de quedarse en silencio.
+        /// </summary>
+        private void DropTarget_DropFailed(object? sender, DropFailedEventArgs e)
+        {
+            if (_isProcessing || _isAnalyzing) return;
+            Source.SetStatus(e.Reason);
+        }
+
+        /// <summary>
         /// Al cambiar el estado del origen (carga/reset) se filtran los archivos
         /// pendientes de procesar, se muestran los conteos y se lanza el análisis.
         /// </summary>

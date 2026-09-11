@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
@@ -53,6 +54,15 @@ namespace Remove_Top.Controls
 
         /// <summary>Se dispara al soltar carpetas y/o archivos sobre la página.</summary>
         public event EventHandler<DropFilesEventArgs>? FilesDropped;
+
+        /// <summary>
+        /// Se dispara cuando el arrastre se aceptó (overlay visible) pero no se
+        /// pudo leer lo soltado: GetStorageItemsAsync lanzó excepción (fallo
+        /// conocido en algunos Windows 10) o ninguna ruta venía legible
+        /// (carpeta virtual, ZIP, etc.). La página muestra <see cref="DropFailedEventArgs.Reason"/>
+        /// en su línea de estado para no quedarse en silencio.
+        /// </summary>
+        public event EventHandler<DropFailedEventArgs>? DropFailed;
 
         /// <summary>Título del overlay de arrastre.</summary>
         public string Caption
@@ -153,9 +163,16 @@ namespace Remove_Top.Controls
         }
 
         /// <summary>
-        /// Suelta del arrastre: oculta el overlay y notifica las rutas recibidas
-        /// (carpetas y archivos) mediante <see cref="FilesDropped"/>. El
-        /// consumidor decide si aceptarlas (p. ej. ignorarlas si está ocupado).
+        /// Suelta del arrastre: oculta el overlay e intenta leer las rutas
+        /// recibidas (carpetas y archivos), notificándolas mediante
+        /// <see cref="FilesDropped"/>. El consumidor decide si aceptarlas
+        /// (p. ej. ignorarlas si está ocupado).
+        ///
+        /// Robustez Win10: GetStorageItemsAsync puede fallar aunque el overlay
+        /// se haya mostrado; en ese caso (o si ninguna ruta viene legible) se
+        /// registra en crash.log y se notifica <see cref="DropFailed"/> con un
+        /// mensaje mostrable, en vez de quedarse en silencio. La ruta de éxito
+        /// queda intacta.
         /// </summary>
         private async void OnDrop(object sender, DragEventArgs e)
         {
@@ -164,10 +181,33 @@ namespace Remove_Top.Controls
 
             if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
 
-            var items = await e.DataView.GetStorageItemsAsync();
-            if (items.Count == 0) return;
+            IReadOnlyList<Windows.Storage.IStorageItem>? items;
+            try
+            {
+                items = await e.DataView.GetStorageItemsAsync();
+            }
+            catch (Exception ex)
+            {
+                App.Log("DropTarget", $"GetStorageItemsAsync: {ex.Message}", ex.StackTrace);
+                DropFailed?.Invoke(this, new DropFailedEventArgs(
+                    "No se pudo leer lo soltado. Prueba con los botones Carpeta/Archivos."));
+                return;
+            }
 
-            FilesDropped?.Invoke(this, new DropFilesEventArgs(items.Select(i => i.Path).ToArray()));
+            if (items == null || items.Count == 0) return;
+
+            var paths = items
+                .Select(i => i.Path)
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToArray();
+            if (paths.Length == 0)
+            {
+                DropFailed?.Invoke(this, new DropFailedEventArgs(
+                    "Lo soltado no trae rutas legibles (p. ej. carpeta virtual o comprimido). Prueba con los botones Carpeta/Archivos."));
+                return;
+            }
+
+            FilesDropped?.Invoke(this, new DropFilesEventArgs(paths));
         }
 
         /// <summary>Muestra el overlay oscuro de arrastre.</summary>

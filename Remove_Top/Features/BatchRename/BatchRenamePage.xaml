@@ -17,6 +17,7 @@
 
     <controls:DropTargetControl
         FilesDropped="DropTarget_FilesDropped"
+        DropFailed="DropTarget_DropFailed"
         Caption="Suelta para cargar"
         Subtitle="Arrastra una carpeta o archivos para renombrar"
         AccentColor="#70AD47">

@@ -30,7 +30,7 @@
       "description": "Elimina texto específico de los nombres de archivos en lote. API de IA unificada a TopRemixServerApiClient con endpoint configurable. Botón Cancelar para resetear.",
       "acceptance": [
         "Elimina patrones de texto de nombres de archivos",
-        "Persiste hasta 20 patrones en patterns.json",
+        "Persiste hasta 30 patrones en patterns.json",
         "API client unificado (TopRemixServerApiClient)",
         "Botón 'Limpiar' conservando patrones",
         "Botón 'Cancelar' centrado para resetear página",
@@ -43,11 +43,11 @@
       "id": 3,
       "name": "quick_rename",
       "title": "Edición rápida de nombres",
-      "description": "Lista .mp3/.wav de la carpeta y permite editar nombres inline (incluye extensión). Tope de 200 archivos, badge 'Versión Gratuita', marca www.top-remix.com y botón 'Limpiar'. Sin funcionalidad de IA. Reorden de partes: chips arrastrables horizontales, unión con doble clic, separación con clic derecho, deshacer, vista previa de 10 archivos y canción guía seleccionable.",
+      "description": "Lista .mp3/.wav de la carpeta (recursivo, incluye subcarpetas) y permite editar nombres inline (incluye extensión). Tope de 1000 archivos, badge 'Versión Gratuita', marca www.top-remix.com y botón 'Limpiar'. Sin funcionalidad de IA. Reorden de partes: chips arrastrables horizontales, unión con doble clic, separación con clic derecho, deshacer, vista previa de 10 archivos y canción guía seleccionable.",
       "acceptance": [
-        "Lista archivos de audio de la carpeta",
+        "Lista archivos de audio de la carpeta (recursivo, incluye subcarpetas)",
         "Edición inline de nombres con File.Move",
-        "Tope de 200 archivos desde AppLimits.QuickRenameMaxFilesToScan",
+        "Tope de 1000 archivos desde AppLimits.QuickRenameMaxFilesToScan",
         "Badge 'Versión Gratuita' + mensaje de límite (AppLimits.QuickRenameLimitMessage)",
         "Marca www.top-remix.com centrada en la línea de 'Nombres editables'",
         "Botón 'Limpiar' al final de los resultados",

@@ -85,6 +85,16 @@ namespace Remove_Top.Features.TagRemoval
             _activeSource.LoadSource(e.Paths);
         }
 
+        /// <summary>
+        /// Si el arrastre no se pudo leer (fallo Win10), se muestra el motivo
+        /// en la línea de estado del origen activo en vez de quedarse en silencio.
+        /// </summary>
+        private void DropTarget_DropFailed(object? sender, DropFailedEventArgs e)
+        {
+            if (_isProcessing) return;
+            _activeSource.SetStatus(e.Reason);
+        }
+
         // ================================================================
         // ACCIÓN 1: ELIMINAR ETIQUETAS
         // ================================================================

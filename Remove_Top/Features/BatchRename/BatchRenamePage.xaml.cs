@@ -125,6 +125,16 @@ namespace Remove_Top.Features.BatchRename
         }
 
         /// <summary>
+        /// Si el arrastre no se pudo leer (fallo Win10), se muestra el motivo
+        /// en la línea de estado del origen en vez de quedarse en silencio.
+        /// </summary>
+        private void DropTarget_DropFailed(object? sender, DropFailedEventArgs e)
+        {
+            if (_isProcessing || _isSuggesting) return;
+            Source.SetStatus(e.Reason);
+        }
+
+        /// <summary>
         /// Al cambiar el estado del origen (carga/reset) se guardan los archivos
         /// seleccionados y se recalculan la vista previa y la UI.
         /// </summary>
@@ -328,23 +338,38 @@ namespace Remove_Top.Features.BatchRename
 
             _cts = new CancellationTokenSource();
             var renamer = new FileRenamer();
+
+            // Contadores incrementales O(1): antes el resumen recorría toda la
+            // lista con LINQ en cada reporte (costo cuadrático con lotes grandes).
+            int okCount = 0, failCount = 0;
             var progress = new Progress<RenameProgress>(p =>
             {
+                // Barra y contador por reporte (barato); el nombre del archivo
+                // cada 10 y siempre en el último (evita 700 re-mediciones de
+                // texto; con pocos archivos todo se pinta en una pasada).
                 ProgressBar.Value = p.Percentage;
-                ProgressText.Text = p.CurrentFile;
                 ProgressCountText.Text = $"{p.CurrentIndex}/{p.TotalCount}";
+                if (p.CurrentIndex % 10 == 0 || p.CurrentIndex == p.TotalCount)
+                    ProgressText.Text = p.CurrentFile;
 
                 if (p.Result != null)
                 {
                     _results.Add(p.Result);
-                    ResultsListView.ScrollIntoView(p.Result);
-                    UpdateSummary();
+                    if (p.Result.Success) okCount++; else failCount++;
+                    SummaryText.Text = $"{okCount} correctos · {failCount} errores · {_results.Count} total";
                 }
+
+                // Sin ScrollIntoView por archivo (era 1 re-layout por fila):
+                // un solo scroll al final, tras el await.
             });
 
             try
             {
                 await renamer.ProcessFilesAsync(files, patterns, progress, _cts.Token);
+
+                // Un solo scroll al final (antes era uno por archivo).
+                if (_results.Count > 0)
+                    ResultsListView.ScrollIntoView(_results[_results.Count - 1]);
 
                 var ok = _results.Count(r => r.Success);
                 var fail = _results.Count(r => !r.Success);

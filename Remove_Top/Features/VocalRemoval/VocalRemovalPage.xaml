@@ -12,6 +12,7 @@
 
     <controls:DropTargetControl
         FilesDropped="DropTarget_FilesDropped"
+        DropFailed="DropTarget_DropFailed"
         Caption="Suelta para cargar"
         Subtitle="Arrastra una carpeta o archivos de canciones"
         AccentColor="#9B59B6">

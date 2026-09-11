@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Remove_Top.Features.BatchRename
 {
@@ -68,6 +69,18 @@ namespace Remove_Top.Features.BatchRename
 
         /// <summary>Límite real de archivos procesados (versión gratuita), centralizado en AppLimits.</summary>
         public const int MaxFilesToScan = AppLimits.BatchRenameMaxFilesToScan;
+
+        /// <summary>
+        /// Tamaño del lote de procesamiento: los archivos se mueven de 10 en
+        /// 10 con un solo Task.Run por lote (en vez de uno por archivo), para
+        /// no saturar el pool de hilos ni el hilo UI con lotes grandes.
+        /// Con menos de 10 archivos hay un único lote parcial: todo se pinta
+        /// en una pasada y ningún resultado se pierde.
+        /// </summary>
+        private const int ChunkSize = 10;
+
+        /// <summary>Colapsa espacios múltiples (precompilado: se reutiliza en cada archivo del lote).</summary>
+        private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
         public static bool IsSupportedFile(string path)
         {
@@ -164,6 +177,12 @@ namespace Remove_Top.Features.BatchRename
         /// Procesa una lista ya calculada de archivos (con el límite gratuito
         /// ya aplicado) aplicando todos los patrones a cada nombre.
         /// Reporta progreso mediante IProgress y soporta cancelación.
+        ///
+        /// Rendimiento: trabaja por lotes de <see cref="ChunkSize"/> archivos
+        /// (un Task.Run por lote en vez de uno por archivo) para no saturar el
+        /// pool de hilos con lotes grandes (p. ej. 700 archivos = 70 saltos en
+        /// vez de 1400). El reporte sigue siendo por archivo, así que la UI
+        /// muestra el avance exacto (n/N) igual que antes.
         /// </summary>
         public async Task ProcessFilesAsync(
             string[] files,
@@ -172,40 +191,55 @@ namespace Remove_Top.Features.BatchRename
             CancellationToken cancellationToken = default)
         {
             int total = files.Length;
+            int done = 0;
 
-            for (int i = 0; i < total; i++)
+            for (int start = 0; start < total; start += ChunkSize)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var file = files[i];
-                RenameResult result;
-
-                try
+                // Un solo salto al pool por lote: mueve hasta ChunkSize archivos
+                // y devuelve sus resultados ya calculados.
+                int end = Math.Min(start + ChunkSize, total);
+                var chunk = await Task.Run(() =>
                 {
-                    result = await Task.Run(() => RenameFile(file, patterns), cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result = new RenameResult
+                    var batch = new List<(string file, RenameResult result)>(end - start);
+                    for (int i = start; i < end; i++)
                     {
-                        OriginalName = Path.GetFileName(file),
-                        NewName = "",
-                        Success = false,
-                        Message = $"ERROR: {ex.Message}"
-                    };
-                }
+                        cancellationToken.ThrowIfCancellationRequested();
 
-                progress.Report(new RenameProgress
+                        RenameResult result;
+                        try
+                        {
+                            result = RenameFile(files[i], patterns);
+                        }
+                        catch (Exception ex)
+                        {
+                            result = new RenameResult
+                            {
+                                OriginalName = Path.GetFileName(files[i]),
+                                NewName = "",
+                                Success = false,
+                                Message = $"ERROR: {ex.Message}"
+                            };
+                        }
+                        batch.Add((files[i], result));
+                    }
+                    return batch;
+                }, cancellationToken);
+
+                // Reporte por archivo (orden original): la UI decide el ritmo
+                // de pintado; el avance n/N siempre es exacto.
+                foreach (var (file, result) in chunk)
                 {
-                    CurrentIndex = i + 1,
-                    TotalCount = total,
-                    CurrentFile = Path.GetFileName(file),
-                    Result = result
-                });
+                    done++;
+                    progress.Report(new RenameProgress
+                    {
+                        CurrentIndex = done,
+                        TotalCount = total,
+                        CurrentFile = Path.GetFileName(file),
+                        Result = result
+                    });
+                }
             }
         }
 
@@ -226,7 +260,8 @@ namespace Remove_Top.Features.BatchRename
                 newNameWithoutExt = newNameWithoutExt.Replace(pattern, "", StringComparison.OrdinalIgnoreCase);
             }
             newNameWithoutExt = newNameWithoutExt.Trim();
-            newNameWithoutExt = System.Text.RegularExpressions.Regex.Replace(newNameWithoutExt, @"\s+", " ");
+            // Colapsa espacios múltiples con el Regex precompilado (sin recompilar por archivo).
+            newNameWithoutExt = WhitespaceRegex.Replace(newNameWithoutExt, " ");
 
             if (string.IsNullOrWhiteSpace(newNameWithoutExt))
             {

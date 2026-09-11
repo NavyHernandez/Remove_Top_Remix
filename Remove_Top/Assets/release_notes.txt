@@ -1,4 +1,5 @@
-=== One Dj App v0.3.3 ===
+=== One Dj App v0.3.4 ===
 
-✓ Nueva tarjeta de Soporte en Cuenta: código QR + botón de WhatsApp
-✓ Diseño glass neutro con sombra, integrado a la base de la app
+✓ Edición Rápida: hasta 1000 archivos e incluye subcarpetas
+✓ Renombrado masivo: hasta 30 patrones + proceso más rápido en lotes grandes
+✓ Arrastre de archivos más robusto en Windows 10 (avisa si no se puede leer)

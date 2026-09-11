@@ -19,6 +19,7 @@
     <controls:DropTargetControl
         x:Name="DropTarget"
         FilesDropped="DropTarget_FilesDropped"
+        DropFailed="DropTarget_DropFailed"
         Caption="Suelta para cargar"
         Subtitle="Carpetas o archivos de audio — las carpetas se escanean incluyendo subcarpetas"
         AccentColor="#B8860B">

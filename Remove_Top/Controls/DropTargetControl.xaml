@@ -17,6 +17,7 @@
         se dibuja encima de todo.
     -->
     <Grid AllowDrop="True"
+          Background="Transparent"
           DragEnter="OnDragEnter"
           DragOver="OnDragOver"
           DragLeave="OnDragLeave"

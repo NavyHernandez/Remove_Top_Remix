@@ -16,6 +16,7 @@
 
     <controls:DropTargetControl
         FilesDropped="DropTarget_FilesDropped"
+        DropFailed="DropTarget_DropFailed"
         Caption="Suelta para cargar"
         Subtitle="Arrastra una carpeta o archivos .mp3/.wav"
         AccentColor="#E67E22">
@@ -63,7 +64,7 @@
                 <controls:FileSourceControl
                     x:Name="Source"
                     AccentColor="#E67E22"
-                    ScanRecursive="False"
+                    ScanRecursive="True"
                     ShowBrandSite="True"
                     StateChanged="Source_StateChanged" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
