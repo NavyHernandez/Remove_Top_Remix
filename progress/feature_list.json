@@ -495,6 +495,65 @@
         "Build 0 errores"
       ],
       "status": "done"
+    },
+    {
+      "id": 34,
+      "name": "normalization_native_drag",
+      "title": "Arrastre nativo en Normalización (carpetas + canciones, acumula 50)",
+      "description": "Arrastre propio de la página sin DropTargetControl/FileSourceControl (analiza al cargar y necesita camino con timeout): Grid raíz con AllowDrop + overlay local ('Suelta para cargar', insignia FolderOpen #5B9BD5, timer anti-parpadeo 250 ms). Una sola carpeta sigue el camino manual idéntico (LoadFolderAsync); canciones sueltas se acumulan hasta AppLimits.NormalizationFreeLimitDisplay (50) sin repetir, con análisis incremental solo de las nuevas. Timeout 20 s por archivo + cancelación por bloque; Limpiar/Cancelar detienen lo en curso. Salida en OneDj_Normalized; aviso gratuito 'Versión gratuita: arrastra y analiza hasta 50 archivos'.",
+      "acceptance": [
+        "Overlay local con icono al arrastrar (muestra/oculta sin parpadeo)",
+        "Carpeta soltada = camino manual idéntico (Examinar)",
+        "Canciones sueltas se acumulan hasta 50, sin duplicados, análisis solo de nuevas",
+        "Timeout 20 s por archivo: el atascado queda en rojo como omitido",
+        "Limpiar/Cancelar interrumpen análisis y procesado en curso",
+        "Carpeta de salida OneDj_Normalized + texto gratuito de arrastre/50",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 35,
+      "name": "normalization_preview_remove",
+      "title": "Normalización: previsualizador por fila + quitar con 'x'",
+      "description": "Botón play y botón 'x' (Dismiss) por fila en AnalysisListView; tarjeta PreviewSection reutilizando el módulo AudioPreview (onda 88 px + Play/Pausa/Stop + reloj + scrub). AnalysisResult guarda FilePath. La 'x' quita la canción de _analysisResults/_analysisAll/_looseFiles y Normalizar procesa la lista mostrada (ya no re-escanea la carpeta). Fix de carrera: valid se calcula con el array devuelto (backing _analysisAll), no con la colección UI; filas fallidas muestran '—' con tooltip del motivo; resumen 'N válidos · M con error'.",
+      "acceptance": [
+        "Play por fila abre el mini reproductor (un solo preview activo)",
+        "La 'x' quita la canción y Normalizar no la procesa",
+        "Sin carrera: Normalizar se habilita con archivos válidos reales",
+        "Filas fallidas muestran '—' + motivo en tooltip",
+        "Preview liberado al limpiar/procesar/quitar/salir",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 36,
+      "name": "normalization_pro_mastering",
+      "title": "Masterización pro: LUFS + true-peak + clipper + dither (2 pasadas)",
+      "description": "Motor de masterización profesional para Hard Limiter y Comercial EDM. LoudnessMeter nuevo (K-weighting BS.1770-4, bloques 400 ms/75 % solape, gating -70/-10 LU) mide LUFS Integrated; ganancia por sonoridad en 2 pasadas (mide salida real y corrige, topes de seguridad). TruePeakLimiterSampleProvider con lookahead, detección true-peak 4x (Catmull-Rom), release adaptativo y enlace estéreo, techo -1.0 dBTP. SoftClipper previo, compresor estéreo-enlazado, front-end DC blocker + HPF 30 Hz, dither TPDF adaptado a la profundidad. Objetivos: Hard -10 LUFS, EDM -8.5 LUFS. Ligera intacta (pico). Resultado muestra Pico + LUFS.",
+      "acceptance": [
+        "LoudnessMeter K-weighting + gating mide LUFS Integrated",
+        "Ganancia por loudness a 2 pasadas clava Hard -10 / EDM -8.5 LUFS",
+        "TruePeakLimiter: lookahead + release adaptativo + enlace estéreo, techo -1.0 dBTP",
+        "SoftClipper + compresor enlazado + DC blocker + HPF 30 Hz + dither TPDF",
+        "EDM attack 22 ms (punch); Ligera sin cambios",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 37,
+      "name": "account_update_popup",
+      "title": "Popup de actualización con rebote en Cuenta",
+      "description": "Al entrar a Cuenta con update pendiente (detectado por el auto-check), se eleva un popup con animación de rebote (BounceEase): icono Gift, '¡Tenemos una nueva actualización!' + versión. 'Descargar ahora' cierra e inicia la descarga directa (flujo refactorizado StartDownloadAsync); 'Ahora no'/velo lo cierra. Una vez por versión (_updatePopupShownFor). UpdateChecker expone HasPendingUpdate/PendingVersion.",
+      "acceptance": [
+        "Popup con rebote al entrar a Cuenta con update pendiente",
+        "Aceptar inicia la descarga directa (progreso + reinicio como hoy)",
+        "Una sola vez por versión; 'Ahora no' conserva dot y botón",
+        "Build 0 errores"
+      ],
+      "status": "done"
     }
   ]
 }

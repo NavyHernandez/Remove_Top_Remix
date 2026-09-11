@@ -208,3 +208,19 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ### Release v0.3.4
 - Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload`; push a `main`, Release publicado por CI.
+
+---
+
+## 2026-09-11 — Versión 0.3.5: Normalización pro (LUFS + true-peak), arrastre nativo, preview y popup de update
+
+**Agente:** humano + opencode (muse-spark)
+
+### Cambios realizados
+1. **Normalización: arrastre nativo con análisis (feature 34)** — se revirtió el intento con `DropTargetControl`/`FileSourceControl` (colgaba en "Analizando" porque analizan al cargar). Arrastre propio: `Grid` raíz con `AllowDrop` + overlay local ("Suelta para cargar", insignia `FolderOpen` #5B9BD5, timer anti-parpadeo 250 ms). Una sola carpeta = camino manual idéntico (`LoadFolderAsync`); canciones sueltas se **acumulan hasta 50** (`NormalizationFreeLimitDisplay`) sin repetir, con análisis incremental. Timeout **20 s** por archivo + cancelación por bloque; Limpiar/Cancelar detienen lo en curso. Salida en **`OneDj_Normalized`**; aviso "Versión gratuita: arrastra y analiza hasta 50 archivos".
+2. **Normalización: previsualizador + quitar con "x" (feature 35)** — botón play y botón `Dismiss` por fila en `AnalysisListView`; tarjeta `PreviewSection` reutilizando `AudioPreview` (onda 88 px + Play/Pausa/Stop + reloj + scrub). `AnalysisResult` guarda `FilePath`; Normalizar procesa la lista mostrada (ya no re-escanea). **Fix de carrera**: `valid` se calcula con el array devuelto (backing `_analysisAll`); filas fallidas muestran "—" con tooltip del motivo; resumen "N válidos · M con error".
+3. **Masterización pro (feature 36)** — `LoudnessMeter` nuevo (K-weighting BS.1770-4, bloques 400 ms/75 %, gating −70/−10 LU) → ganancia por **LUFS a 2 pasadas** (Hard **−10**, EDM **−8.5** LUFS). `TruePeakLimiter` (lookahead, detección true-peak 4× Catmull-Rom, release adaptativo, enlace estéreo, techo **−1.0 dBTP**) + `SoftClipper` + compresor enlazado + front-end (DC blocker + HPF 30 Hz) + **dither TPDF** adaptativo. Compresor EDM attack 8 → 22 ms (punch). Ligera intacta. Resultado muestra Pico + LUFS.
+4. **Cuenta: popup de actualización con rebote (feature 37)** — al entrar con update pendiente se eleva tarjeta (icono `Gift`, BounceEase) una vez por versión; "Descargar ahora" inicia la descarga directa (`StartDownloadAsync` refactorizado); "Ahora no" conserva dot y botón. `UpdateChecker` expone `HasPendingUpdate`/`PendingVersion`.
+5. **Docs** — `AGENTS.md` (filas Normalización/Cuenta + masterización pro), `feature_list.json` (features 34–37), `release_notes.txt` v0.3.5.
+
+### Release v0.3.5
+- Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload` (build 0 errores); push a `main`, Release publicado por CI.

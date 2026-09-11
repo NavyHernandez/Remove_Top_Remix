@@ -56,6 +56,17 @@ namespace Remove_Top.Features.Account
         private UpdateInfo? _pendingUpdate;
 
         /// <summary>
+        /// True si hay una actualización pendiente de descargar (el último
+        /// CheckForUpdatesAsync encontró versión nueva). Lo usa el popup de
+        /// aviso en la página Cuenta.
+        /// </summary>
+        public bool HasPendingUpdate => _pendingUpdate != null;
+
+        /// <summary>Versión pendiente de descargar ("" si no hay ninguna).</summary>
+        public string PendingVersion =>
+            _pendingUpdate?.TargetFullRelease.Version.ToString() ?? "";
+
+        /// <summary>
         /// Comprueba si existe una actualización consultando GitHub Releases
         /// a través de Velopack. Devuelve el resultado de la comprobación.
         /// </summary>

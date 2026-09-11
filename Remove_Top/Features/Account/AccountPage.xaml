@@ -12,8 +12,24 @@
 
     <Page.Resources>
         <ThemeShadow x:Name="SupportCardShadow" />
+
+        <!-- Entrada del popup de actualización: la tarjeta sube con rebote
+             y el velo aparece con fundido. -->
+        <Storyboard x:Name="UpdatePopupShowStoryboard">
+            <DoubleAnimation Storyboard.TargetName="UpdatePopupCard"
+                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                             From="160" To="0" Duration="0:0:0.7">
+                <DoubleAnimation.EasingFunction>
+                    <BounceEase Bounces="3" Bounciness="2" EasingMode="EaseOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="UpdatePopupOverlay"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.25" />
+        </Storyboard>
     </Page.Resources>
 
+    <Grid>
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -469,5 +485,70 @@
 
             </StackPanel>
         </ScrollViewer>
+    </Grid>
+
+        <!-- Popup de nueva actualización: velo + tarjeta que sube rebotando.
+             Se eleva al entrar a Cuenta cuando hay update pendiente (una vez
+             por versión); Aceptar inicia la descarga directa. -->
+        <Border x:Name="UpdatePopupOverlay"
+                Background="#66000000"
+                Visibility="Collapsed"
+                Tapped="UpdatePopupOverlay_Tapped">
+            <Border x:Name="UpdatePopupCard"
+                    MaxWidth="420"
+                    CornerRadius="16"
+                    Padding="24"
+                    BorderThickness="1"
+                    BorderBrush="#00A88F"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,48">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="160" />
+                </Border.RenderTransform>
+                <StackPanel Spacing="12">
+                    <Border Width="64" Height="64"
+                            CornerRadius="32"
+                            Background="#33E67E22"
+                            HorizontalAlignment="Center">
+                        <ic:FluentIcon Icon="Gift" IconVariant="Regular" IconSize="Size28"
+                                       Foreground="#E67E22"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="¡Tenemos una nueva actualización!"
+                               FontSize="20" FontWeight="Bold"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="UpdatePopupSubtitle"
+                               FontSize="13"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button x:Name="UpdatePopupDownloadButton"
+                                Content="Descargar ahora"
+                                Click="UpdatePopupDownloadButton_Click"
+                                CornerRadius="6"
+                                HorizontalAlignment="Stretch"
+                                Background="#00A88F" Foreground="White"
+                                BorderThickness="0"
+                                FontWeight="SemiBold" />
+                        <Button Grid.Column="1"
+                                x:Name="UpdatePopupLaterButton"
+                                Content="Ahora no"
+                                Click="UpdatePopupLaterButton_Click"
+                                CornerRadius="6"
+                                HorizontalAlignment="Stretch"
+                                Background="Transparent"
+                                BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                BorderThickness="1" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Page>

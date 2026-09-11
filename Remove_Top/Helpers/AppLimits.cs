@@ -159,11 +159,10 @@ namespace Remove_Top.Helpers
 
         /// <summary>Título del InfoBar de la página de Normalización.</summary>
         public static string NormalizationInfoBarTitle =>
-            $"Versión gratuita: hasta {N0(NormalizationFreeLimitDisplay)} archivos";
+            $"Versión gratuita: arrastra y analiza hasta {N0(NormalizationFreeLimitDisplay)} archivos";
 
         /// <summary>Mensaje del InfoBar de la página de Normalización.</summary>
-        public static string NormalizationInfoBarMessage =>
-            $"Se analizan hasta {N0(NormalizationFreeLimitDisplay)} archivos por carpeta.";
+        public static string NormalizationInfoBarMessage => "";
 
         /// <summary>Título del InfoBar de la página de Eliminación de Duplicados.</summary>
         public static string DuplicatesInfoBarTitle =>

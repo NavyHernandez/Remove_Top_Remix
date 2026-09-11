@@ -17,8 +17,14 @@ namespace Remove_Top.Features.Normalization
     public class AnalysisResult
     {
         public string FileName { get; set; } = "";
+        /// <summary>Ruta completa del archivo analizado (previsualización y quitar de la lista).</summary>
+        public string FilePath { get; set; } = "";
         public double PeakDb { get; set; }
-        public string PeakDbDisplay => $"{PeakDb:F1} dBFS";
+        /// <summary>
+        /// Pico en dBFS para mostrar. En archivos que no se pudieron analizar
+        /// devuelve "—" (no "0.0 dBFS", que se confundía con una lectura real).
+        /// </summary>
+        public string PeakDbDisplay => Success ? $"{PeakDb:F1} dBFS" : "\u2014";
         public bool Success { get; set; }
         public string Message { get; set; } = "";
         public Icon StatusIcon => Success ? Icon.SoundWaveCircle : Icon.Warning;
@@ -80,13 +86,13 @@ namespace Remove_Top.Features.Normalization
         public const int FreeLimitDisplay = AppLimits.NormalizationFreeLimitDisplay;
 
         /// <summary>Nombre de la subcarpeta donde se guardan los archivos procesados.</summary>
-        public const string OutputFolderName = "RemoveTop_Normalized";
+        public const string OutputFolderName = "OneDj_Normalized";
 
         /// <summary>
         /// Busca los archivos de audio dentro de una carpeta (búsqueda recursiva)
         /// aplicando el límite de la versión gratuita (MaxFilesToScan).
         /// Omite los archivos que ya tienen una salida procesada válida en
-        /// "RemoveTop_Normalized" (no se vuelven a normalizar).
+        /// "OneDj_Normalized" (no se vuelven a normalizar).
         /// Devuelve un array vacío si la carpeta no existe o hay error de permisos.
         /// </summary>
         /// <param name="folderPath">Carpeta a escanear.</param>
@@ -147,7 +153,7 @@ namespace Remove_Top.Features.Normalization
 
         /// <summary>
         /// Calcula la ruta donde se guardaría la salida procesada de un archivo:
-        /// la subcarpeta "RemoveTop_Normalized" junto al origen, con el nombre
+        /// la subcarpeta "OneDj_Normalized" junto al origen, con el nombre
         /// base del archivo y extensión .wav.
         /// </summary>
         private static string GetExpectedOutputPath(string sourcePath)
@@ -227,7 +233,7 @@ namespace Remove_Top.Features.Normalization
 
         /// <summary>
         /// Enumera los archivos de audio de forma recursiva, sin entrar en la
-        /// carpeta de resultados "RemoveTop_Normalized". Así no se vuelven a
+        /// carpeta de resultados "OneDj_Normalized". Así no se vuelven a
         /// procesar archivos ya normalizados en ejecuciones anteriores.
         /// Tolerante a errores de permisos por carpeta.
         /// </summary>
@@ -274,21 +280,26 @@ namespace Remove_Top.Features.Normalization
         /// <summary>
         /// Analiza un único archivo de audio: lee la señal completa, encuentra el pico
         /// máximo en floats y lo convierte a dBFS. No modifica el archivo.
+        /// El token se comprueba en cada bloque para que Cancelar/Limpiar
+        /// interrumpa también un archivo con lectura lenta o atascada.
         /// </summary>
-        public static AnalysisResult AnalyzeFile(string path)
+        public static AnalysisResult AnalyzeFile(string path, CancellationToken cancellationToken = default)
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 using var reader = new MediaFoundationReader(path);
-                var format = reader.WaveFormat;
                 var sampleProvider = reader.ToSampleProvider();
-                int bufferSize = format.SampleRate * format.Channels;
+                // Búfer fijo: el anterior (sampleRate * channels) variaba por
+                // archivo y podía reservar de más con rates inusuales.
+                const int bufferSize = 32768;
                 var sampleBuffer = new float[bufferSize];
 
                 float peak = 0f;
                 int samplesRead;
                 while ((samplesRead = sampleProvider.Read(sampleBuffer, 0, bufferSize)) > 0)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     for (int j = 0; j < samplesRead; j++)
                     {
                         float abs = Math.Abs(sampleBuffer[j]);
@@ -300,6 +311,7 @@ namespace Remove_Top.Features.Normalization
                     return new AnalysisResult
                     {
                         FileName = Path.GetFileName(path),
+                        FilePath = path,
                         Success = false,
                         Message = "Silencio (pico cero)"
                     };
@@ -308,16 +320,22 @@ namespace Remove_Top.Features.Normalization
                 return new AnalysisResult
                 {
                     FileName = Path.GetFileName(path),
+                    FilePath = path,
                     Success = true,
                     PeakDb = peakDb,
                     Message = "OK"
                 };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 return new AnalysisResult
                 {
                     FileName = Path.GetFileName(path),
+                    FilePath = path,
                     Success = false,
                     Message = $"Error: {ex.Message}"
                 };
@@ -325,8 +343,17 @@ namespace Remove_Top.Features.Normalization
         }
 
         /// <summary>
+        /// Tiempo máximo de análisis por archivo. Si un MP3 se atasca en la
+        /// lectura nativa (MediaFoundation no siempre responde al token), el
+        /// WaitAsync libera la UI y el archivo se reporta como omitido en vez
+        /// de dejar la página palpitando en "Analizando...".
+        /// </summary>
+        private static readonly TimeSpan AnalyzeTimeoutPerFile = TimeSpan.FromSeconds(20);
+
+        /// <summary>
         /// Analiza múltiples archivos de audio de forma asíncrona.
         /// Reporta cada resultado mediante IProgress a medida que se completa.
+        /// Un archivo que exceda el timeout no bloquea al resto.
         /// </summary>
         public async Task<AnalysisResult[]> AnalyzeFilesAsync(
             string[] files,
@@ -337,7 +364,39 @@ namespace Remove_Top.Features.Normalization
             for (int i = 0; i < files.Length; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                results[i] = await Task.Run(() => AnalyzeFile(files[i]), cancellationToken);
+                var path = files[i];
+                var task = Task.Run(() => AnalyzeFile(path, cancellationToken), CancellationToken.None);
+                try
+                {
+                    results[i] = await task.WaitAsync(AnalyzeTimeoutPerFile, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        throw;
+                    results[i] = new AnalysisResult
+                    {
+                        FileName = Path.GetFileName(path),
+                        FilePath = path,
+                        Success = false,
+                        Message = "Análisis cancelado"
+                    };
+                }
+                catch (TimeoutException)
+                {
+                    App.Log("Normalization", $"Timeout analizando {path} (> {AnalyzeTimeoutPerFile.TotalSeconds}s), se omite.");
+                    results[i] = new AnalysisResult
+                    {
+                        FileName = Path.GetFileName(path),
+                        FilePath = path,
+                        Success = false,
+                        Message = "Tiempo agotado analizando (archivo omitido)"
+                    };
+                }
                 progress.Report(results[i]);
             }
             return results;
@@ -365,7 +424,7 @@ namespace Remove_Top.Features.Normalization
 
                 try
                 {
-                    result = await Task.Run(() => NormalizeFile(file, targetDbFs, intensity), cancellationToken);
+                    result = await Task.Run(() => NormalizeFile(file, targetDbFs, intensity, cancellationToken), CancellationToken.None);
                 }
                 catch (OperationCanceledException)
                 {
@@ -391,112 +450,199 @@ namespace Remove_Top.Features.Normalization
             }
         }
 
+        /// <summary>Ganancia máxima (dB) aplicada por la normalización por loudness.</summary>
+        private const double MaxLoudnessGainDb = 18.0;
+
+        /// <summary>Ganancia mínima (dB) aplicada por la normalización por loudness.</summary>
+        private const double MinLoudnessGainDb = -12.0;
+
+        /// <summary>Corrección máxima de la 2.ª pasada de loudness (dB).</summary>
+        private const double MaxLufsCorrectionDb = 6.0;
+
         /// <summary>
-        /// Normaliza un único archivo de audio.
-        ///   
-        ///   Paso 1: Lee el archivo, encuentra el pico máximo (en floats).
-        ///   Paso 2: Calcula la ganancia necesaria: gain = targetDbFs - peakDb.
-        ///   Paso 3: Vuelve a leer el archivo, aplica la ganancia y, sobre ese
-        ///           audio ya normalizado, una cadena de masterización ligera
-        ///           (paso alto → EQ → compresor → limitador a -0.3 dB).
-        ///   
-        /// El archivo procesado se guarda en una subcarpeta "RemoveTop_Normalized"
-        /// con el sufijo "_normalized.wav".
+        /// Normaliza y masteriza un único archivo.
+        ///
+        ///   Paso 1: mide el pico y la sonoridad percibida (LUFS Integrated,
+        ///           K-weighting BS.1770) del archivo de entrada.
+        ///   Paso 2: calcula la ganancia.
+        ///             - Ligera: por pico (target dBFS - pico), una sola pasada.
+        ///             - Hard/EDM: por loudness (target LUFS - LUFS de entrada)
+        ///               en DOS pasadas: la primera mide el LUFS real de salida y
+        ///               la segunda aplica la corrección para clavar el objetivo.
+        ///   Paso 3: aplica ganancia + cadena de masterización + dither TPDF y
+        ///           escribe el WAV en la subcarpeta "OneDj_Normalized".
         /// </summary>
-        private NormalizationResult NormalizeFile(string inputPath, double targetDbFs, MasteringIntensity intensity)
+        private NormalizationResult NormalizeFile(
+            string inputPath, double targetDbFs, MasteringIntensity intensity, CancellationToken cancellationToken = default)
         {
-            var outputDir = Path.Combine(
-                Path.GetDirectoryName(inputPath)!,
-                OutputFolderName);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var outputDir = Path.Combine(Path.GetDirectoryName(inputPath)!, OutputFolderName);
             Directory.CreateDirectory(outputDir);
 
-            //var outputName = Path.GetFileNameWithoutExtension(inputPath) + "_normalized.wav";
             var outputName = Path.GetFileNameWithoutExtension(inputPath) + ".wav";
             var outputPath = Path.Combine(outputDir, outputName);
 
-            using var reader = new MediaFoundationReader(inputPath);
-            var format = reader.WaveFormat;
-
-            var sampleProvider = reader.ToSampleProvider();
-            int bufferSize = format.SampleRate * format.Channels;
-            var sampleBuffer = new float[bufferSize];
-            int samplesRead;
-
-            // --- Paso 1: Encontrar el pico máximo en la señal ---
-            float peak = 0f;
-            while ((samplesRead = sampleProvider.Read(sampleBuffer, 0, bufferSize)) > 0)
+            // --- Paso 1: medir pico y LUFS de entrada ---
+            double originalPeakDb;
+            double inputLufs;
+            WaveFormat format;
+            using (var reader = new MediaFoundationReader(inputPath))
             {
-                for (int j = 0; j < samplesRead; j++)
+                format = reader.WaveFormat;
+                var sampleProvider = reader.ToSampleProvider();
+                var meter = new LoudnessMeter(format.Channels, format.SampleRate);
+                const int bufferSize = 32768;
+                var sampleBuffer = new float[bufferSize];
+
+                float peak = 0f;
+                int samplesRead;
+                while ((samplesRead = sampleProvider.Read(sampleBuffer, 0, bufferSize)) > 0)
                 {
-                    float abs = Math.Abs(sampleBuffer[j]);
-                    if (abs > peak) peak = abs;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    for (int j = 0; j < samplesRead; j++)
+                    {
+                        float abs = Math.Abs(sampleBuffer[j]);
+                        if (abs > peak) peak = abs;
+                    }
+                    meter.AddSamples(sampleBuffer, 0, samplesRead);
                 }
+
+                if (peak <= 0f)
+                    throw new InvalidOperationException("El archivo está en silencio (pico cero).");
+
+                originalPeakDb = 20.0 * Math.Log10(peak);
+                inputLufs = meter.IntegratedLufs;
             }
 
-            if (peak <= 0f)
-                throw new InvalidOperationException("El archivo está en silencio (pico cero).");
-
-            // --- Paso 2: Calcular ganancia ---
-            double originalPeakDb = 20.0 * Math.Log10(peak);
-            double gainDb = targetDbFs - originalPeakDb;
-            double gainLinear = Math.Pow(10.0, gainDb / 20.0);
-
-            // --- Paso 3: Aplicar ganancia + masterización ligera y escribir ---
-            reader.Position = 0;
-            sampleProvider = reader.ToSampleProvider();
-
-            // Primero la ganancia de normalización definida por el usuario...
-            var gained = new VolumeSampleProvider(sampleProvider)
+            // --- Paso 2a: Ligera normaliza por pico (comportamiento clásico) ---
+            if (intensity == MasteringIntensity.Ligera)
             {
-                Volume = (float)gainLinear
-            };
+                double gainDb = targetDbFs - originalPeakDb;
+                double gainLinear = Math.Pow(10.0, gainDb / 20.0);
+                return Render(inputPath, outputPath, format, gainLinear, intensity, gainDb, originalPeakDb, cancellationToken);
+            }
 
-            // ...y sobre ese audio ya normalizado, la cadena de masterización
-            // según el perfil de intensidad elegido (el techo final es siempre -0.3 dB).
-            var mastered = MasteringChain.Build(gained, format, intensity);
+            // --- Paso 2b: Hard/EDM normalizan por loudness (LUFS) ---
+            double targetLufs = MasteringChain.TargetLufs(intensity);
 
-            // Medición del resultado: RMS (nivel promedio) y pico final real.
-            double sumSquares = 0.0;
-            long sampleCount = 0;
+            double provisionalDb;
+            if (double.IsNegativeInfinity(inputLufs) || double.IsNaN(inputLufs))
+                provisionalDb = targetDbFs - originalPeakDb; // archivo muy corto: recae en pico
+            else
+                provisionalDb = targetLufs - inputLufs;
+
+            provisionalDb = Math.Clamp(provisionalDb, MinLoudnessGainDb, MaxLoudnessGainDb);
+
+            // Primera pasada: mide el LUFS real que produce la cadena.
+            double outputLufs = MeasureChainLufs(
+                inputPath, format, Math.Pow(10.0, provisionalDb / 20.0), intensity, cancellationToken);
+
+            double correctionDb = double.IsNegativeInfinity(outputLufs) || double.IsNaN(outputLufs)
+                ? 0.0
+                : Math.Clamp(targetLufs - outputLufs, -MaxLufsCorrectionDb, MaxLufsCorrectionDb);
+
+            double finalGainDb = Math.Clamp(provisionalDb + correctionDb, MinLoudnessGainDb, MaxLoudnessGainDb);
+
+            // --- Paso 3: render final con la ganancia corregida ---
+            return Render(inputPath, outputPath, format, Math.Pow(10.0, finalGainDb / 20.0),
+                intensity, finalGainDb, originalPeakDb, cancellationToken);
+        }
+
+        /// <summary>
+        /// Ejecuta la cadena de masterización sin escribir y devuelve el LUFS
+        /// Integrated de la salida (medición de la 1.ª pasada por loudness).
+        /// </summary>
+        private static double MeasureChainLufs(
+            string inputPath, WaveFormat format, double gainLinear, MasteringIntensity intensity, CancellationToken ct)
+        {
+            using var reader = new MediaFoundationReader(inputPath);
+            var chain = BuildChain(reader.ToSampleProvider(), format, gainLinear, intensity);
+            var meter = new LoudnessMeter(format.Channels, format.SampleRate);
+
+            const int bufferSize = 32768;
+            var buffer = new float[bufferSize];
+            int samplesRead;
+            while ((samplesRead = chain.Read(buffer, 0, bufferSize)) > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+                meter.AddSamples(buffer, 0, samplesRead);
+            }
+            return meter.IntegratedLufs;
+        }
+
+        /// <summary>
+        /// Aplica ganancia + cadena + dither TPDF y escribe el WAV. Devuelve el
+        /// resultado con el pico y el LUFS reales del archivo de salida.
+        /// </summary>
+        private static NormalizationResult Render(
+            string inputPath,
+            string outputPath,
+            WaveFormat format,
+            double gainLinear,
+            MasteringIntensity intensity,
+            double appliedGainDb,
+            double originalPeakDb,
+            CancellationToken ct)
+        {
+            using var reader = new MediaFoundationReader(inputPath);
+            var rendered = BuildChain(reader.ToSampleProvider(), format, gainLinear, intensity);
+
+            // Dither TPDF como último paso, adaptado a la profundidad de salida.
+            var dithered = new TpdfDitherSampleProvider(rendered, format.BitsPerSample);
+
+            var meter = new LoudnessMeter(format.Channels, format.SampleRate);
+            const int bufferSize = 32768;
+            var buffer = new float[bufferSize];
+            int samplesRead;
             float finalPeak = 0f;
 
             using var writer = new WaveFileWriter(outputPath, format);
-            while ((samplesRead = mastered.Read(sampleBuffer, 0, bufferSize)) > 0)
+            while ((samplesRead = dithered.Read(buffer, 0, bufferSize)) > 0)
             {
-                // El limitador ya evita superar el techo (-0.3 dB); este clamp es
-                // una red de seguridad para no escribir floats fuera de rango.
+                ct.ThrowIfCancellationRequested();
                 for (int j = 0; j < samplesRead; j++)
                 {
-                    float s = sampleBuffer[j];
+                    float s = buffer[j];
                     if (s > 1f) s = 1f;
                     else if (s < -1f) s = -1f;
 
-                    sumSquares += (double)s * s;
-                    sampleCount++;
+                    buffer[j] = s;
                     float abs = Math.Abs(s);
                     if (abs > finalPeak) finalPeak = abs;
-
-                    sampleBuffer[j] = s;
                 }
-                writer.WriteSamples(sampleBuffer, 0, samplesRead);
+                meter.AddSamples(buffer, 0, samplesRead);
+                writer.WriteSamples(buffer, 0, samplesRead);
             }
 
-            double rmsDb = sampleCount > 0
-                ? 20.0 * Math.Log10(Math.Sqrt(sumSquares / sampleCount))
-                : double.NegativeInfinity;
             double finalPeakDb = finalPeak > 0f
                 ? 20.0 * Math.Log10(finalPeak)
                 : double.NegativeInfinity;
+            double outputLufs = meter.IntegratedLufs;
+            string lufsText = double.IsNegativeInfinity(outputLufs) ? "\u2014" : $"{outputLufs:F1}";
 
             return new NormalizationResult
             {
                 FileName = Path.GetFileName(inputPath),
                 Success = true,
-                Message = $"Normalizado a {targetDbFs:F1} dBFS \u00b7 {MasteringChain.DisplayName(intensity)} \u00b7 Pico {finalPeakDb:F1} dB \u00b7 RMS {rmsDb:F1} dB",
+                Message = $"{MasteringChain.DisplayName(intensity)} \u00b7 Pico {finalPeakDb:F1} dB \u00b7 LUFS {lufsText}",
                 OriginalPeakDb = originalPeakDb,
-                AppliedGainDb = gainDb,
+                AppliedGainDb = appliedGainDb,
                 OutputPath = outputPath
             };
+        }
+
+        /// <summary>
+        /// Construye la pila: ganancia de normalización → cadena de masterización.
+        /// </summary>
+        private static ISampleProvider BuildChain(
+            ISampleProvider source, WaveFormat format, double gainLinear, MasteringIntensity intensity)
+        {
+            var gained = new VolumeSampleProvider(source)
+            {
+                Volume = (float)gainLinear
+            };
+            return MasteringChain.Build(gained, format, intensity);
         }
 
         /// <summary>

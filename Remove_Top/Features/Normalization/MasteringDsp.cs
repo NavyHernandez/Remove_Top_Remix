@@ -224,28 +224,39 @@ namespace Remove_Top.Features.Normalization
         public int Read(float[] buffer, int offset, int count)
         {
             int samplesRead = _source.Read(buffer, offset, count);
+            int frames = samplesRead / _channels;
+            int tailStart = frames * _channels;
 
-            for (int i = 0; i < samplesRead; i++)
+            // Detección estéreo-enlazada: un solo detector con el máximo de los
+            // canales, para no desplazar la imagen estéreo al comprimir.
+            for (int f = 0; f < frames; f++)
             {
-                int channel = i % _channels;
-                float input = buffer[offset + i];
-                float abs = Math.Abs(input);
+                int baseIdx = offset + f * _channels;
 
-                // Envolvente con ataque rápido y liberación lenta por canal.
-                float envelope = _envelope[channel];
-                float coeff = abs > envelope ? _attackCoeff : _releaseCoeff;
-                envelope = coeff * envelope + (1f - coeff) * abs;
-                _envelope[channel] = envelope;
+                float peak = 0f;
+                for (int c = 0; c < _channels; c++)
+                {
+                    float a = Math.Abs(buffer[baseIdx + c]);
+                    if (a > peak) peak = a;
+                }
 
-                // Cantidad que supera el umbral en dB → reducción de ganancia.
+                float envelope = _envelope[0];
+                float coeff = peak > envelope ? _attackCoeff : _releaseCoeff;
+                envelope = coeff * envelope + (1f - coeff) * peak;
+                _envelope[0] = envelope;
+
                 float envelopeDb = 20f * (float)Math.Log10(envelope + 1e-12f);
                 float overDb = envelopeDb - _thresholdDb;
                 float reductionDb = overDb > 0f ? overDb * (1f - 1f / _ratio) : 0f;
-
-                // Aplica makeup + reducción de forma lineal.
                 float gain = _makeupLinear * (float)Math.Pow(10.0, -reductionDb / 20.0);
-                buffer[offset + i] = input * gain;
+
+                for (int c = 0; c < _channels; c++)
+                    buffer[baseIdx + c] *= gain;
             }
+
+            // Remanente (no ocurre con NAudio, que entrega múltiplos de canales).
+            for (int i = tailStart; i < samplesRead; i++)
+                buffer[offset + i] *= _makeupLinear;
 
             return samplesRead;
         }
@@ -457,6 +468,307 @@ namespace Remove_Top.Features.Normalization
             }
 
             return written;
+        }
+    }
+
+    /// <summary>
+    /// Eliminador de DC offset (one-pole high-pass a ~10 Hz).
+    /// Evita que un sesgo continuo se coma headroom y que el Soft Clipper
+    /// distorsione de forma asimétrica.
+    /// </summary>
+    public sealed class DcBlockerSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private readonly int _channels;
+        private readonly float _r;
+        private readonly float[] _x1;
+        private readonly float[] _y1;
+
+        public DcBlockerSampleProvider(ISampleProvider source, int channels, int sampleRate, double cutoffHz = 10.0)
+        {
+            _source = source;
+            _channels = channels;
+            // R tal que la frecuencia de corte sea cutoffHz.
+            _r = (float)(1.0 - 2.0 * Math.PI * cutoffHz / sampleRate);
+            if (_r < 0.9f) _r = 0.9f;
+            if (_r > 0.99999f) _r = 0.99999f;
+            _x1 = new float[channels];
+            _y1 = new float[channels];
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int samplesRead = _source.Read(buffer, offset, count);
+            for (int i = 0; i < samplesRead; i++)
+            {
+                int c = i % _channels;
+                float x = buffer[offset + i];
+                float y = x - _x1[c] + _r * _y1[c];
+                _x1[c] = x;
+                _y1[c] = y;
+                buffer[offset + i] = y;
+            }
+            return samplesRead;
+        }
+    }
+
+    /// <summary>
+    /// Soft Clipper (rodilla suave tipo tanh). Por encima del umbral comprime
+    /// el pico de forma progresiva hacia el techo en vez de recortarlo en seco.
+    /// Se coloca antes del limitador true-peak: al suavizar los transientes,
+    /// el limitador trabaja menos y se reduce el bombeo (limitación en etapas).
+    /// </summary>
+    public sealed class SoftClipperSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private readonly float _threshold;
+        private readonly float _ceiling;
+
+        public SoftClipperSampleProvider(ISampleProvider source, double thresholdDb, double ceilingDb)
+        {
+            _source = source;
+            _threshold = (float)Math.Pow(10.0, thresholdDb / 20.0);
+            _ceiling = (float)Math.Pow(10.0, ceilingDb / 20.0);
+            if (_ceiling <= _threshold)
+                _ceiling = _threshold * 1.0001f;
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int samplesRead = _source.Read(buffer, offset, count);
+            float t = _threshold;
+            float range = _ceiling - _threshold;
+
+            for (int i = 0; i < samplesRead; i++)
+            {
+                float x = buffer[offset + i];
+                float a = Math.Abs(x);
+                if (a > t)
+                {
+                    float over = a - t;
+                    float shaped = t + range * (float)Math.Tanh(over / range);
+                    buffer[offset + i] = x < 0f ? -shaped : shaped;
+                }
+            }
+            return samplesRead;
+        }
+    }
+
+    /// <summary>
+    /// Limitador brickwall true-peak con lookahead.
+    ///
+    ///   - Lookahead: la señal se retarda y la reducción de ganancia se calcula
+    ///     sobre el pico de la ventana, de modo que la atenuación ya está activa
+    ///     cuando llega el transiente.
+    ///   - Detección true-peak: por cada muestra se estima el pico del intervalo
+    ///     inter-muestra con interpolación cúbica (Catmull-Rom) a 4×, de modo que
+    ///     el techo se respeta también en los picos inter-muestra.
+    ///   - Estéreo-enlazado: un solo detector (máximo de canales) para no mover
+    ///     la imagen estéreo.
+    ///   - Release adaptativo: cuanto mayor es la reducción, más rápido libera.
+    /// </summary>
+    public sealed class TruePeakLimiterSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private readonly int _channels;
+        private readonly int _lookaheadFrames;
+        private readonly float _ceilingLinear;
+        private readonly double _sampleRate;
+        private readonly double _baseReleaseMs;
+
+        private readonly float[] _ring;      // frames retardados
+        private readonly float[] _tpRing;    // true peak por frame
+        private int _ringPos;
+
+        // Historial de las últimas 4 muestras por canal (interpolación cúbica).
+        private readonly float[][] _hist;
+
+        private float _currentGain = 1f;
+
+        private bool _eof;
+        private int _flushedFrames;
+
+        private readonly float[] _frame;
+        private readonly float[] _outFrame;
+
+        public TruePeakLimiterSampleProvider(
+            ISampleProvider source,
+            int channels,
+            int sampleRate,
+            double ceilingDb,
+            double lookaheadMs,
+            double releaseMs)
+        {
+            _source = source;
+            _channels = channels;
+            _sampleRate = sampleRate;
+            _lookaheadFrames = Math.Max(1, (int)Math.Round(lookaheadMs / 1000.0 * sampleRate));
+            _ceilingLinear = (float)Math.Pow(10.0, ceilingDb / 20.0);
+            _baseReleaseMs = Math.Max(1.0, releaseMs);
+
+            _ring = new float[_lookaheadFrames * _channels];
+            _tpRing = new float[_lookaheadFrames];
+            _frame = new float[_channels];
+            _outFrame = new float[_channels];
+
+            _hist = new float[_channels][];
+            for (int c = 0; c < _channels; c++)
+                _hist[c] = new float[4];
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int frames = count / _channels;
+            if (frames == 0)
+                return 0;
+
+            int written = 0;
+
+            for (int f = 0; f < frames; f++)
+            {
+                if (!_eof)
+                {
+                    int n = _source.Read(_frame, 0, _channels);
+                    if (n < _channels)
+                    {
+                        for (int c = n; c < _channels; c++)
+                            _frame[c] = 0f;
+                        _eof = true;
+                        _flushedFrames = 0;
+                    }
+                }
+                else
+                {
+                    Array.Clear(_frame, 0, _channels);
+                    _flushedFrames++;
+                    if (_flushedFrames >= _lookaheadFrames)
+                        break;
+                }
+
+                // True peak del frame (máximo entre canales, interpolado 4×).
+                float truePeak = 0f;
+                for (int c = 0; c < _channels; c++)
+                {
+                    var h = _hist[c];
+                    h[0] = h[1];
+                    h[1] = h[2];
+                    h[2] = h[3];
+                    h[3] = _frame[c];
+
+                    float p = CatmullRomPeak(h);
+                    if (p > truePeak) truePeak = p;
+                }
+
+                // Muestra retardada que se emite.
+                int pos = _ringPos * _channels;
+                for (int c = 0; c < _channels; c++)
+                    _outFrame[c] = _ring[pos + c];
+
+                // Pico de la ventana de lookahead.
+                float peak = 0f;
+                for (int i = 0; i < _tpRing.Length; i++)
+                {
+                    float a = _tpRing[i];
+                    if (a > peak) peak = a;
+                }
+
+                float targetGain = peak > _ceilingLinear ? _ceilingLinear / peak : 1f;
+
+                if (targetGain < _currentGain)
+                {
+                    // Ataque instantáneo (el lookahead ya anticipó el pico).
+                    _currentGain = targetGain;
+                }
+                else
+                {
+                    // Release adaptativo: más rápido cuanto mayor sea la reducción.
+                    float grDb = -20f * (float)Math.Log10(Math.Max(_currentGain, 1e-6f));
+                    double relMs = _baseReleaseMs + grDb;
+                    if (relMs < _baseReleaseMs) relMs = _baseReleaseMs;
+                    if (relMs > _baseReleaseMs * 3.0) relMs = _baseReleaseMs * 3.0;
+                    float coeff = (float)Math.Exp(-1.0 / (relMs / 1000.0 * _sampleRate));
+                    _currentGain = coeff * _currentGain + (1f - coeff) * targetGain;
+                }
+
+                for (int c = 0; c < _channels; c++)
+                    buffer[offset + written + c] = _outFrame[c] * _currentGain;
+
+                for (int c = 0; c < _channels; c++)
+                    _ring[pos + c] = _frame[c];
+                _tpRing[_ringPos] = truePeak;
+
+                _ringPos = (_ringPos + 1) % _lookaheadFrames;
+                written += _channels;
+            }
+
+            return written;
+        }
+
+        /// <summary>
+        /// Estima el pico verdadero del intervalo entre h[1] y h[2] con
+        /// interpolación cúbica de Catmull-Rom evaluada a 4× (t = 0.25/0.5/0.75)
+        /// más los extremos. Incluye el posible sobre-pico inter-muestra.
+        /// </summary>
+        private static float CatmullRomPeak(float[] h)
+        {
+            float p0 = h[0], p1 = h[1], p2 = h[2], p3 = h[3];
+            float peak = Math.Max(Math.Abs(p1), Math.Abs(p2));
+
+            for (int k = 1; k <= 3; k++)
+            {
+                float t = k * 0.25f;
+                float t2 = t * t;
+                float t3 = t2 * t;
+                float y = 0.5f * (
+                    (2f * p1) +
+                    (-p0 + p2) * t +
+                    (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
+                    (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
+                float a = Math.Abs(y);
+                if (a > peak) peak = a;
+            }
+
+            return peak;
+        }
+    }
+
+    /// <summary>
+    /// Dither TPDF (Triangular Probability Density Function), último paso antes
+    /// de escribir. Suma ruido triangular de 1 LSB de la profundidad destino
+    /// para que la cuantización a 16/24 bits no introduzca distorsión de
+    /// correlación. La escala se adapta a la profundidad del formato de salida.
+    /// </summary>
+    public sealed class TpdfDitherSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+        private readonly float _lsb;
+        private readonly Random _rng = new();
+
+        public TpdfDitherSampleProvider(ISampleProvider source, int bitsPerSample)
+        {
+            _source = source;
+            int bits = bitsPerSample > 0 ? bitsPerSample : 16;
+            // Rango completo ±1 = 2.0 → 1 LSB = 2 / 2^bits.
+            _lsb = (float)(2.0 / Math.Pow(2.0, bits));
+        }
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            int samplesRead = _source.Read(buffer, offset, count);
+            for (int i = 0; i < samplesRead; i++)
+            {
+                float noise = (float)(_rng.NextDouble() - _rng.NextDouble()) * _lsb;
+                buffer[offset + i] += noise;
+            }
+            return samplesRead;
         }
     }
 }

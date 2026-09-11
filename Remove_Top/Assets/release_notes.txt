@@ -1,5 +1,6 @@
-=== One Dj App v0.3.4 ===
+=== One Dj App v0.3.5 ===
 
-✓ Edición Rápida: hasta 1000 archivos e incluye subcarpetas
-✓ Renombrado masivo: hasta 30 patrones + proceso más rápido en lotes grandes
-✓ Arrastre de archivos más robusto en Windows 10 (avisa si no se puede leer)
+✓ Normalización: arrastra carpetas o canciones (se acumulan hasta 50) con efecto visual
+✓ Normalización: escucha cada canción antes (mini reproductor) y quítala con la "x"
+✓ Normalización: masterización profesional (más fuerte y clara, techo true-peak)
+✓ Cuenta: aviso con rebote cuando hay actualización + descarga directa

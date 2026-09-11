@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media;
 using Remove_Top.Helpers;
 using System;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Windows.System;
 
 namespace Remove_Top.Features.Account
@@ -52,6 +53,13 @@ namespace Remove_Top.Features.Account
             @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        /// <summary>
+        /// Versión para la que ya se mostró el popup de actualización (una vez
+        /// por versión: si el usuario lo cierra sin descargar, no reaparece al
+        /// volver a entrar mientras siga pendiente la misma versión).
+        /// </summary>
+        private string _updatePopupShownFor = "";
+
         public AccountPage()
         {
             InitializeComponent();
@@ -88,6 +96,10 @@ namespace Remove_Top.Features.Account
             {
                 StartVerificationPoll();
             }
+
+            // Si el auto-check del inicio encontró versión nueva (dot en el
+            // menú), se eleva el popup de actualización con rebote.
+            MaybeShowUpdatePopup();
         }
 
         /// <summary>Al salir de la página, detiene el polling de verificación.</summary>
@@ -568,6 +580,9 @@ namespace Remove_Top.Features.Account
                 UpdateStatusText.Text = "¡Actualización disponible!";
                 DownloadUpdateButton.Visibility = Visibility.Visible;
                 DownloadUpdateText.Text = $"Descargar v{result.LatestVersion}";
+
+                // Elevar también el popup con rebote (una vez por versión).
+                MaybeShowUpdatePopup();
             }
             else
             {
@@ -586,6 +601,15 @@ namespace Remove_Top.Features.Account
         /// Descarga la actualización mostrando progreso y luego la aplica (reinicia la app).
         /// </summary>
         private async void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
+        {
+            await StartDownloadAsync();
+        }
+
+        /// <summary>
+        /// Flujo compartido de descarga: lo usan el botón de la sección y el
+        /// popup ("Descargar ahora"). Muestra progreso y aplica al llegar a 100%.
+        /// </summary>
+        private async Task StartDownloadAsync()
         {
             DownloadUpdateButton.IsEnabled = false;
             CheckUpdatesButton.IsEnabled = false;
@@ -618,6 +642,46 @@ namespace Remove_Top.Features.Account
                 DownloadProgressRing.Visibility = Visibility.Collapsed;
                 DownloadUpdateText.Text = "Error al descargar";
             }
+        }
+
+        /// <summary>
+        /// Eleva el popup de nueva actualización con rebote, una sola vez por
+        /// versión pendiente. Se invoca al entrar a Cuenta (el dot del menú
+        /// indica que el auto-check encontró algo) y tras una búsqueda manual.
+        /// </summary>
+        private void MaybeShowUpdatePopup()
+        {
+            var checker = UpdateChecker.Instance;
+            if (!checker.HasPendingUpdate)
+                return;
+
+            var version = checker.PendingVersion;
+            if (string.IsNullOrEmpty(version) || _updatePopupShownFor == version)
+                return;
+
+            _updatePopupShownFor = version;
+            UpdatePopupSubtitle.Text =
+                $"La versión v{version} ya está disponible. Actualiza para recibir las últimas mejoras.";
+            UpdatePopupOverlay.Visibility = Visibility.Visible;
+            UpdatePopupShowStoryboard.Begin();
+        }
+
+        /// <summary>"Descargar ahora" del popup: lo cierra e inicia la descarga directa.</summary>
+        private async void UpdatePopupDownloadButton_Click(object sender, RoutedEventArgs e)
+        {
+            UpdatePopupOverlay.Visibility = Visibility.Collapsed;
+            await StartDownloadAsync();
+        }
+
+        /// <summary>"Ahora no" del popup (o toque en el velo): lo cierra sin más.</summary>
+        private void UpdatePopupLaterButton_Click(object sender, RoutedEventArgs e)
+        {
+            UpdatePopupOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void UpdatePopupOverlay_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            UpdatePopupOverlay.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>
