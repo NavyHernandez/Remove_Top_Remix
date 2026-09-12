@@ -17,6 +17,18 @@
         <helpers:FileTypeIconConverter x:Key="FileTypeIcon" />
     </Page.Resources>
 
+    <!-- Zona de arrastre de la página (una sola carpeta).
+         El Grid externo recibe el drop; el interno conserva el contenido.
+         El overlay se muestra mientras se arrastra encima (ver Root_DragOver/
+         Root_DragLeave/Root_Drop). El fondo transparente es requisito para
+         que el área sea válida. No usa DropTargetControl/FileSourceControl:
+         arrastre nativo propio, solo carga la ruta (no auto-escanea). -->
+    <Grid Background="Transparent"
+          AllowDrop="True"
+          DragEnter="Root_DragEnter"
+          DragOver="Root_DragOver"
+          DragLeave="Root_DragLeave"
+          Drop="Root_Drop">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -93,6 +105,9 @@
                             <Run Text="Ingresa a " />                            
                             <Run x:Name="BrandSiteRun" FontWeight="Bold" Text="" />
                         </TextBlock>
+                        <TextBlock FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="…o arrastra aquí una carpeta." />
                     </StackPanel>
                 </Border>
 
@@ -194,7 +209,7 @@
                                 <ListView x:Name="ExactListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -252,6 +267,18 @@
                                                     <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
                                                                    Foreground="#E67E22" />
                                                 </Button>
+                                                <Button Grid.Column="7"
+                                                        Click="DismissResultItem_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="Quitar de la lista"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="DismissCircle" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -269,7 +296,7 @@
                                 <ListView x:Name="PossibleListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -328,6 +355,18 @@
                                                     <ic:FluentIcon Icon="{Binding PreviewIcon}" IconVariant="Regular" IconSize="Size16"
                                                                    Foreground="#E67E22" />
                                                 </Button>
+                                                <Button Grid.Column="7"
+                                                        Click="DismissResultItem_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="Quitar de la lista"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="DismissCircle" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -345,7 +384,7 @@
                                 <ListView x:Name="DamagedListView" SelectionMode="None" MaxHeight="260">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+                                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto"
                                                   ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsMarkedForDeletion, Mode=TwoWay}"
                                                           VerticalAlignment="Center" />
@@ -380,6 +419,18 @@
                                                                FontSize="12" FontWeight="SemiBold"
                                                                Foreground="White" />
                                                 </Border>
+                                                <Button Grid.Column="6"
+                                                        Click="DismissResultItem_Click"
+                                                        Tag="{Binding FilePath}"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        VerticalAlignment="Center"
+                                                        ToolTipService.ToolTip="Quitar de la lista"
+                                                        ToolTipService.Placement="Top">
+                                                    <ic:FluentIcon Icon="DismissCircle" IconVariant="Regular" IconSize="Size16"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
@@ -699,5 +750,40 @@
 
             </StackPanel>
         </ScrollViewer>
+    </Grid>
+
+        <!-- Overlay de arrastre: oscurece la página y avisa que se suelte.
+             Mismo efecto que en Normalización, con el acento de Duplicados
+             (#E74C3C) y su icono. Solo acepta una carpeta (no auto-escanea). -->
+        <Border x:Name="Overlay"
+                Background="#66000000"
+                CornerRadius="12"
+                Visibility="Collapsed">
+            <StackPanel Orientation="Vertical"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12">
+                <Border Width="72" Height="72"
+                        CornerRadius="36"
+                        Background="#33E74C3C"
+                        HorizontalAlignment="Center">
+                    <ic:FluentIcon Icon="Copy" IconVariant="Regular" IconSize="Size32"
+                                   Foreground="#E74C3C"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="Suelta para cargar"
+                           FontSize="20" FontWeight="SemiBold"
+                           Foreground="White"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Arrastra una carpeta para buscar duplicados"
+                           FontSize="13"
+                           Foreground="#D0FFFFFF"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           MaxWidth="480"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Page>

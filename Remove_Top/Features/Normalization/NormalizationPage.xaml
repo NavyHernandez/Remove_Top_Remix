@@ -160,7 +160,7 @@
                                                 VerticalAlignment="Center"
                                                 ToolTipService.ToolTip="Quitar de la lista"
                                                 ToolTipService.Placement="Top">
-                                            <ic:FluentIcon Icon="Dismiss" IconVariant="Regular" IconSize="Size16"
+                                            <ic:FluentIcon Icon="DismissCircle" IconVariant="Regular" IconSize="Size16"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         </Button>
                                     </Grid>

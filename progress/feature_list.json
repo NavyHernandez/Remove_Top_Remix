@@ -554,6 +554,46 @@
         "Build 0 errores"
       ],
       "status": "done"
+    },
+    {
+      "id": 38,
+      "name": "duplicates_native_drag",
+      "title": "Duplicados: arrastre nativo de carpeta (solo carga la ruta)",
+      "description": "Arrastre propio sin DropTargetControl/FileSourceControl: Grid raíz con AllowDrop + overlay local ('Suelta para cargar', insignia Copy #E74C3C, timer anti-parpadeo 250 ms). Solo acepta una sola carpeta y sigue el camino manual (carga la ruta, limpia resultados, habilita Escanear); no auto-escanea. Archivos sueltos o varias carpetas muestran aviso en ScanStatusText. Ignora el drop durante escaneo/borrado. Try/catch GetStorageItemsAsync con App.Log.",
+      "acceptance": [
+        "Overlay local con acento #E74C3C + pista '…o arrastra aquí una carpeta.'",
+        "Una carpeta soltada carga la ruta (sin auto-escanear)",
+        "Archivos sueltos o varias carpetas muestran aviso, no cargan nada",
+        "Drop ignorado durante escaneo/borrado en curso",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 39,
+      "name": "duplicates_dismiss_row",
+      "title": "Duplicados: quitar fila con 'x' (DismissCircle) en las 3 pestañas",
+      "description": "Botón DismissCircle al final de cada fila en Exactos, Posibles y Dañados (Tag=FilePath, tooltip 'Quitar de la lista'). DismissResultItem_Click busca el ítem en las 3 colecciones, desuscribe PropertyChanged, cierra el preview si era el archivo mostrado (audio o imagen) y lo remueve; refresca UpdateTabHeaders + UpdateSelectionSummary + UpdateUI. Solo quita de la lista, no toca el disco.",
+      "acceptance": [
+        "X circular al final de cada fila en las 3 pestañas",
+        "Quitar una fila actualiza contadores y resumen sin limpiar todo",
+        "Si era el archivo en preview, se cierra y libera primero",
+        "Guardia: no quita durante borrado en curso",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 40,
+      "name": "normalization_preview_stop_icon",
+      "title": "Normalización: botón Stop visible + 'x' DismissCircle",
+      "description": "El botón Stop del mini reproductor no tenía Content (invisible aunque habilitado): se inicializa PreviewPlayButton (Play) y PreviewStopButton (Stop) en el constructor, mismo patrón que Duplicados. Además la 'x' de análisis cambia de Dismiss a DismissCircle para un acabado más profesional.",
+      "acceptance": [
+        "Preview muestra Play/Pausa y Stop junto al reloj",
+        "X de análisis con icono DismissCircle",
+        "Build 0 errores"
+      ],
+      "status": "done"
     }
   ]
 }

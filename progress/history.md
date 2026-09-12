@@ -224,3 +224,19 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ### Release v0.3.5
 - Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload` (build 0 errores); push a `main`, Release publicado por CI.
+
+---
+
+## 2026-09-12 — Versión 0.3.6: arrastre en Duplicados, "x" por fila y Stop visible
+
+**Agente:** humano + opencode (muse-spark)
+
+### Cambios realizados
+1. **Normalización: botón Stop visible (feature 40)** — `PreviewStopButton` no tenía `Content` (invisible aunque habilitado): se inicializan `PreviewPlayButton` (Play) y `PreviewStopButton` (Stop) en el constructor, mismo patrón que Duplicados.
+2. **Normalización: "x" más profesional (feature 40)** — icono de quitar por fila `Dismiss` → `DismissCircle`.
+3. **Duplicados: arrastre nativo de carpeta (feature 38)** — sin `DropTargetControl`/`FileSourceControl`: `Grid` raíz con `AllowDrop` + overlay local ("Suelta para cargar", insignia `Copy` #E74C3C, timer anti-parpadeo 250 ms). **Solo carga la ruta** (no auto-escanea); archivos sueltos o varias carpetas muestran aviso en `ScanStatusText`; drop ignorado durante escaneo/borrado; `try/catch GetStorageItemsAsync` con `App.Log`.
+4. **Duplicados: quitar fila con "x" (feature 39)** — botón `DismissCircle` al final de cada fila en las 3 pestañas (`DismissResultItem_Click`, `Tag=FilePath`): desuscribe, cierra el preview si era el archivo mostrado (audio o imagen), remueve de su colección y refresca contadores/resumen/acciones. Solo quita de la lista, no toca el disco.
+5. **Docs** — `AGENTS.md` (filas Normalización/Duplicados + arrastre + versión 0.3.6), `feature_list.json` (features 38–40), `release_notes.txt` v0.3.6.
+
+### Release v0.3.6
+- Instalador `releases\OneDjApp-win-Setup.exe` regenerado con `publish.ps1 -SkipUpload` (build 0 errores); push a `main`, Release publicado por CI.

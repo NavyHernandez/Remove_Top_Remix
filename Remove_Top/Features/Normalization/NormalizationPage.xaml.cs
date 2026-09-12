@@ -55,6 +55,8 @@ namespace Remove_Top.Features.Normalization
             BrowseButton.Content = UiHelpers.Content(Icon.FolderOpen, "Examinar...", foreground: BrowseButton.Foreground);
             CancelButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CancelButton.Foreground);
             ClearButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: ClearButton.Foreground);
+            PreviewPlayButton.Content = UiHelpers.Icon(Icon.Play, IconVariant.Regular, IconSize.Size16, foreground: PreviewPlayButton.Foreground);
+            PreviewStopButton.Content = UiHelpers.Icon(Icon.Stop, IconVariant.Regular, IconSize.Size16, foreground: PreviewStopButton.Foreground);
 
             // Título y subtítulo del encabezado, centralizados en AppLimits.
             PageTitleText.Text = AppLimits.NormalizationPageTitle;

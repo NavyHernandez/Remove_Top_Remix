@@ -12,6 +12,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Storage;
 using Windows.Storage.Pickers;
 
 namespace Remove_Top.Features.DuplicateRemoval
@@ -49,6 +51,12 @@ namespace Remove_Top.Features.DuplicateRemoval
         private bool _scanTruncated;
         private int _scannedFiles;
         private int _totalFound;
+
+        // Arrastre nativo de carpeta (propio, sin DropTargetControl): el
+        // overlay se muestra mientras se arrastra encima y se oculta con un
+        // retardo anti-parpadeo al salir (pasar sobre hijos no lo titila).
+        private static readonly TimeSpan HideDelay = TimeSpan.FromMilliseconds(250);
+        private readonly DispatcherTimer _hideTimer;
 
         public DuplicateRemovalPage()
         {
@@ -92,6 +100,11 @@ namespace Remove_Top.Features.DuplicateRemoval
             ImagePreviewViewer.ImageLoaded += ImagePreviewViewer_ImageLoaded;
             ImagePreviewViewer.ImageLoadFailed += ImagePreviewViewer_ImageLoadFailed;
 
+            // Arrastre: timer anti-parpadeo del overlay (mismo patrón que
+            // Normalización).
+            _hideTimer = new DispatcherTimer { Interval = HideDelay };
+            _hideTimer.Tick += HideTimer_Tick;
+
             UpdateUI();
         }
 
@@ -115,6 +128,96 @@ namespace Remove_Top.Features.DuplicateRemoval
             if (folder == null) return;
 
             _folderPath = folder.Path;
+            FolderPathBox.Text = _folderPath;
+
+            ResetResults();
+            UpdateUI();
+        }
+
+        // ================================================================
+        // ARRASTRE NATIVO DE CARPETA (solo carga la ruta, no auto-escanea)
+        // ================================================================
+
+        /// <summary>
+        /// Arrastre sobre la página: solo se aceptan elementos del sistema de
+        /// archivos y solo si no hay escaneo/borrado en curso. Mientras se
+        /// está encima se muestra el overlay ("Suelta para cargar").
+        /// </summary>
+        private void Root_DragEnter(object sender, DragEventArgs e) => Root_DragOver(sender, e);
+
+        private void Root_DragOver(object sender, DragEventArgs e)
+        {
+            if (_isScanning || _isProcessing) return;
+            if (e.DataView.Contains(StandardDataFormats.StorageItems))
+            {
+                e.AcceptedOperation = DataPackageOperation.Copy;
+                e.DragUIOverride.Caption = "Suelta para cargar";
+                Overlay.Visibility = Visibility.Visible;
+                _hideTimer.Stop();
+            }
+            else
+            {
+                Overlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Al salir del área se programa la ocultación del overlay: sin este
+        /// retardo, pasar sobre los elementos hijos lo haría parpadear.
+        /// </summary>
+        private void Root_DragLeave(object sender, DragEventArgs e)
+        {
+            _hideTimer.Stop();
+            _hideTimer.Start();
+        }
+
+        private void HideTimer_Tick(object? sender, object e)
+        {
+            _hideTimer.Stop();
+            Overlay.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Suelta sobre la página: acepta una sola carpeta y sigue el camino
+        /// manual (carga la ruta, limpia resultados y habilita Escanear). Los
+        /// archivos sueltos o varias carpetas se rechazan con un aviso en la
+        /// línea de estado. Nada usa los controles compartidos de arrastre.
+        /// </summary>
+        private async void Root_Drop(object sender, DragEventArgs e)
+        {
+            _hideTimer.Stop();
+            Overlay.Visibility = Visibility.Collapsed;
+            if (_isScanning || _isProcessing) return;
+            if (!e.DataView.Contains(StandardDataFormats.StorageItems)) return;
+
+            IReadOnlyList<IStorageItem>? items;
+            try
+            {
+                items = await e.DataView.GetStorageItemsAsync();
+            }
+            catch (Exception ex)
+            {
+                App.Log("Duplicates", $"Drop GetStorageItemsAsync: {ex.Message}", ex.StackTrace);
+                ScanStatusText.Text = "No se pudo leer lo soltado. Usa el botón Examinar...";
+                return;
+            }
+
+            if (items == null || items.Count == 0) return;
+
+            var folders = items.OfType<StorageFolder>()
+                .Select(f => f.Path)
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToArray();
+
+            // Solo una carpeta: si vienen archivos sueltos o varias carpetas
+            // se avisa y no se carga nada (el escaneo es por carpeta completa).
+            if (folders.Length != 1)
+            {
+                ScanStatusText.Text = "Arrastra una sola carpeta.";
+                return;
+            }
+
+            _folderPath = folders[0];
             FolderPathBox.Text = _folderPath;
 
             ResetResults();
@@ -204,6 +307,39 @@ namespace Remove_Top.Features.DuplicateRemoval
                 DamagedListView.ItemsSource = null;
                 DamagedListView.ItemsSource = _damagedItems;
             }
+        }
+
+        /// <summary>
+        /// "x" al final de cada fila (Exactos, Posibles y Dañados): quita ese
+        /// archivo de la lista de resultados sin tocar el disco. Si era el
+        /// archivo en preview (audio o imagen), se cierra primero para
+        /// liberar el archivo. Luego refresca contadores, resumen y acciones.
+        /// </summary>
+        private void DismissResultItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing) return;
+            if (sender is not FrameworkElement { Tag: string path }) return;
+            if (string.IsNullOrEmpty(path)) return;
+
+            DuplicateItem? item = _exactItems.FirstOrDefault(
+                i => string.Equals(i.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                ?? _possibleItems.FirstOrDefault(
+                    i => string.Equals(i.FilePath, path, StringComparison.OrdinalIgnoreCase))
+                ?? _damagedItems.FirstOrDefault(
+                    i => string.Equals(i.FilePath, path, StringComparison.OrdinalIgnoreCase));
+            if (item == null) return;
+
+            // Si era el archivo en preview, detener y liberar antes de quitar.
+            if (string.Equals(_previewPlayer.CurrentFilePath, path, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(ImagePreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase))
+                StopAllPreviews();
+
+            item.PropertyChanged -= Item_PropertyChanged;
+            _ = _exactItems.Remove(item) || _possibleItems.Remove(item) || _damagedItems.Remove(item);
+
+            UpdateTabHeaders();
+            UpdateSelectionSummary();
+            UpdateUI();
         }
 
         // ================================================================
@@ -819,6 +955,7 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Al salir de la página se detiene y libera la reproducción.</summary>
         private void Page_Unloaded(object sender, RoutedEventArgs e)
         {
+            _hideTimer.Stop();
             StopAllPreviews();
         }
 

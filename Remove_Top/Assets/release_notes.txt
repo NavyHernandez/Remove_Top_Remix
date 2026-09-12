@@ -1,6 +1,5 @@
-=== One Dj App v0.3.5 ===
+=== One Dj App v0.3.6 ===
 
-✓ Normalización: arrastra carpetas o canciones (se acumulan hasta 50) con efecto visual
-✓ Normalización: escucha cada canción antes (mini reproductor) y quítala con la "x"
-✓ Normalización: masterización profesional (más fuerte y clara, techo true-peak)
-✓ Cuenta: aviso con rebote cuando hay actualización + descarga directa
+✓ Duplicados: arrastra una carpeta para cargarla (sin buscar a mano)
+✓ Duplicados: quita archivos de la lista con la "x" de cada fila
+✓ Normalización: botón Stop del reproductor ya visible + "x" más profesional
