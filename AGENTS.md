@@ -341,7 +341,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 | Campo | Valor |
 |-------|-------|
 | **Paquete** | Velopack 1.2.* (NuGet) |
-| **Versión actual** | `0.4.0` (en `Remove_Top.csproj`, `<Version>`) |
+| **Versión actual** | `0.3.7` (en `Remove_Top.csproj`, `<Version>`) |
 | **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
 | **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
 | **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |

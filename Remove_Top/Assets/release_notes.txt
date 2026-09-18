@@ -1,4 +1,4 @@
-=== One Dj App v0.4.0 ===
+=== One Dj App v0.3.7 ===
 
 NUEVO: Descarga de YouTube
 ✓ Descarga el mejor audio de YouTube y lo normaliza automáticamente

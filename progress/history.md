@@ -277,7 +277,7 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ---
 
-## 2026-09-18 — Descarga YouTube completa + v0.4.0 (sin release previo, release por CI)
+## 2026-09-18 — Descarga YouTube completa + v0.3.7 (sin release previo, release por CI)
 
 **Agente:** humano + opencode (muse-spark)
 
@@ -286,8 +286,9 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 2. **Anti-bot POT + cascada (feature 44)** — bgutil (`EnsureBgUtilAsync`, `deno install`, deno ≥2.4.3), cadena `web,...` con PO tokens, cascada tv→android con pausa 8 s, `--force-ipv4/retries/retry-sleep/sleep-interval`, caché propia, clasificación de errores (región/embed/DRM/429). Verificado con descarga real (WAV 40 MB).
 3. **Cuenta YouTube opcional (feature 45)** — `YouTubeSession` + `YouTubeLoginDialog` (WebView2, perfil aislado, autodetección, export Netscape); intento `--cookies` prioritario con fallback anónimo (`IsDefinitiveFailure`/`IsSessionDead`); tarjeta 3 estados + sugerencia; OAuth muerto (descartado). Fixes de compilación WinRT (`CreateWithOptionsAsync`, `.AsTask()`, `Icon.PersonAdd`).
 4. **Refinamientos (feature 46)** — check "Conservar original" (NO por defecto), un solo Limpiar (`EndActionsSection`), botón fantasma "Abrir ubicación" (Explorador a `OneDj_Normalized`/destino), canonicalización de URLs (`watch?v=ID`, fix `youtu.be`), verificación tolerante del archivo (rescate + `output-not-found`), popup centrado, checks en una fila, `DuplicateScanner` excluye `OneDj_*`.
-5. **Docs** — `AGENTS.md` (fila Descarga), `feature_list.json` (features 44–46), `release_notes.txt` v0.4.0.
-6. **Versión 0.4.0** — `<Version>` en csproj; paquete con `publish.ps1 -SkipUpload`; commit + push a `main` (Release por CI).
+5. **Docs** — `AGENTS.md` (fila Descarga), `feature_list.json` (features 44–46), `release_notes.txt` v0.3.7.
 
+6. **Versión 0.3.7** — `<Version>` en csproj; paquete con `publish.ps1 -SkipUpload`; commit + push a `main` (Release por CI).
 ### Notas
 - Compilación verificada vía `publish.ps1` (build Release incluido).
+- Incidente de versión: el push con csproj 0.4.0 disparó el CI, cuyo auto-bump (último tag v0.3.6 +1) publicó binarios 0.3.7; al re-etiquetar la release a v0.4.0 quedó release/tag v0.4.0 con binarios 0.3.7 (`releases.win.json` anunciaba 0.3.7). Decisión: alinear TODO a 0.3.7 (csproj, docs, artefactos; el usuario borra release/tag v0.4.0 en GitHub y el CI republica v0.3.7 limpia). Lección: el auto-bump del workflow manda sobre el csproj; para minor/major hay que coordinar ambos.
