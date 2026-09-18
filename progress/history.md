@@ -292,3 +292,20 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 ### Notas
 - Compilación verificada vía `publish.ps1` (build Release incluido).
 - Incidente de versión: el push con csproj 0.4.0 disparó el CI, cuyo auto-bump (último tag v0.3.6 +1) publicó binarios 0.3.7; al re-etiquetar la release a v0.4.0 quedó release/tag v0.4.0 con binarios 0.3.7 (`releases.win.json` anunciaba 0.3.7). Decisión: alinear TODO a 0.3.7 (csproj, docs, artefactos; el usuario borra release/tag v0.4.0 en GitHub y el CI republica v0.3.7 limpia). Lección: el auto-bump del workflow manda sobre el csproj; para minor/major hay que coordinar ambos.
+
+---
+
+## 2026-09-18 — Descarga YouTube: robustez del proveedor PO tokens + limpieza por ruta (v0.3.8)
+
+**Agente:** humano + opencode
+
+### Cambios realizados
+1. **Precalentamiento del generador de PO tokens (`ToolManager.WarmUpBgUtilScript`)** — durante `EnsureBgUtilAsync` se ejecuta una vez `deno run ... generate_once.ts --version` (mismos args/entorno que el plugin), para que la primera descarga real no supere el timeout fijo de 15 s del plugin (compilación TS + carga del módulo nativo `canvas`). Idempotente y best-effort (nunca lanza; timeout propio de 2 min). Reparto de progreso reajustado (`deno install` 90-95 %, warm-up 95-100 %).
+2. **Reintento único ante timeout del PO provider (`YtDlpService`)** — `RunOnceAsync` recibe `allowPotRetry`; si el fallo es `IsPotTimeout` (`generate_once` + `timed out`) reintenta una vez tras 2 s (deno ya caliente) antes de devolver error.
+3. **Ventana de rescate estricta + limpieza por ruta (`DownloaderPage`)** — el rescate de salida usa `attemptStartedAt` sin margen (evita tomar el WAV de otra fila del lote); al masterizar, el WAV intermedio se borra por la ruta exacta del resultado (`NormalizationResult.InputPath`), validando que quede dentro de la carpeta destino, en vez de emparejar por nombre.
+4. **`NormalizationResult.InputPath` (`AudioNormalizer`)** — nuevo campo con la ruta completa del archivo de entrada normalizado; permite borrar/conservar el original exacto sin emparejamiento frágil por nombre (tildes/Title Case).
+5. **Docs** — `AGENTS.md` (fila Descarga), `release_notes.txt` v0.3.8.
+
+### Notas
+- Cambios de robustez del Downloader; sin cambios de UI.
+- Empaquetado con `publish.ps1 -SkipUpload`; commit + push a `main` (Release por CI).

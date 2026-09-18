@@ -683,6 +683,19 @@
         "OneDj_* fuera del escáner de duplicados"
       ],
       "status": "done"
+    },
+    {
+      "id": 47,
+      "name": "downloader_pot_robustness",
+      "title": "Descarga: robustez del proveedor PO tokens + limpieza por ruta",
+      "description": "ToolManager.WarmUpBgUtilScript precalienta el script generador de PO tokens (deno run generate_once.ts --version, mismos args/entorno que el plugin) durante EnsureBgUtilAsync para que la primera descarga no supere el timeout de 15 s del plugin; idempotente y best-effort (timeout 2 min, nunca lanza); progreso reajustado. YtDlpService.RunOnceAsync recibe allowPotRetry: ante IsPotTimeout (generate_once + timed out) reintenta una vez tras 2 s con deno caliente. DownloaderPage: rescate de salida con attemptStartedAt sin margen (evita tomar el WAV de otra fila) y limpieza del WAV intermedio por ruta exacta del resultado (NormalizationResult.InputPath validada dentro de la carpeta destino), no por nombre. AudioNormalizer.NormalizationResult.InputPath nuevo campo.",
+      "acceptance": [
+        "Warm-up del generador ejecutado en el aprovisionamiento (idempotente, sin lanzar)",
+        "Reintento único ante timeout transitorio del PO provider",
+        "WAV intermedio borrado por ruta exacta, nunca por nombre",
+        "Rescate de salida limitado a archivos creados en el intento actual"
+      ],
+      "status": "done"
     }
   ]
 }

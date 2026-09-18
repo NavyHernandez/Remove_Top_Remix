@@ -479,9 +479,12 @@ namespace Remove_Top.Features.Downloader
                     string? resolvedPath = null;
                     if (result.Success && !string.IsNullOrEmpty(result.OutputPath))
                     {
+                        // Rescate estricto: solo archivos creados DESPUÉS de iniciar
+                        // este intento (sin ventana de tolerancia, para no tomar
+                        // el WAV de otra fila del mismo lote).
                         resolvedPath = File.Exists(result.OutputPath)
                             ? result.OutputPath
-                            : YtDlpService.FindNewestOutput(folder, attemptStartedAt.AddMinutes(-1));
+                            : YtDlpService.FindNewestOutput(folder, attemptStartedAt);
                     }
 
                     if (resolvedPath != null)
@@ -557,6 +560,8 @@ namespace Remove_Top.Features.Downloader
                                 match.Item.Status = p.Result.Success ? DownloadStatus.Done : DownloadStatus.Error;
                                 match.Item.Percentage = 100;
                                 match.Item.Message = p.Result.Success ? "Descargado y normalizado" : "Descargado · error al normalizar";
+                                if (!p.Result.Success)
+                                    App.Log("DownloaderPage.Normalize", p.CurrentFile + " :: " + p.Result.Message);
                             }
                         }
                     });
@@ -583,18 +588,25 @@ namespace Remove_Top.Features.Downloader
 
                     // Solo queda la canción normalizada: se borra el WAV descargado
                     // para no confundir al usuario (solo si se masterizó bien y
-                    // el usuario no pidió conservar el original).
+                    // el usuario no pidió conservar el original). Se borra por la
+                    // ruta exacta del resultado (InputPath), nunca por nombre.
                     ProgressText.Text = "Limpiando archivos temporales...";
                     bool keepOriginal = KeepOriginalCheckBox.IsChecked == true;
-                    foreach (var d in downloaded)
+                    if (!keepOriginal)
                     {
-                        var name = Path.GetFileNameWithoutExtension(d.Path);
-                        var res = corrected.FirstOrDefault(r => string.Equals(
-                            Path.GetFileNameWithoutExtension(r.FileName), name,
-                            StringComparison.OrdinalIgnoreCase));
-                        if (res != null && res.Success && !keepOriginal)
+                        var folderFull = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar)
+                            + Path.DirectorySeparatorChar;
+                        foreach (var r in corrected.Where(r => r.Success && !string.IsNullOrEmpty(r.InputPath)))
                         {
-                            try { File.Delete(d.Path); }
+                            try
+                            {
+                                var full = Path.GetFullPath(r.InputPath);
+                                if (full.StartsWith(folderFull, StringComparison.OrdinalIgnoreCase) &&
+                                    File.Exists(full))
+                                {
+                                    File.Delete(full);
+                                }
+                            }
                             catch (Exception ex) { App.Log("DownloaderPage.Cleanup", ex.Message); }
                         }
                     }

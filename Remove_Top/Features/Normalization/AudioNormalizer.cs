@@ -42,6 +42,12 @@ namespace Remove_Top.Features.Normalization
         public double OriginalPeakDb { get; set; }
         public double AppliedGainDb { get; set; }
         public string OutputPath { get; set; } = "";
+        /// <summary>
+        /// Ruta completa del archivo de entrada que se normalizó. Permite al
+        /// llamador borrar/conservar el original exacto sin emparejar por nombre
+        /// (frágil ante limpieza de tildes y Title Case).
+        /// </summary>
+        public string InputPath { get; set; } = "";
         /// <summary>Muestra la ganancia aplicada con formato: "+2.5 dB" o "-1.3 dB"</summary>
         public string GainDisplay => AppliedGainDb >= 0
             ? $"+{AppliedGainDb:F1} dB"
@@ -435,6 +441,7 @@ namespace Remove_Top.Features.Normalization
                     result = new NormalizationResult
                     {
                         FileName = Path.GetFileName(file),
+                        InputPath = file,
                         Success = false,
                         Message = $"ERROR: {ex.Message}"
                     };
@@ -624,6 +631,7 @@ namespace Remove_Top.Features.Normalization
             return new NormalizationResult
             {
                 FileName = Path.GetFileName(inputPath),
+                InputPath = inputPath,
                 Success = true,
                 Message = $"{MasteringChain.DisplayName(intensity)} \u00b7 Pico {finalPeakDb:F1} dB \u00b7 LUFS {lufsText}",
                 OriginalPeakDb = originalPeakDb,

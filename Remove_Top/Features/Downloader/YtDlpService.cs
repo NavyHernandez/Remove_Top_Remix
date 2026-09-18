@@ -147,7 +147,8 @@ namespace Remove_Top.Features.Downloader
             string clientChain,
             IProgress<DownloadProgress>? progress,
             CancellationToken cancellationToken,
-            string? cookiesPath = null)
+            string? cookiesPath = null,
+            bool allowPotRetry = true)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -301,6 +302,20 @@ namespace Remove_Top.Features.Downloader
 
                 var isBotCheck = IsBotCheck(errors);
                 var success = process.ExitCode == 0 && !string.IsNullOrEmpty(outputPath);
+                var message = success
+                    ? (convertToWav ? "Descargado y convertido a WAV" : "Descargado (M4A)")
+                    : BuildError(errors, process.ExitCode, isBotCheck);
+
+                // El timeout del script generador de PO tokens (deno en frío) es
+                // transitorio: con un reintento inmediato (deno ya caliente) entra.
+                if (!success && allowPotRetry && IsPotTimeout(message))
+                {
+                    App.Log("YtDlpService.PotRetry", "timeout del proveedor PO; reintentando una vez con deno caliente.");
+                    try { await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken); }
+                    catch (OperationCanceledException) { throw; }
+                    return await RunOnceAsync(url, outputDir, convertToWav, ffmpegLocation,
+                        clientChain, progress, cancellationToken, cookiesPath, allowPotRetry: false);
+                }
 
                 return new DownloadResult
                 {
@@ -308,9 +323,7 @@ namespace Remove_Top.Features.Downloader
                     OutputPath = outputPath,
                     Success = success,
                     IsBotCheck = isBotCheck,
-                    Message = success
-                        ? (convertToWav ? "Descargado y convertido a WAV" : "Descargado (M4A)")
-                        : BuildError(errors, process.ExitCode, isBotCheck)
+                    Message = message
                 };
             }
             catch (OperationCanceledException)
@@ -348,6 +361,19 @@ namespace Remove_Top.Features.Downloader
                      e.Contains("too many requests", StringComparison.OrdinalIgnoreCase)) &&
                     !e.Contains("age", StringComparison.OrdinalIgnoreCase));
             }
+        }
+
+        /// <summary>
+        /// Detecta el timeout del script generador de PO tokens (deno en frío
+        /// supera los 15 s del plugin). Es transitorio: reintentar una vez
+        /// casi siempre entra porque deno ya quedó caliente.
+        /// </summary>
+        private static bool IsPotTimeout(string? message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return false;
+            return message.Contains("generate_once", StringComparison.OrdinalIgnoreCase) &&
+                   message.Contains("timed out", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

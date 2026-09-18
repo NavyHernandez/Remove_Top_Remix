@@ -248,7 +248,13 @@ namespace Remove_Top.Features.Downloader
                 // 3) Dependencias JS del generador (deno install crea node_modules).
                 // Sin esto, el proveedor queda mudo ("Did you forget to run deno install?").
                 // En Task.Run porque puede tardar minutos (descarga paquetes npm).
-                await Task.Run(() => RunDenoInstall(p => progress?.Invoke(90 + p * 0.1), ct), ct);
+                await Task.Run(() => RunDenoInstall(p => progress?.Invoke(90 + p * 0.05), ct), ct);
+
+                // 4) Precalentamiento del script generador: el primer `deno run`
+                // compila el TS y carga el módulo nativo canvas, superando los
+                // 15 s que yt-dlp permite y haciendo fallar la primera descarga.
+                // Con el cache caliente, las llamadas del plugin entran siempre.
+                await Task.Run(() => WarmUpBgUtilScript(p => progress?.Invoke(95 + p * 0.05), ct), ct);
 
                 if (IsBgUtilReady)
                     File.WriteAllText(BgUtilVersionFile, latest.Value.version);
@@ -308,6 +314,68 @@ namespace Remove_Top.Features.Downloader
                 {
                     try { process.Kill(entireProcessTree: true); } catch { }
                     App.Log("ToolManager.BgUtil", "deno install superó los 10 minutos.");
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Log("ToolManager.BgUtil", ex.Message, ex.StackTrace);
+            }
+            progress?.Invoke(100);
+        }
+
+        /// <summary>
+        /// Precalienta el script generador de PO tokens ejecutándolo una vez con
+        /// `--version` (los mismos argumentos y entorno que usa el plugin de
+        /// yt-dlp). Así el cache de deno queda caliente y la comprobación del
+        /// plugin (timeout fijo de 15 s) no falla en la primera descarga real.
+        /// Idempotente y best-effort: nunca lanza excepción.
+        /// </summary>
+        private static void WarmUpBgUtilScript(Action<double>? progress, CancellationToken ct)
+        {
+            try
+            {
+                var script = Path.Combine(BgUtilServerDir, "src", "generate_once.ts");
+                if (!File.Exists(DenoExe) || !File.Exists(script))
+                    return;
+
+                var nodeModules = Path.Combine(BgUtilServerDir, "node_modules");
+                if (!Directory.Exists(nodeModules))
+                    return; // sin dependencias no hay nada que precalentar
+
+                // Debe coincidir con el directorio de cache que el plugin usa
+                // (XDG_CACHE_HOME = ToolsRoot → ToolsRoot\bgutil-ytdlp-pot-provider).
+                var tokenCache = Path.Combine(ToolsRoot, "bgutil-ytdlp-pot-provider");
+                Directory.CreateDirectory(DenoCacheDir);
+                Directory.CreateDirectory(tokenCache);
+
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = DenoExe,
+                        Arguments = $"run --allow-env --allow-net --allow-ffi=\"{nodeModules}\" " +
+                                    $"--allow-write=\"{tokenCache}\" --allow-read=\"{tokenCache},{nodeModules}\" " +
+                                    $"\"{script}\" --version",
+                        WorkingDirectory = BgUtilServerDir,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.StartInfo.Environment["DENO_DIR"] = DenoCacheDir;
+                process.StartInfo.Environment["DENO_NO_UPDATE_CHECK"] = "1";
+                process.StartInfo.Environment["DENO_NO_PROMPT"] = "1";
+                process.Start();
+                // Drenar la salida redirigida para no bloquear el proceso hijo.
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                var done = process.WaitForExit(120000);
+                if (!done)
+                {
+                    try { process.Kill(entireProcessTree: true); } catch { }
+                    App.Log("ToolManager.BgUtil", "warm-up del script superó los 2 minutos.");
                 }
             }
             catch (Exception ex)
