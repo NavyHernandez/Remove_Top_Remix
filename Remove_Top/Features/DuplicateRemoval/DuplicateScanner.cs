@@ -45,7 +45,9 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// incluye subcarpetas anidadas), tolerando errores de permisos.
         /// Excluye archivos basura de macOS (sidecars AppleDouble "._*" y
         /// ".DS_Store") que tienen contenido idéntico y provocarían
-        /// falsos positivos de duplicados.
+        /// falsos positivos de duplicados, y las salidas propias de la app
+        /// (carpetas OneDj_*: normalizados y originales descargados), que no
+        /// son parte de la biblioteca sino derivados de ella.
         /// </summary>
         public static string[] GetAllFiles(string folderPath)
         {
@@ -54,7 +56,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             try
             {
                 return Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
-                    .Where(p => !IsMacJunk(Path.GetFileName(p)))
+                    .Where(p => !IsMacJunk(Path.GetFileName(p)) && !IsOneDjOutput(p))
                     .ToArray();
             }
             catch
@@ -70,6 +72,20 @@ namespace Remove_Top.Features.DuplicateRemoval
         private static bool IsMacJunk(string fileName) =>
             fileName.StartsWith("._", StringComparison.Ordinal) ||
             string.Equals(fileName, ".DS_Store", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Indica si la ruta está bajo una carpeta de salida propia (cualquier
+        /// segmento "OneDj_*"): no se escanea para no marcar como duplicados
+        /// los derivados (normalizados u originales conservados).
+        /// </summary>
+        private static bool IsOneDjOutput(string filePath)
+        {
+            var dir = Path.GetDirectoryName(filePath);
+            if (string.IsNullOrEmpty(dir))
+                return false;
+            return dir.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(s => s.StartsWith("OneDj_", StringComparison.OrdinalIgnoreCase));
+        }
 
         /// <summary>
         /// Normaliza el nombre de un archivo para comparar duplicados por

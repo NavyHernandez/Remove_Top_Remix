@@ -101,6 +101,16 @@
                     <ic:FluentIcon Icon="Tag" IconVariant="Regular" IconSize="Size20" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem x:Name="NavDownload" Tag="download" Content="Descargar"
+                                ToolTipService.ToolTip="Descargar audio de YouTube y masterizarlo">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#19376D"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#19376D"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="ArrowDownload" IconVariant="Regular" IconSize="Size20" Foreground="White" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem x:Name="NavAccount" Tag="account" Content="Cuenta"
                                 ToolTipService.ToolTip="Perfil, actualizaciones y estadísticas de uso">
                 <NavigationViewItem.InfoBadge>

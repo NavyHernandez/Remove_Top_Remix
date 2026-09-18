@@ -594,6 +594,95 @@
         "Build 0 errores"
       ],
       "status": "done"
+    },
+    {
+      "id": 41,
+      "name": "youtube_downloader",
+      "title": "Descarga de YouTube + normalización encadenada",
+      "description": "Motor on-demand sin binarios en el instalador: Python embebido (firmado PSF) + wheels yt-dlp/yt-dlp-ejs de PyPI (evita el .exe de PyInstaller que marca el antivirus) + deno + ffmpeg LGPL en %LOCALAPPDATA%\\Remove_Top\\tools, con auto-update del wheel, anti zip-slip y borrado del MOTW. YtDlpService (python -m yt_dlp, ArgumentList, --newline, centinela after_move, -f bestaudio/best -x --audio-format wav, kill del árbol, salvaguarda del archivo reciente). Descarga y encadena AudioNormalizer (perfil fijo HardLimiter -1.0 dBFS); borra el WAV intermedio y deja solo OneDj_Normalized. Entrada por URLs o .txt arrastrado. Fix de ruta con espacios (centinela + salvaguarda). El instalador no crece (~60-100 KB de código); el motor ocupa ~528 MB on-demand.",
+      "acceptance": [
+        "El motor se aprovisiona a %LOCALAPPDATA% (el instalador no incluye binarios)",
+        "yt-dlp se usa como wheel de Python (no el .exe de PyInstaller) para evitar el antivirus",
+        "Auto-update del wheel comparando la versión de PyPI",
+        "Descarga -f bestaudio/best, convierte a WAV con ffmpeg y captura la ruta con centinela (admite espacios)",
+        "Normalización encadenada con borrado del WAV intermedio (conserva si falla)",
+        "Verificado con descarga real y con --simulate ante el bot-check",
+        "Máx. 20 enlaces por descarga (AppLimits.DownloaderMaxLinksPerBatch)",
+        "Sin tarjeta de cookies",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 42,
+      "name": "downloader_error_popup",
+      "title": "Descarga: anti-bot verificado + popup de error con reintento",
+      "description": "YouTube exige proof-of-origin al cliente web (bot-check sin cookies). Verificado con --simulate: default/default,-web dan bot-check; tv,web_safari,mweb solo da format 18 (44 kbps); web_embedded da Opus 251 (~133 kbps) sin cookies. Se fuerza --extractor-args youtube:player_client=web_embedded,tv,web_safari,mweb + --sleep-requests 1. Popup de error (patrón de Cuenta: velo + tarjeta con BounceEase, icono Warning) al terminar con fallos o si el motor no queda listo; 'Intentar de nuevo' (RunFlowAsync compartido) reprocesa solo los enlaces en Error. DownloadErrorText traduce errores crudos a mensajes simples sin códigos (bot-check, red, no disponible, 403, formato); el detalle va a crash.log.",
+      "acceptance": [
+        "Estrategia anti-bot sin cookies verificada (web_embedded da Opus 251)",
+        "Popup con velo + rebote al terminar con errores reales",
+        "Botón 'Intentar de nuevo' reprocesa solo los fallidos",
+        "Mensajes simples sin códigos en filas y popup",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 43,
+      "name": "downloader_ui_polish",
+      "title": "Descarga: UI azul marino unificada y simplificada",
+      "description": "Acento azul marino #19376D centralizado en Page.Resources (DownloaderAccentBrush/Soft/Light). Item de menú 'Descargar' con icono ArrowDownload en blanco (el azul no se veía en fondo oscuro). Botones de acción sólidos unificados (fondo marino, letras blancas) con hover blanco global (Button*PointerOver/Pressed en recursos); botón Pegar eliminado. Check 'Normalizar al descargar' arriba (perfil fijo, sin tarjeta de masterización); subtítulo del encabezado reducido a 12 px indicando la subcarpeta; InfoBar permanente eliminado (queda como aviso contextual solo ante advertencias/errores).",
+      "acceptance": [
+        "Acento #19376D en badge, botones, progreso, overlay y menú",
+        "Icono del menú en blanco, visible sobre fondo oscuro",
+        "Hover blanco unificado en los botones de acción",
+        "Check de normalización en la parte superior, sin selector de perfil",
+        "Sin tarjeta informativa permanente ni botón Pegar",
+        "Build 0 errores"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 44,
+      "name": "downloader_antibot_pot",
+      "title": "Descarga: PO tokens bgutil + cascada anti-bot",
+      "description": "ToolManager aprovisiona el plugin bgutil-ytdlp-pot-provider (wheel PyPI) + server/ del mismo tag en GitHub + deno install on-demand (RunDenoInstall, idempotente, en Task.Run); versión conjunta en tools/bgutil/bgutil.version; deno mínimo 2.4.3 con re-descarga. YtDlpService: cadena web,web_embedded,tv,web_safari,mweb con PO tokens (parecen navegador real, sin cuentas), cascada tv,web_safari,mweb → android con pausa 8 s solo ante bot-check (edad excluida), --force-ipv4 --retries 5 --fragment-retries 5 --retry-sleep exp=1:20 --sleep-interval 2, caché propia (adiós --no-cache-dir), DENO_DIR/XDG_CACHE_HOME contenidos. DownloadErrorText: causas definitivas primero + región, embed, DRM, 429. Verificado con descarga real (token GVS generado, WAV 40 MB, reutilización de caché).",
+      "acceptance": [
+        "Proveedor bgutil aprovisionado on-demand con degradación elegante",
+        "PO token GVS generado para cliente web (verificado en log -v)",
+        "Cascada de reintento solo ante bot-check",
+        "Clasificación de errores por causa",
+        "Descarga real verificada de extremo a extremo"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 45,
+      "name": "downloader_youtube_account",
+      "title": "Descarga: cuenta de YouTube opcional con WebView2",
+      "description": "YouTubeSession (perfil WebView2 aislado en webview-profile, detección por cookies SID/HSID/LOGIN_INFO, export Netscape a youtube_cookies.txt, frescura 14 días, Clear). YouTubeLoginDialog (WebView2 a accounts.google.com, autodetección cada 2 s, cierre solo; la contraseña nunca pasa por el código). YtDlpService: intento --cookies prioritario + cascada anónima si la sesión muere (IsDefinitiveFailure/IsSessionDead); flags UsedCookies/CookiesRejected. Tarjeta opcional en DownloaderPage (3 estados, textos en AppLimits) + sugerencia contextual ante fallos autenticables. OAuth de yt-dlp verificado muerto (no se integra). Sin Runtime WebView2 la tarjeta se oculta.",
+      "acceptance": [
+        "Login embebido con cierre automático al detectar sesión",
+        "cookies.txt generado y usado como intento prioritario",
+        "Sesión muerta marca caducada sin romper el lote",
+        "Todo opcional: sin cuenta funciona igual que antes"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 46,
+      "name": "downloader_refinements",
+      "title": "Descarga: refinamientos (original, ubicación, URLs, popup)",
+      "description": "Check 'Conservar archivo original' (apagado por defecto; deshabilitado sin normalizar) + limpieza lo respeta. Un solo Limpiar (se eliminó ResetButton; ClearButton en barra final EndActionsSection visible en todos los cierres). Botón fantasma 'Abrir ubicación' (sin relleno, borde+texto acento) que abre en Explorador la carpeta final (OneDj_Normalized o destino). YouTubeUrlParser canonicaliza a watch?v=ID (fuera listas/radios/tiempos; fix youtu.be rechazado por falta en hosts). Verificación tolerante del archivo de salida (FindNewestOutput público como rescate ante tildes/emojis) + mensaje específico output-not-found + log OK/OUTPUT-NOT-FOUND. Popup de error centrado. Checks compactos en una fila. DuplicateScanner excluye carpetas OneDj_* (sin falsos duplicados).",
+      "acceptance": [
+        "Un solo botón Limpiar en todos los cierres",
+        "Abrir ubicación fantasma abre la carpeta final correcta",
+        "URL con lista/radio se canonicaliza y descarga",
+        "Archivo descargado con tildes/emojis entra a normalizar",
+        "Popup de error centrado",
+        "OneDj_* fuera del escáner de duplicados"
+      ],
+      "status": "done"
     }
   ]
 }

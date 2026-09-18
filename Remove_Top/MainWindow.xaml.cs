@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Media;
 using Remove_Top.Features.Account;
 using Remove_Top.Features.BatchRename;
 using Remove_Top.Features.DuplicateRemoval;
+using Remove_Top.Features.Downloader;
 using Remove_Top.Features.Normalization;
 using Remove_Top.Features.QuickRename;
 using Remove_Top.Features.TagRemoval;
@@ -146,6 +147,7 @@ namespace Remove_Top
                         "stems" => typeof(VocalRemovalPage),
                         "duplicates" => typeof(DuplicateRemovalPage),
                         "tags" => typeof(TagRemovalPage),
+                        "download" => typeof(DownloaderPage),
                         "account" => typeof(AccountPage),
                         _ => throw new InvalidOperationException($"Unknown tag: {tag}")
                     };

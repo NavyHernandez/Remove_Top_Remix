@@ -151,6 +151,62 @@ namespace Remove_Top.Helpers
         public const long DuplicatesMinValidFileSizeBytes = 6 * 1024;
 
         // ====================================================================
+        // DESCARGA DE YOUTUBE (Features/Downloader)
+        // ====================================================================
+
+        /// <summary>Título del encabezado de la página de Descarga.</summary>
+        public const string DownloaderPageTitle = "Descargar de YouTube";
+
+        /// <summary>
+        /// Máximo de enlaces que se pueden procesar por descarga en la página
+        /// de Descarga de YouTube (DownloaderPage). La UI bloquea al agregar
+        /// por encima de este tope.
+        /// </summary>
+        public const int DownloaderMaxLinksPerBatch = 20;
+
+        /// <summary>Subtítulo del encabezado de la página de Descarga (incluye dónde queda el archivo final).</summary>
+        public const string DownloaderPageSubtitle =
+            "Descarga el mejor audio de YouTube y lo normaliza. " +
+            "El archivo final queda listo en la subcarpeta OneDj_Normalized.";
+
+        /// <summary>Aviso de límite de enlaces en la Descarga de YouTube (junto al badge "Versión Gratuita").</summary>
+        public static string DownloaderLimitMessage =>
+            $"Hasta {N0(DownloaderMaxLinksPerBatch)} enlaces por descarga.";
+
+        /// <summary>Título de la tarjeta opcional de cuenta de YouTube (Descarga).</summary>
+        public const string YouTubeAccountTitle = "Cuenta de YouTube (opcional)";
+
+        /// <summary>Nota de la cuenta de YouTube: recomienda secundaria y explica el beneficio.</summary>
+        public const string YouTubeAccountNote =
+            "Inicia sesión con tu cuenta para descargar videos con restricción de edad, " +
+            "de miembros o cuando YouTube pida verificación. De preferencia usa una cuenta secundaria. " +
+            "Tu contraseña solo se escribe en la página de Google.";
+
+        /// <summary>Estado: sin cuenta conectada.</summary>
+        public const string YouTubeAccountDisconnected = "Sin conectar";
+
+        /// <summary>Estado: cuenta conectada y vigente.</summary>
+        public const string YouTubeAccountConnected = "Conectada";
+
+        /// <summary>Estado: la sesión caducó, hay que repetir el login.</summary>
+        public const string YouTubeAccountExpired = "Sesión caducada, vuelve a conectar";
+
+        /// <summary>Texto mientras se espera el login en el diálogo.</summary>
+        public const string YouTubeAccountWaiting = "Esperando inicio de sesión…";
+
+        /// <summary>Error genérico del diálogo de login.</summary>
+        public const string YouTubeAccountError = "No se pudo abrir el inicio de sesión.";
+
+        /// <summary>Botón conectar / desconectar cuenta.</summary>
+        public const string YouTubeAccountConnect = "Conectar";
+        /// <summary>Botón conectar / desconectar cuenta.</summary>
+        public const string YouTubeAccountDisconnect = "Desconectar";
+
+        /// <summary>Sugerencia ante fallos autenticables (edad/miembros/login).</summary>
+        public const string YouTubeAccountSuggest =
+            "Conecta tu cuenta de YouTube para este tipo de videos.";
+
+        // ====================================================================
         // TEXTOS DE LA UI (generados a partir de las constantes)
         // ====================================================================
 

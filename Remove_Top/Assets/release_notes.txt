@@ -1,5 +1,13 @@
-=== One Dj App v0.3.6 ===
+=== One Dj App v0.4.0 ===
 
-✓ Duplicados: arrastra una carpeta para cargarla (sin buscar a mano)
-✓ Duplicados: quita archivos de la lista con la "x" de cada fila
-✓ Normalización: botón Stop del reproductor ya visible + "x" más profesional
+NUEVO: Descarga de YouTube
+✓ Descarga el mejor audio de YouTube y lo normaliza automáticamente
+✓ Máx. 20 enlaces por descarga (versión gratuita)
+✓ Cuenta de YouTube opcional: conecta tu cuenta para videos con restricción
+✓ Botón "Abrir ubicación" al terminar + un solo botón Limpiar
+✓ Pega el enlace como venga: se limpia solo (listas, radios, tiempos)
+
+Mejoras de disponibilidad
+✓ Anti-bot con PO tokens: más descargas exitosas sin cuentas ni cookies
+✓ Reintentos automáticos con pausas si YouTube pide verificación
+✓ Mensajes claros según la causa (no disponible, región, verificación, red)
