@@ -309,3 +309,27 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 ### Notas
 - Cambios de robustez del Downloader; sin cambios de UI.
 - Empaquetado con `publish.ps1 -SkipUpload`; commit + push a `main` (Release por CI).
+
+---
+
+## 2026-09-21 — Fix del CI: la release de v0.3.8 no se publicó (auto-bump + tag sin `v`)
+
+**Agente:** humano + opencode
+
+### Diagnóstico
+- El commit `3528f22` (v0.3.8) **sí está en `main`**, pero el run #14 del workflow falló (paso "Publish + pack + upload", exit 1) y nunca se creó tag ni release `v0.3.8`.
+- Log real del run: `Último tag: v0.3.6 -> nueva versión: 0.3.7` y `[FTL] There is already an existing release named 'v0.3.7'`. Es decir, el auto-bump calculó **0.3.7** (una versión atrás) y `vpk upload github` abortó al existir la release con ese nombre.
+- Causa 1: el tag de la release 0.3.7 quedó **sin prefijo `v`** (`0.3.7`) y `git tag --sort=-v:refname` lo coloca **al final** (por debajo de `v0.3.6`), así que `Select-Object -First 1` devolvía `v0.3.6`.
+- Causa 2: la limpieza idempotente de `publish.ps1` buscaba la release solo por `tag_name`, pero la existente tenía `tag_name = 0.3.7` y `name = v0.3.7`; vpk compara por **nombre** → no se borraba.
+- Nota: los warnings `NETSDK1198 win-AnyCPU.pubxml` y `VelopackApp.Run() no está al inicio de Main()` son benignos (aparecen también en runs exitosos).
+
+### Cambios realizados
+1. **Auto-bump robusto (`.github/workflows/publish.yml`)** — el cálculo del último tag ahora normaliza el prefijo `v` (`git tag` → `-replace '^[vV]',''` → `Sort-Object { [version]$_ }` → máximo) y suma 1 al patch. Verificado localmente: `0.3.7 -> 0.3.8`.
+2. **Limpieza idempotente ampliada (`publish.ps1`)** — busca la release por `tag_name` **o** `name` (y por el tag sin `v`) y borra el ref del tag en ambos formatos; mensaje de error más claro con el nombre/tag borrados.
+3. **Normalización del tag remoto** — `0.3.7` → `v0.3.7` (release editada, ref viejo borrado) para restaurar la convención `vX.Y.Z`.
+4. **Docs** — `AGENTS.md` (sección Auto-bump: normalización del prefijo y convención de tags; sección publish.ps1: limpieza por nombre/tag) + esta bitácora.
+
+### Notas
+- `csproj` se mantiene en **0.3.8**: esa versión nunca llegó a publicarse, no toca subir patch.
+- El push a `main` dispara el CI, que ahora calcula 0.3.8 y publica la release `v0.3.8` con su `Setup.exe`.
+- Lección: mantener los tags en formato `vX.Y.Z`; el workflow ya tolera tags sin `v` pero la convención evita sorpresas.

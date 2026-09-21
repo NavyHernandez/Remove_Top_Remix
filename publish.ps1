@@ -111,11 +111,12 @@ if (-not $Token) {
 }
 
 $Tag = "v$Version"
+$TagBare = $Tag.TrimStart('v')
 
 # ─── 4a. Limpieza idempotente ────────────────────────────────────
 # vpk upload github FALLA si ya existe una release con el mismo tag
 # (incluidos drafts huérfanos que dejan los uploads fallidos a medias).
-# Antes de subir, se borra cualquier release o tag v$Version existente.
+# Antes de subir, se borra cualquier release o tag $Tag existente.
 Write-Host "`n==> Limpiando release/tag existente $Tag (idempotente)..." -ForegroundColor Yellow
 
 $headers = @{
@@ -126,22 +127,28 @@ $headers = @{
 $baseApi = "https://api.github.com/repos/$RepoOwner/$RepoName"
 
 try {
-    # 1. Buscar la release cuyo tag_name coincida (funciona con drafts sin tag visible).
+    # 1. Buscar la release por tag_name O por NOMBRE: vpk rechaza con
+    #    "There is already an existing release named 'vX.Y.Z'" cuando existe
+    #    una release con ese nombre aunque su tag sea distinto (p. ej. tag
+    #    "0.3.7" con nombre "v0.3.7" no se encontraba solo por tag_name).
     $releases = Invoke-RestMethod -Uri "$baseApi/releases?per_page=100" -Headers $headers -Method Get
-    $existing = $releases | Where-Object { $_.tag_name -eq $Tag }
-    if ($existing) {
-        $id = $existing[0].id
-        Invoke-RestMethod -Uri "$baseApi/releases/$id" -Headers $headers -Method Delete | Out-Null
-        Write-Host "    Release $Tag borrada (id $id)." -ForegroundColor DarkYellow
+    $existing = $releases | Where-Object {
+        $_.tag_name -eq $Tag -or $_.tag_name -eq $TagBare -or $_.name -eq $Tag
+    }
+    foreach ($rel in @($existing)) {
+        Invoke-RestMethod -Uri "$baseApi/releases/$($rel.id)" -Headers $headers -Method Delete | Out-Null
+        Write-Host "    Release '$($rel.name)' (tag $($rel.tag_name), id $($rel.id)) borrada." -ForegroundColor DarkYellow
     }
 
-    # 2. Borrar el tag si quedó huérfano.
-    try {
-        Invoke-RestMethod -Uri "$baseApi/git/refs/tags/$Tag" -Headers $headers -Method Delete | Out-Null
-        Write-Host "    Tag $Tag borrado." -ForegroundColor DarkYellow
-    }
-    catch {
-        # El tag no existe: no es un error.
+    # 2. Borrar los tags si quedaron huérfanos (con y sin prefijo "v").
+    foreach ($t in (@($Tag, $TagBare) | Select-Object -Unique)) {
+        try {
+            Invoke-RestMethod -Uri "$baseApi/git/refs/tags/$t" -Headers $headers -Method Delete | Out-Null
+            Write-Host "    Tag $t borrado." -ForegroundColor DarkYellow
+        }
+        catch {
+            # El tag no existe: no es un error.
+        }
     }
 }
 catch {

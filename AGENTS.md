@@ -371,7 +371,7 @@ Para publicar una nueva versión, ejecutar el script `publish.ps1` desde la raí
 El script automatiza:
 1. `dotnet publish` (Release, win-x64, self-contained, **WindowsAppSDKSelfContained=true**)
 2. `vpk pack` (crea .nupkg en `releases/`)
-3. **Limpieza idempotente**: borra cualquier release/tag `v$Version` existente (incluidos drafts huérfanos) vía REST API antes de subir. Así re-ejecutar con la misma versión nunca falla con "already exists".
+3. **Limpieza idempotente**: borra cualquier release/tag `v$Version` existente (incluidos drafts huérfanos) vía REST API antes de subir. Busca la release por **tag_name o por nombre** (vpk rechaza con "There is already an existing release named" cuando coincide el nombre aunque el tag sea distinto) y borra el tag en ambos formatos (`vX.Y.Z` y `X.Y.Z`). Así re-ejecutar con la misma versión nunca falla con "already exists".
 4. `vpk upload github` (sube a GitHub Releases con token), mostrando la salida real de vpk.
 
 **Requisitos:** .NET 8 SDK + Velopack CLI (`dotnet tool install -g vpk`).
@@ -397,6 +397,8 @@ Cuando el usuario pida "hacer un nuevo build" o "empaquetar para pasar a otras P
 
 El workflow **deriva la versión automáticamente** del último tag de GitHub sumando 1 al patch:
 - Último tag `v0.3.0` → publica `0.3.1` · `v0.3.1` → `0.3.2` · etc.
+- El cálculo **normaliza el prefijo `v`** antes de ordenar: `git tag --sort=-v:refname` coloca los tags SIN `v` (p. ej. `0.3.7`) por debajo de los que sí lo llevan (`v0.3.6`), lo que dejaba el auto-bump una versión atrás y redisparaba la release existente (fallo `vpk: There is already an existing release named...`). Ahora se usa `git tag` → quitar `v` → `Sort-Object { [version]$_ }` → máximo.
+- **Convención: los tags del repo son `vX.Y.Z`.** Un tag sin `v` ya no rompe el cálculo, pero conviene mantener el formato.
 - Así cada push a `main` genera una versión nueva sin gestionarla a mano.
 - Para subir de **minor/major**, forzar la versión manualmente (`publish.ps1 -Version "0.4.0"`) o crear el tag correspondiente.
 

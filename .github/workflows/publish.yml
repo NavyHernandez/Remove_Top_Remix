@@ -7,9 +7,12 @@ name: Publish release
 # VERSIÓN AUTOMÁTICA (auto-bump):
 #   La versión se deriva del ÚLTIMO TAG de GitHub sumándole 1 al patch
 #   (p. ej. último tag v0.3.0 → se publica 0.3.1; v0.3.1 → 0.3.2...).
+#   El cálculo NORMALIZA el prefijo "v" antes de ordenar, así un tag sin
+#   "v" (p. ej. 0.3.7) también cuenta y no redispara una release existente.
 #   Así cada push a main genera una versión nueva sin gestionarla a mano.
 #   Para subir de minor/major, basta con forzar la versión con el parámetro
 #   -Version de publish.ps1 (manual) o creando el tag correspondiente.
+#   Convención: los tags del repo deben ser vX.Y.Z.
 #
 # Requisito manual en GitHub: crear el secret GH_TOKEN (token con permiso
 # contents: write, para crear releases y subir assets). Si el secret no
@@ -47,10 +50,13 @@ jobs:
         run: |
           # Asegura que los tags estén disponibles.
           git fetch --tags --force
-          # Último tag ordenado por versión (p. ej. v0.3.0).
-          $lastTag = git tag --sort=-v:refname | Select-Object -First 1
-          if (-not $lastTag) { $lastTag = "v0.1.0" }
-          $parts = $lastTag.TrimStart('v').Split('.')
+          # Último tag ordenado por versión. Se normaliza el prefijo "v":
+          # `git tag --sort=-v:refname` coloca los tags SIN "v" (p. ej. 0.3.7)
+          # por debajo de los que sí lo llevan (v0.3.6), lo que dejaba el
+          # auto-bump una versión atrás y redisparaba una release existente.
+          $lastTag = @(git tag) | ForEach-Object { $_ -replace '^[vV]', '' } | Where-Object { $_ -match '^\d+\.\d+(\.\d+)?$' } | Sort-Object { [version]$_ } | Select-Object -Last 1
+          if (-not $lastTag) { $lastTag = "0.1.0" }
+          $parts = $lastTag.Split('.')
           $major = [int]$parts[0]
           $minor = [int]$parts[1]
           $patch = if ($parts.Length -gt 2) { [int]$parts[2] } else { 0 }
