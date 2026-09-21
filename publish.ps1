@@ -160,11 +160,14 @@ Write-Host "`n==> Subiendo a GitHub Releases ($RepoOwner/$RepoName)..." -Foregro
 
 # Se captura la salida y el exit code del comando nativo por separado:
 # con "2>&1 | Tee-Object" PowerShell pierde $LASTEXITCODE de vpk.
+# --publish: sin este flag vpk deja la release como BORRADOR (draft) y el
+# update no llega a los usuarios hasta publicarla a mano.
 $vpkOutput = & vpk upload github `
     --repoUrl "https://github.com/$RepoOwner/$RepoName" `
     --tag $Tag `
     --releaseName $Tag `
     --token $Token `
+    --publish `
     --outputDir $ReleaseDir 2>&1
 $vpkExit = $LASTEXITCODE
 $vpkOutput | ForEach-Object { Write-Host $_ }

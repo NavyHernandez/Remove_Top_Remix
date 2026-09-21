@@ -327,9 +327,11 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 1. **Auto-bump robusto (`.github/workflows/publish.yml`)** — el cálculo del último tag ahora normaliza el prefijo `v` (`git tag` → `-replace '^[vV]',''` → `Sort-Object { [version]$_ }` → máximo) y suma 1 al patch. Verificado localmente: `0.3.7 -> 0.3.8`.
 2. **Limpieza idempotente ampliada (`publish.ps1`)** — busca la release por `tag_name` **o** `name` (y por el tag sin `v`) y borra el ref del tag en ambos formatos; mensaje de error más claro con el nombre/tag borrados.
 3. **Normalización del tag remoto** — `0.3.7` → `v0.3.7` (release editada, ref viejo borrado) para restaurar la convención `vX.Y.Z`.
-4. **Docs** — `AGENTS.md` (sección Auto-bump: normalización del prefijo y convención de tags; sección publish.ps1: limpieza por nombre/tag) + esta bitácora.
+4. **`--publish` en `vpk upload github` (`publish.ps1`)** — al verificar el run #15 se descubrió que la release 0.3.8 quedaba en **borrador**: vpk 1.2.0 tiene `--publish` en `False` por defecto. Se añadió el flag para que el CI publique automáticamente (los releases anteriores se publicaron a mano). La 0.3.8 se publicó vía REST API (`draft: false`).
+5. **Docs** — `AGENTS.md` (sección Auto-bump: normalización del prefijo y convención de tags; sección publish.ps1: limpieza por nombre/tag y flag `--publish`) + esta bitácora.
 
 ### Notas
 - `csproj` se mantiene en **0.3.8**: esa versión nunca llegó a publicarse, no toca subir patch.
-- El push a `main` dispara el CI, que ahora calcula 0.3.8 y publica la release `v0.3.8` con su `Setup.exe`.
+- Run #15 en `success`: calculó `0.3.8` y subió la release `v0.3.8` (tag `v0.3.8` en `68bc9c4`) con `OneDjApp-win-Setup.exe`, `-full.nupkg`, `-Portable.zip`, `RELEASES` y `releases.win.json` anunciando 0.3.8 → update 0.3.7 → 0.3.8 disponible.
 - Lección: mantener los tags en formato `vX.Y.Z`; el workflow ya tolera tags sin `v` pero la convención evita sorpresas.
+- El fix de `--publish` se empujó con `[skip ci]` para no cortar una release 0.3.9 no solicitada; aplicará en el próximo release.

@@ -372,7 +372,7 @@ El script automatiza:
 1. `dotnet publish` (Release, win-x64, self-contained, **WindowsAppSDKSelfContained=true**)
 2. `vpk pack` (crea .nupkg en `releases/`)
 3. **Limpieza idempotente**: borra cualquier release/tag `v$Version` existente (incluidos drafts huérfanos) vía REST API antes de subir. Busca la release por **tag_name o por nombre** (vpk rechaza con "There is already an existing release named" cuando coincide el nombre aunque el tag sea distinto) y borra el tag en ambos formatos (`vX.Y.Z` y `X.Y.Z`). Así re-ejecutar con la misma versión nunca falla con "already exists".
-4. `vpk upload github` (sube a GitHub Releases con token), mostrando la salida real de vpk.
+4. `vpk upload github` (sube a GitHub Releases con token), mostrando la salida real de vpk. Se pasa **`--publish`** (sin ese flag vpk deja la release como **borrador** y el update no llega a los usuarios).
 
 **Requisitos:** .NET 8 SDK + Velopack CLI (`dotnet tool install -g vpk`).
 **Token:** via parámetro `-Token` o variable de entorno `GH_TOKEN` (no hardcodeado).
