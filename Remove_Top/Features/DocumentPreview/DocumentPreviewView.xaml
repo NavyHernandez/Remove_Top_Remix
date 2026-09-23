@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Remove_Top.Features.DocumentPreview.DocumentPreviewView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ic="using:FluentIcons.WinUI"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    d:DesignWidth="600"
+    d:DesignHeight="300">
+    <Grid x:Name="RootGrid">
+
+        <!-- Estado vacío (sin documento cargado) -->
+        <StackPanel x:Name="EmptyState"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                    Visibility="Collapsed">
+            <ic:FluentIcon Icon="Document" IconVariant="Regular" IconSize="Size32"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           HorizontalAlignment="Center" />
+            <TextBlock Text="Ningún documento seleccionado"
+                       FontSize="12"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Estado de carga -->
+        <StackPanel x:Name="LoadingState"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+                    Visibility="Collapsed">
+            <ProgressRing IsActive="True" Width="28" Height="28" />
+            <TextBlock Text="Cargando documento..."
+                       FontSize="12"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Estado de error -->
+        <StackPanel x:Name="ErrorState"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                    Visibility="Collapsed">
+            <ic:FluentIcon Icon="ErrorCircle" IconVariant="Regular" IconSize="Size32"
+                           Foreground="#C0392B"
+                           HorizontalAlignment="Center" />
+            <TextBlock x:Name="ErrorText"
+                       Text="No se pudo abrir el documento."
+                       FontSize="12"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Texto plano o extraído de Office (con scroll y selección) -->
+        <ScrollViewer x:Name="TextScroll"
+                      Height="300"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Visibility="Collapsed">
+            <TextBlock x:Name="TextContent"
+                       FontFamily="Consolas"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       IsTextSelectionEnabled="True"
+                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+        </ScrollViewer>
+
+        <!-- PDF renderizado con el visor de Edge (WebView2) -->
+        <WebView2 x:Name="PdfViewer"
+                  Height="380"
+                  Visibility="Collapsed" />
+    </Grid>
+</UserControl>

@@ -2,6 +2,7 @@ using FluentIcons.Common;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Remove_Top.Features.AudioPreview;
+using Remove_Top.Features.DocumentPreview;
 using Remove_Top.Features.ImagePreview;
 using Remove_Top.Helpers;
 using System;
@@ -38,6 +39,11 @@ namespace Remove_Top.Features.DuplicateRemoval
         private bool _isProcessing;
         private bool _scanPerformed;
         private bool _deletionCompleted;
+
+        // El último escaneo terminó sin duplicados ni dañados: el botón
+        // principal se muestra como "Limpiar" (en vez de "Escanear
+        // duplicados") para soltar la carpeta de origen.
+        private bool _noDuplicates;
 
         // Previsualizador de audio: motor NAudio + timer que actualiza el
         // playhead y el reloj de la onda mientras se reproduce.
@@ -99,6 +105,11 @@ namespace Remove_Top.Features.DuplicateRemoval
             // (dimensiones y error de lectura).
             ImagePreviewViewer.ImageLoaded += ImagePreviewViewer_ImageLoaded;
             ImagePreviewViewer.ImageLoadFailed += ImagePreviewViewer_ImageLoadFailed;
+
+            // Visor de documentos: notificaciones para el pie de la tarjeta
+            // (resumen de líneas/tipo y error de lectura).
+            DocumentPreviewViewer.DocumentLoaded += DocumentPreviewViewer_DocumentLoaded;
+            DocumentPreviewViewer.DocumentLoadFailed += DocumentPreviewViewer_DocumentLoadFailed;
 
             // Arrastre: timer anti-parpadeo del overlay (mismo patrón que
             // Normalización).
@@ -237,6 +248,7 @@ namespace Remove_Top.Features.DuplicateRemoval
             _deletionResults.Clear();
             _scanPerformed = false;
             _deletionCompleted = false;
+            _noDuplicates = false;
             _scanTruncated = false;
             _scannedFiles = 0;
             _totalFound = 0;
@@ -312,8 +324,8 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>
         /// "x" al final de cada fila (Exactos, Posibles y Dañados): quita ese
         /// archivo de la lista de resultados sin tocar el disco. Si era el
-        /// archivo en preview (audio o imagen), se cierra primero para
-        /// liberar el archivo. Luego refresca contadores, resumen y acciones.
+        /// archivo en preview (audio, imagen o documento), se cierra primero
+        /// para liberar el archivo. Luego refresca contadores, resumen y acciones.
         /// </summary>
         private void DismissResultItem_Click(object sender, RoutedEventArgs e)
         {
@@ -331,7 +343,8 @@ namespace Remove_Top.Features.DuplicateRemoval
 
             // Si era el archivo en preview, detener y liberar antes de quitar.
             if (string.Equals(_previewPlayer.CurrentFilePath, path, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(ImagePreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(ImagePreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(DocumentPreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase))
                 StopAllPreviews();
 
             item.PropertyChanged -= Item_PropertyChanged;
@@ -352,6 +365,14 @@ namespace Remove_Top.Features.DuplicateRemoval
             if (_isScanning)
             {
                 _cts?.Cancel();
+                return;
+            }
+
+            // Sin duplicados el botón funciona como "Limpiar": suelta la
+            // carpeta de origen y devuelve la página al estado inicial.
+            if (_noDuplicates)
+            {
+                ResetAll();
                 return;
             }
 
@@ -421,6 +442,9 @@ namespace Remove_Top.Features.DuplicateRemoval
                     NoDuplicatesIcon.Visibility = Visibility.Visible;
                     ScanStatusText.Text = "No se encontraron duplicados.";
                     ResultsSection.Visibility = Visibility.Collapsed;
+                    // Sin resultados el botón principal pasa a "Limpiar"
+                    // para soltar la carpeta de origen.
+                    _noDuplicates = true;
                 }
                 else
                 {
@@ -717,22 +741,26 @@ namespace Remove_Top.Features.DuplicateRemoval
         // ================================================================
 
         /// <summary>
-        /// Botón "Previsualizar" de una fila: carga y reproduce el audio o
-        /// muestra la imagen según el tipo del archivo. La ruta viaja en el Tag
-        /// del botón (binding FilePath).
+        /// Botón "Previsualizar" de una fila: carga y reproduce el audio,
+        /// muestra la imagen o el documento según el tipo del archivo. La ruta
+        /// viaja en el Tag del botón (binding FilePath).
         /// </summary>
         private async void PreviewButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement { Tag: string path }) return;
             if (!File.Exists(path)) return;
 
-            // Tipos no visualizables (video, documentos, etc.): el botón está
+            // Tipos no visualizables (video, etc.): el botón está
             // deshabilitado y solo informa de que no hay preview.
-            if (!ImagePreviewSupport.IsImageFile(path) && !AudioPreviewPlayer.IsSupportedAudio(path))
+            if (!DocumentPreviewSupport.IsDocumentFile(path)
+                && !ImagePreviewSupport.IsImageFile(path)
+                && !AudioPreviewPlayer.IsSupportedAudio(path))
                 return;
 
             if (ImagePreviewSupport.IsImageFile(path))
                 BeginImagePreview(path);
+            else if (DocumentPreviewSupport.IsDocumentFile(path))
+                await BeginDocumentPreviewAsync(path);
             else
                 await BeginPreviewAsync(path);
         }
@@ -755,7 +783,7 @@ namespace Remove_Top.Features.DuplicateRemoval
                 return;
             }
 
-            // Otro preview (audio o imagen): cerrar el actual liberando su archivo.
+            // Otro preview (audio, imagen o documento): cerrar el actual liberando su archivo.
             StopAllPreviews();
 
             ImagePreviewSection.Visibility = Visibility.Visible;
@@ -800,13 +828,80 @@ namespace Remove_Top.Features.DuplicateRemoval
             ImagePreviewInfoText.Text = "No se pudo abrir la imagen.";
         }
 
+        // ================================================================
+        // PREVISUALIZADOR DE DOCUMENTOS (solo pestañas Exactos/Posibles)
+        // ================================================================
+
         /// <summary>
-        /// Detiene y libera todos los previews activos (audio y/o imagen).
+        /// Muestra la tarjeta de documento: texto plano/extraído con scroll o
+        /// PDF renderizado con WebView2. Cierra cualquier preview previo para
+        /// tener un solo preview activo a la vez. Los topes de lectura vienen
+        /// de AppLimits.
+        /// </summary>
+        private async Task BeginDocumentPreviewAsync(string path)
+        {
+            // Ya es el documento actual: solo reabrir la tarjeta.
+            if (string.Equals(DocumentPreviewViewer.CurrentPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                DocumentPreviewSection.Visibility = Visibility.Visible;
+                return;
+            }
+
+            // Otro preview (audio, imagen o documento): cerrar el actual
+            // liberando su archivo.
+            StopAllPreviews();
+
+            DocumentPreviewSection.Visibility = Visibility.Visible;
+            DocumentPreviewFileNameText.Text = Path.GetFileName(path);
+            DocumentPreviewInfoText.Text = "Cargando...";
+            await DocumentPreviewViewer.LoadAsync(
+                path,
+                AppLimits.DuplicatesDocumentPreviewMaxBytes,
+                AppLimits.DuplicatesDocumentPreviewMaxLines);
+        }
+
+        /// <summary>
+        /// Libera el documento mostrado (texto y PDF) y oculta la tarjeta.
+        /// </summary>
+        private void ClearDocumentPreview()
+        {
+            DocumentPreviewViewer.Clear();
+            DocumentPreviewSection.Visibility = Visibility.Collapsed;
+            DocumentPreviewFileNameText.Text = "";
+            DocumentPreviewInfoText.Text = "";
+        }
+
+        private void DocumentPreviewClose_Click(object sender, RoutedEventArgs e)
+        {
+            ClearDocumentPreview();
+        }
+
+        /// <summary>
+        /// Documento cargado correctamente: muestra su resumen (líneas o tipo)
+        /// y el tamaño en disco.
+        /// </summary>
+        private void DocumentPreviewViewer_DocumentLoaded(string summary)
+        {
+            if (string.IsNullOrEmpty(DocumentPreviewViewer.CurrentPath)) return;
+            var sizeText = DuplicateItem.FormatSize(new FileInfo(DocumentPreviewViewer.CurrentPath).Length);
+            DocumentPreviewInfoText.Text = $"{summary} · {sizeText}";
+        }
+
+        /// <summary>No se pudo leer el documento: lo indica el propio visor y el pie de la tarjeta.</summary>
+        private void DocumentPreviewViewer_DocumentLoadFailed()
+        {
+            if (string.IsNullOrEmpty(DocumentPreviewViewer.CurrentPath)) return;
+            DocumentPreviewInfoText.Text = "No se pudo abrir el documento.";
+        }
+
+        /// <summary>
+        /// Detiene y libera todos los previews activos (audio, imagen y/o documento).
         /// </summary>
         private void StopAllPreviews()
         {
             StopPreviewCore(closeFile: true);
             ClearImagePreview();
+            ClearDocumentPreview();
         }
 
         /// <summary>
@@ -827,8 +922,8 @@ namespace Remove_Top.Features.DuplicateRemoval
                 return;
             }
 
-            // Otro archivo (o ninguno): cierra el preview actual (audio o
-            // imagen) liberando su bloqueo.
+            // Otro archivo (o ninguno): cierra el preview actual (audio,
+            // imagen o documento) liberando su bloqueo.
             StopAllPreviews();
 
             PreviewSection.Visibility = Visibility.Visible;
@@ -965,11 +1060,14 @@ namespace Remove_Top.Features.DuplicateRemoval
 
         private void UpdateUI()
         {
-            // Durante el escaneo el botón queda activo como "Cancelar"
+            // Durante el escaneo el botón queda activo como "Cancelar".
+            // Si el último escaneo no encontró duplicados, el botón pasa a
+            // "Limpiar" para soltar la carpeta de origen.
             ScanButton.IsEnabled = !_isProcessing && (_isScanning || !string.IsNullOrEmpty(_folderPath));
+            bool showClean = _noDuplicates && !_isScanning;
             ScanButton.Content = UiHelpers.Content(
-                _isScanning ? Icon.Dismiss : Icon.Search,
-                _isScanning ? "Cancelar" : "Escanear duplicados",
+                _isScanning ? Icon.Dismiss : showClean ? Icon.Broom : Icon.Search,
+                _isScanning ? "Cancelar" : showClean ? "Limpiar" : "Escanear duplicados",
                 foreground: ScanButton.Foreground);
 
             // "Limpiar" está activo mientras haya una carpeta cargada (o un escaneo en curso)

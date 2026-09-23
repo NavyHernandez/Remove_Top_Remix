@@ -1,5 +1,6 @@
 using FluentIcons.Common;
 using Remove_Top.Features.AudioPreview;
+using Remove_Top.Features.DocumentPreview;
 using Remove_Top.Features.ImagePreview;
 using System;
 using System.ComponentModel;
@@ -67,19 +68,23 @@ namespace Remove_Top.Features.DuplicateRemoval
         /// <summary>Indica si el archivo es una imagen soportada por el previsualizador.</summary>
         public bool IsImage => ImagePreviewSupport.IsImageFile(FilePath);
 
+        /// <summary>Indica si el archivo es un documento previsualizable (texto, Office moderno o PDF).</summary>
+        public bool IsDocument => DocumentPreviewSupport.IsDocumentFile(FilePath);
+
         /// <summary>
-        /// Indica si el archivo tiene previsualización (audio o imagen). Solo
-        /// las pestañas Exactos/Posibles ofrecen preview (no los dañados).
+        /// Indica si el archivo tiene previsualización (audio, imagen o
+        /// documento). Solo las pestañas Exactos/Posibles ofrecen preview
+        /// (no los dañados).
         /// </summary>
-        public bool IsPreviewable => IsAudio || IsImage;
+        public bool IsPreviewable => IsAudio || IsImage || IsDocument;
 
         /// <summary>
         /// Icono del botón de previsualizar: play para audio, imagen para
-        /// imágenes y "sin vista previa" (EyeOff) para los tipos no
-        /// visualizables (video, documentos, etc.), que muestran el botón
-        /// deshabilitado en lugar de dejar el hueco vacío.
+        /// imágenes, documento para documentos y "sin vista previa" (EyeOff)
+        /// para los tipos no visualizables (video, etc.), que muestran el
+        /// botón deshabilitado en lugar de dejar el hueco vacío.
         /// </summary>
-        public Icon PreviewIcon => IsAudio ? Icon.Play : IsImage ? Icon.Image : Icon.EyeOff;
+        public Icon PreviewIcon => IsAudio ? Icon.Play : IsImage ? Icon.Image : IsDocument ? Icon.Document : Icon.EyeOff;
 
         /// <summary>Texto de ayuda del botón de previsualizar.</summary>
         public string PreviewToolTip => IsPreviewable ? "Previsualizar" : "Sin previsualización";

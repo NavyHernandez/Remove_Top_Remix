@@ -696,6 +696,33 @@
         "Rescate de salida limitado a archivos creados en el intento actual"
       ],
       "status": "done"
+    },
+    {
+      "id": 48,
+      "name": "document_previewer",
+      "title": "Duplicados: previsualizador de documentos",
+      "description": "Módulo Features/DocumentPreview/ sin dependencias nuevas: texto plano (.txt/.csv/.log/.md) y Office moderno (.docx/.xlsx/.pptx con extracción de texto vía System.IO.Compression + XmlReader) con scroll, y PDF renderizado con WebView2. Botón unificado con icono Document (DuplicateItem.IsDocument); legacy .doc/.xls/.ppt quedan con EyeOff. Tarjeta DocumentPreviewSection con pie de líneas + tamaño. Topes en AppLimits (256 KB / 3000 líneas). Un solo preview activo (StopAllPreviews).",
+      "acceptance": [
+        "Texto plano y Office moderno muestran contenido con scroll",
+        "PDF se renderiza con WebView2 (fallback si no hay Runtime)",
+        "Botón de fila con icono Document solo para tipos soportados",
+        "Lectura capada, FileShare.Read y catch amplio (nunca tumba la página)",
+        "Ciclo de vida integrado (cambiar preview/carpeta, borrar, Unloaded)"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 49,
+      "name": "duplicates_clean_when_empty",
+      "title": "Duplicados: botón Limpiar cuando no hay duplicados",
+      "description": "Si el escaneo termina sin duplicados ni dañados, el botón principal pasa de 'Escanear duplicados' a 'Limpiar' (icono Broom) para soltar la carpeta de origen. Flag _noDuplicates (se activa al completar sin ítems, se limpia en ResetResults); ScanButton_Click ramifica a ResetAll; UpdateUI renderiza el estado. Sin cambios en XAML.",
+      "acceptance": [
+        "Sin resultados el botón muestra 'Limpiar' junto al check verde",
+        "Clic en Limpiar resetea ruta, resultados y estado inicial",
+        "Re-escaneo o cambio de carpeta restaura 'Escanear duplicados'",
+        "Cancelar durante el escaneo conserva prioridad"
+      ],
+      "status": "done"
     }
   ]
 }

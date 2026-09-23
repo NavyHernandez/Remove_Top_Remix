@@ -335,3 +335,18 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 - Run #15 en `success`: calculó `0.3.8` y subió la release `v0.3.8` (tag `v0.3.8` en `68bc9c4`) con `OneDjApp-win-Setup.exe`, `-full.nupkg`, `-Portable.zip`, `RELEASES` y `releases.win.json` anunciando 0.3.8 → update 0.3.7 → 0.3.8 disponible.
 - Lección: mantener los tags en formato `vX.Y.Z`; el workflow ya tolera tags sin `v` pero la convención evita sorpresas.
 - El fix de `--publish` se empujó con `[skip ci]` para no cortar una release 0.3.9 no solicitada; aplicará en el próximo release.
+
+---
+
+## 2026-09-23 — v0.3.9: preview de documentos en Duplicados + Limpiar sin resultados
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Previsualizador de documentos (`Features/DocumentPreview/`, nuevo)** — sin dependencias nuevas: texto plano (`.txt/.csv/.log/.md`) y Office moderno (`.docx/.xlsx/.pptx`, extracción con `System.IO.Compression` + `XmlReader`) con scroll; PDF renderizado con WebView2 (ya usado por el login de YouTube). Botón unificado con icono `Document` (`DuplicateItem.IsDocument`); legacy `.doc/.xls/.ppt` quedan con `EyeOff`. Tarjeta `DocumentPreviewSection` con pie de líneas + tamaño; topes en `AppLimits` (256 KB / 3000 líneas); ciclo de vida en `StopAllPreviews()`.
+2. **Fix de compilación** — el constructor `new UTF8Encoding(encoderShouldEmitByteOrderMark:..., throwOnInvalidBytes:...)` era rechazado (CS1739); se reemplazó por `Encoding.GetEncoding("utf-8", ExceptionFallback, ExceptionFallback)` con el mismo comportamiento.
+3. **Botón Limpiar sin duplicados** — si el escaneo termina sin duplicados ni dañados, el botón principal pasa de "Escanear duplicados" a "Limpiar" (flag `_noDuplicates`, ramifica a `ResetAll`) para soltar la carpeta de origen. Sin cambios en XAML.
+4. **Docs** — `AGENTS.md` (fila de Duplicados + sección de detalle del módulo), `feature_list.json` (ids 48 `document_previewer` y 49 `duplicates_clean_when_empty`, done), `release_notes.txt` reescrito para v0.3.9.
+
+### Notas
+- `csproj` 0.3.8 → **0.3.9**; empaquetado con `publish.ps1 -SkipUpload`; commit + push a `main` (Release por CI).

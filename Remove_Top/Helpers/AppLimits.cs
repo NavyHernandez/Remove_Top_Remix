@@ -150,6 +150,20 @@ namespace Remove_Top.Helpers
         /// </summary>
         public const long DuplicatesMinValidFileSizeBytes = 6 * 1024;
 
+        /// <summary>
+        /// Tope de lectura del previsualizador de documentos en Duplicados:
+        /// bytes leídos de texto plano (o caracteres extraídos de Office) por
+        /// archivo. Evita cargar documentos enormes en memoria.
+        /// </summary>
+        public const int DuplicatesDocumentPreviewMaxBytes = 256 * 1024;
+
+        /// <summary>
+        /// Tope de líneas mostradas por el previsualizador de documentos en
+        /// Duplicados. Si el texto supera este número, se muestran solo las
+        /// primeras N líneas.
+        /// </summary>
+        public const int DuplicatesDocumentPreviewMaxLines = 3000;
+
         // ====================================================================
         // DESCARGA DE YOUTUBE (Features/Downloader)
         // ====================================================================

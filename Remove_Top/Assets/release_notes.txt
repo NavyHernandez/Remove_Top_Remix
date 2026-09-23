@@ -1,8 +1,11 @@
-=== One Dj App v0.3.8 ===
+=== One Dj App v0.3.9 ===
 
-MEJORAS EN LA DESCARGA DE YOUTUBE
-✓ Más descargas exitosas: el proveedor anti-bot se prepara al motorizar,
-  evitando fallos por tiempo de espera en la primera descarga
-✓ Reintento automático cuando YouTube tarda en verificar la petición
-✓ Limpieza más segura: al normalizar se elimina solo el archivo temporal
-  correcto, sin riesgo de borrar otra canción del lote
+DUPLICADOS: PREVISUALIZA TUS DOCUMENTOS
+✓ Nuevo: verifica documentos antes de borrar (texto, Word, Excel,
+  PowerPoint y PDF) directamente en la lista de duplicados
+✓ PDF con visor integrado y textos con scroll y selección
+✓ Solo se muestra una vista rápida y liviana del contenido
+
+DUPLICADOS: LIMPIEZA MÁS CÓMODA
+✓ Si no hay duplicados, el botón pasa a "Limpiar" para soltar
+  la carpeta de origen sin rodeos
