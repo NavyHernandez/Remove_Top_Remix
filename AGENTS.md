@@ -351,7 +351,7 @@ El ejecutable se genera como `OneDjApp.exe` (AssemblyName en el csproj); el `Roo
 | Campo | Valor |
 |-------|-------|
 | **Paquete** | Velopack 1.2.* (NuGet) |
-| **Versión actual** | `0.3.8` (en `Remove_Top.csproj`, `<Version>`) |
+| **Versión actual** | `0.4.0` (en `Remove_Top.csproj`, `<Version>`) |
 | **Fuente de updates** | GitHub Releases: `NavyHernandez/Remove_Top_Remix` |
 | **Startup** | `VelopackApp.Build().SetAutoApplyOnStartup(true).Run()` en `App.xaml.cs:OnLaunched` |
 | **Check** | `UpdateManager.CheckForUpdatesAsync()` → `UpdateInfo` o `null` |
@@ -406,12 +406,27 @@ Cuando el usuario pida "hacer un nuevo build" o "empaquetar para pasar a otras P
 
 ### Auto-bump de versión (CI)
 
-El workflow **deriva la versión automáticamente** del último tag de GitHub sumando 1 al patch:
-- Último tag `v0.3.0` → publica `0.3.1` · `v0.3.1` → `0.3.2` · etc.
-- El cálculo **normaliza el prefijo `v`** antes de ordenar: `git tag --sort=-v:refname` coloca los tags SIN `v` (p. ej. `0.3.7`) por debajo de los que sí lo llevan (`v0.3.6`), lo que dejaba el auto-bump una versión atrás y redisparaba la release existente (fallo `vpk: There is already an existing release named...`). Ahora se usa `git tag` → quitar `v` → `Sort-Object { [version]$_ }` → máximo.
-- **Convención: los tags del repo son `vX.Y.Z`.** Un tag sin `v` ya no rompe el cálculo, pero conviene mantener el formato.
-- Así cada push a `main` genera una versión nueva sin gestionarla a mano.
-- Para subir de **minor/major**, forzar la versión manualmente (`publish.ps1 -Version "0.4.0"`) o crear el tag correspondiente.
+El workflow decide la versión con **`max(csproj, auto-bump)`**:
+
+1. Lee `<Version>` del `Remove_Top.csproj` (la versión "ordenada" por el dev).
+2. Calcula **auto-bump** = último tag de GitHub + 1 al patch.
+3. Publica:
+   - **csproj > último tag** → usa el **csproj** (salto explícito de minor/major, p. ej. `0.3.9` → `0.4.0`).
+   - **en otro caso** → usa el **auto-bump** (flujo normal: `v0.3.0` → `0.3.1`, etc.).
+
+Detalles y lecciones (NO repetir):
+- El cálculo del último tag **normaliza el prefijo `v`** (`git tag` → quitar `v` → `Sort-Object { [version]$_ }` → máximo). Un tag sin `v` no debe dejar el bump una versión atrás ni re-disparar una release existente (`vpk: There is already an existing release named...`).
+- **Convención: los tags del repo son `vX.Y.Z`.**
+- **Incidente 2026-09-24 (v0.4.0 → 0.3.10):** el workflow ANTIGUO ignoraba el csproj y solo hacía patch+1. Push con csproj `0.4.0` + último tag `v0.3.9` publicó `0.3.10`. El fix `max(csproj, auto-bump)` ya está en `publish.yml`.
+- **Incidente previo (retag v0.4.0):** re-etiquetar una release **sin re-builderar** deja `releases.win.json` y los binarios anunciando la versión vieja. **NUNCA solo re-etiquetar**: siempre re-publicar con `publish.ps1 -Version X.Y.Z` (o dejar que el CI re-buildere).
+- **Para subir de minor/major:** basta con poner `<Version>` mayor que el último tag en el csproj y pushear a `main`; el CI publica esa versión. Alternativa manual: `publish.ps1 -Version "0.5.0"`.
+- Tras cada push, **verificar en el run del workflow la línea** `csproj=… | último tag=… -> publica …` y que el tag/release de GitHub coincida con el csproj.
+
+### Higiene de releases en GitHub
+
+- Se conservan solo las releases **≥ 0.3.6** (las anteriores se borran: releases + tags).
+- Releases/tags viejos no aportan a Velopack (solo mira la última) y ensucian el historial.
+- Al resolver un incidente de versión: borrar la release/tag incorrecta y **dejar que el CI publique de nuevo con re-build**; no re-etiquetar a mano.
 
 ### Workflow de branches
 

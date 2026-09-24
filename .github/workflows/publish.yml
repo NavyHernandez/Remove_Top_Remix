@@ -4,15 +4,19 @@ name: Publish release
 # Ejecuta publish.ps1: dotnet publish (Release, win-x64, self-contained) →
 # vpk pack → vpk upload github.
 #
-# VERSIÓN AUTOMÁTICA (auto-bump):
-#   La versión se deriva del ÚLTIMO TAG de GitHub sumándole 1 al patch
-#   (p. ej. último tag v0.3.0 → se publica 0.3.1; v0.3.1 → 0.3.2...).
-#   El cálculo NORMALIZA el prefijo "v" antes de ordenar, así un tag sin
-#   "v" (p. ej. 0.3.7) también cuenta y no redispara una release existente.
-#   Así cada push a main genera una versión nueva sin gestionarla a mano.
-#   Para subir de minor/major, basta con forzar la versión con el parámetro
-#   -Version de publish.ps1 (manual) o creando el tag correspondiente.
+# VERSIÓN (auto-bump + respeto del csproj):
+#   1. Leer <Version> del Remove_Top.csproj (versión "ordenada" por el dev).
+#   2. Calcular auto-bump = último tag de GitHub + 1 al patch.
+#      El cálculo NORMALIZA el prefijo "v" antes de ordenar (tags sin "v"
+#      también cuentan y no redisparan una release existente).
+#   3. Publicar max(csproj, auto-bump):
+#        - csproj > último tag  → se usa el csproj (salto explícito de
+#          minor/major, p. ej. 0.3.9 → 0.4.0; ANTES se ignoraba y salía
+#          0.3.10, incidente del 2026-09-24).
+#        - en otro caso         → auto-bump patch+1 (flujo normal).
 #   Convención: los tags del repo deben ser vX.Y.Z.
+#   NUNCA re-etiquetar una release publicada sin re-builderar: los binarios
+#   y releases.win.json seguirían anunciando la versión vieja.
 #
 # Requisito manual en GitHub: crear el secret GH_TOKEN (token con permiso
 # contents: write, para crear releases y subir assets). Si el secret no
@@ -44,16 +48,23 @@ jobs:
           dotnet tool install -g vpk
           echo "$HOME/.dotnet/tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Auto-bump version (patch desde último tag)
+      - name: Resolve version (csproj or auto-bump, whichever is higher)
         id: version
         shell: pwsh
         run: |
           # Asegura que los tags estén disponibles.
           git fetch --tags --force
-          # Último tag ordenado por versión. Se normaliza el prefijo "v":
-          # `git tag --sort=-v:refname` coloca los tags SIN "v" (p. ej. 0.3.7)
-          # por debajo de los que sí lo llevan (v0.3.6), lo que dejaba el
-          # auto-bump una versión atrás y redisparaba una release existente.
+
+          # ── 1) Versión ordenada en el csproj ──
+          $csproj = "Remove_Top/Remove_Top.csproj"
+          $raw = Get-Content $csproj -Raw
+          $m = [regex]::Match($raw, '<Version>([^<]+)</Version>')
+          $csprojVer = if ($m.Success) { $m.Groups[1].Value.Trim() } else { $null }
+          if (-not $csprojVer) { throw "No se pudo leer <Version> del csproj ($csproj)." }
+
+          # ── 2) Auto-bump desde el último tag (prefijo v normalizado) ──
+          # `git tag --sort=-v:refname` coloca los tags SIN "v" por debajo de
+          # los que sí lo llevan; se quitan las v y se ordena como [version].
           $lastTag = @(git tag) | ForEach-Object { $_ -replace '^[vV]', '' } | Where-Object { $_ -match '^\d+\.\d+(\.\d+)?$' } | Sort-Object { [version]$_ } | Select-Object -Last 1
           if (-not $lastTag) { $lastTag = "0.1.0" }
           $parts = $lastTag.Split('.')
@@ -61,9 +72,17 @@ jobs:
           $minor = [int]$parts[1]
           $patch = if ($parts.Length -gt 2) { [int]$parts[2] } else { 0 }
           $patch += 1
-          $version = "$major.$minor.$patch"
+          $autoBump = "$major.$minor.$patch"
+
+          # ── 3) max(csproj, auto-bump) ──
+          # Si el dev subió el csproj por encima del último tag (salto de
+          # minor/major), se respeta el csproj. Si no, manda el auto-bump.
+          # Evita el incidente: csproj 0.4.0 + último tag 0.3.9 → publicaba
+          # 0.3.10 en vez de 0.4.0.
+          $version = if ([version]$csprojVer -gt [version]$lastTag) { $csprojVer } else { $autoBump }
+
           echo "VERSION=$version" >> $env:GITHUB_ENV
-          echo "Último tag: $lastTag -> nueva versión: $version"
+          echo "csproj=$csprojVer | último tag=$lastTag | auto-bump=$autoBump -> publica $version"
 
       - name: Publish + pack + upload
         shell: pwsh

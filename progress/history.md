@@ -472,3 +472,30 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ### Notas
 - Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — Incidente de versión 0.4.0 → 0.3.10: fix CI + higiene de releases
+
+**Agente:** opencode
+
+### Incidente
+1. Push de `c1fc195` con csproj `<Version>0.4.0</Version>` y `release_notes.txt` en v0.4.0.
+2. El workflow **ignoraba el csproj** (solo patch+1 desde el último tag `v0.3.9`) → publicó **0.3.10** sobre ese commit.
+3. Resultado: en GitHub tag/release `v0.3.10` apuntaba al commit que decía "v0.4.0"; el contenido de los binarios SÍ era el 0.4.0 (solo el número estaba mal).
+4. Mismo patrón que el incidente previo del retag v0.4.0 (ver entrada de v0.3.7): *"el auto-bump del workflow manda sobre el csproj"* — ya no.
+
+### Resolución (decisión del usuario: forzar 0.4.0 + fix CI)
+1. **`publish.yml`** — la versión pasa a ser `max(csproj, auto-bump)`:
+   - lee `<Version>` del csproj;
+   - calcula auto-bump = último tag (+1 patch, prefijo `v` normalizado);
+   - si csproj > último tag → publica el csproj (salto minor/major explícito); si no → auto-bump.
+2. **`AGENTS.md`** — sección Auto-bump reescrita con la regla nueva, los dos incidentes y la prohibición de re-etiquetar sin re-builderar; sección "Higiene de releases"; Versión actual → `0.4.0`.
+3. **GitHub releases** — se borran las releases/tags **anteriores a 0.3.6** (0.1.2–0.3.5) y la incorrecta **v0.3.10**; se conserva ≥ 0.3.6.
+4. **Publicación de 0.4.0** — al pushear este fix, el CI (lógica nueva) debe anunciar `publica 0.4.0` y crear tag/release `v0.4.0` **con re-build** (nunca solo re-tag).
+
+### Lecciones para otros agentes
+- El **csproj manda** cuando es mayor que el último tag; el auto-bump es el fallback patch+1.
+- Verificar siempre la línea del run: `csproj=… | último tag=… -> publica …`.
+- **NUNCA re-etiquetar** una release publicada sin re-builderar (`releases.win.json` quedaría viejo).
+- Versiones en GitHub: conservar solo **≥ 0.3.6**.
