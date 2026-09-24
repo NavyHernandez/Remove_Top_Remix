@@ -45,6 +45,11 @@ namespace Remove_Top.Controls
             DependencyProperty.Register(nameof(ShowBrandSite), typeof(bool), typeof(FileSourceControl),
                 new PropertyMetadata(false, OnShowBrandSiteChanged));
 
+        /// <summary>Muestra el botón "Limpiar" cuando hay archivos cargados. Opt-out por página.</summary>
+        public static readonly DependencyProperty ShowClearButtonProperty =
+            DependencyProperty.Register(nameof(ShowClearButton), typeof(bool), typeof(FileSourceControl),
+                new PropertyMetadata(true, OnShowClearButtonChanged));
+
         private List<string> _files = [];
         private bool _enabled = true;
         private bool _truncated;
@@ -114,6 +119,21 @@ namespace Remove_Top.Controls
         private static void OnShowBrandSiteChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is FileSourceControl c) c.ApplyBrandSite();
+        }
+
+        /// <summary>
+        /// Muestra el botón "Limpiar" cuando hay archivos cargados. Las páginas
+        /// con su propio botón de limpieza lo desactivan para no duplicarlo.
+        /// </summary>
+        public bool ShowClearButton
+        {
+            get => (bool)GetValue(ShowClearButtonProperty);
+            set => SetValue(ShowClearButtonProperty, value);
+        }
+
+        private static void OnShowClearButtonChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is FileSourceControl c) c.ApplyClearButton();
         }
 
         public FileSourceControl()
@@ -193,14 +213,14 @@ namespace Remove_Top.Controls
 
             if (_files.Count == 0)
             {
-                SourceStatusText.Text = "No se encontraron archivos compatibles.";
+                SetStatusText("No se encontraron archivos compatibles.");
             }
             else
             {
                 string trunc = _truncated
                     ? $" (se cargaron los primeros {_scannedFiles} de {_totalFound})"
                     : "";
-                SourceStatusText.Text = $"{_scannedFiles} archivo(s) listo(s) para procesar.{trunc}";
+                SetStatusText($"{_scannedFiles} archivo(s) listo(s) para procesar.{trunc}");
             }
 
             UpdateState();
@@ -251,7 +271,18 @@ namespace Remove_Top.Controls
         }
 
         /// <summary>Muestra un mensaje en la línea de estado del origen.</summary>
-        public void SetStatus(string message) => SourceStatusText.Text = message;
+        public void SetStatus(string message) => SetStatusText(message);
+
+        /// <summary>
+        /// Fija el mensaje de estado colapsando la línea cuando está vacía,
+        /// para no dejar un hueco muerto bajo la pista de arrastre.
+        /// </summary>
+        private void SetStatusText(string message)
+        {
+            SourceStatusText.Text = message;
+            SourceStatusText.Visibility = string.IsNullOrEmpty(message)
+                ? Visibility.Collapsed : Visibility.Visible;
+        }
 
         // ================================================================
         // ESTADO
@@ -265,7 +296,7 @@ namespace Remove_Top.Controls
             _scannedFiles = 0;
             _totalFound = 0;
             SourcePathBox.Text = "";
-            SourceStatusText.Text = "";
+            SetStatusText("");
             UpdateState();
         }
 
@@ -292,11 +323,18 @@ namespace Remove_Top.Controls
                 ? new SolidColorBrush(accent)
                 : _sourceCardBorder;
 
-            ClearLoadedButton.Visibility = loaded ? Visibility.Visible : Visibility.Collapsed;
+            ClearLoadedButton.Visibility = (loaded && ShowClearButton) ? Visibility.Visible : Visibility.Collapsed;
             BrowseFolderButton.IsEnabled = _enabled;
             BrowseFilesButton.IsEnabled = _enabled;
 
             StateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Muestra u oculta el botón "Limpiar" según la carga y el opt-out.</summary>
+        private void ApplyClearButton()
+        {
+            bool loaded = HasFiles && _enabled;
+            ClearLoadedButton.Visibility = (loaded && ShowClearButton) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>Aplica el color de acento a botones, pista de arrastre y tinte.</summary>

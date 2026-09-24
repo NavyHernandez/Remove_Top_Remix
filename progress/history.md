@@ -350,3 +350,125 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 
 ### Notas
 - `csproj` 0.3.8 → **0.3.9**; empaquetado con `publish.ps1 -SkipUpload`; commit + push a `main` (Release por CI).
+
+---
+
+## 2026-09-24 — QuickRename: botón único Aplicar⇄Limpiar + lista de éxitos + Recargar
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Botón único de acción** — eliminado `RestartButton` de `ResultSection`; `StartButton` (sólido `#E67E22` siempre) muta tras apply completo a "Limpiar" (`Icon.Broom`, flag `_applyCompleted`, ramifica a `ResetAll`, mismo patrón que Duplicados) y vuelve a "Aplicar cambios (N)" ante cualquier edición pendiente. El éxito parcial deja dirty → queda en "Aplicar" para reintentar.
+2. **Lista de éxitos** — `ResultSuccessList` (`viejo → nuevo` con `CheckmarkCircle`, capada a 20 + "y N más", espejo de la lista de errores) + `StartBringIntoView()` a los resultados al terminar, para que un apply limpio deje constancia visible.
+3. **Botón Recargar** (`RefreshButton`, `ArrowClockwise`, junto a "Restaurar originales") — relee del disco los archivos cargados conservando ediciones pendientes (solo si el disco no cambió por fuera) y suelta filas sin archivo, avisando cuántos.
+4. **Docs** — `AGENTS.md` (fila de Edición Rápida) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build (pendiente de prueba manual del usuario: Capitalizar → Aplicar → verificar lista de cambios; Recargar tras borrar un archivo en Explorer).
+
+---
+
+## 2026-09-24 — QuickRename: Limpiar encima de Aplicar + Agregar patrón
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Limpiar reubicado** — revertido el botón único: `CleanButton` (fantasma, `Broom`) en la parte baja justo encima de "Aplicar cambios"; visible tras aplicar (éxito o cancelado), oculto con nuevo origen o al limpiar. `StartButton` vuelve a su lógica original (solo Aplicar).
+2. **Agregar patrón** — botón `+ Patrón` (`Icon.Add`) en el header + popup (velo + tarjeta con `BounceEase`, patrón Downloader): input máx. 15 (`AppLimits.QuickRenameMaxPatternLength`, con contador), Inicio/Centro/Final (defecto Inicio), preview en vivo con la canción guía, avisos de vacío/caracteres inválidos. Lógica pura en `PatternInserter.cs` (centro = índice `palabras/2`, nunca dentro de palabra; 0-1 palabras → final; extensión intacta; separador espacio). Aceptar pre-llena la lista; "Aplicar cambios" lo hace definitivo.
+3. **Docs** — `AGENTS.md` (fila de Edición Rápida), `feature_list.json` (ids 50 `quickrename_add_pattern` y 51 `quickrename_clean_button_placement`, done) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build (pendiente de prueba manual: patrón al centro en nombre de 4 palabras; Limpiar encima de Aplicar tras un apply).
+
+---
+
+## 2026-09-24 — FileSourceControl: opt-out del botón Limpiar (Edición Rápida)
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Nueva DP `ShowClearButton`** (defecto `true`, sin efecto en las demás páginas): compuerta la visibilidad del "Limpiar" del origen sin disparar `StateChanged` (`ApplyClearButton`).
+2. **Edición Rápida** lo desactiva (`ShowClearButton="False"`): ya tiene su `CleanButton` propio y el del origen se duplicaba.
+3. **Docs** — `AGENTS.md` (sección de controles) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — QuickRename: scroll post-apply aterriza en Limpiar
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Destino del scroll**: `CleanButton.StartBringIntoView()` (encima de Aplicar) en vez de `ResultSection`, en paths de éxito y cancelado.
+2. **Diferido tras el layout** (`DispatcherQueuePriority.Low`): la lista se re-renderiza al actualizar los ítems y devolvía el scroll arriba; al encolar en baja prioridad se aterriza cuando todo se asentó (`using Microsoft.UI.Dispatching`).
+3. **Docs** — esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — QuickRename: Limpiar siempre visible (alineado a Duplicados)
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **`CleanButton` centralizado en `UpdateUI()`** — visible siempre que haya lista cargada (igual que el `CleanButton` de Duplicados), deshabilitado durante el proceso (la cancelación la cubre "Cancelar" del botón principal). Eliminados los 4 toggles manuales de visibilidad en `Source_StateChanged`, `StartButton_Click` (éxito/cancelado) y `ResetAll`. Sin cambios en XAML.
+2. **Docs** — `AGENTS.md` (fila de Edición Rápida) + `feature_list.json` (id 51 actualizado) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — FileSourceControl: sin hueco bajo la pista de arrastre
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Estado colapsable** — nuevo `SetStatusText()` (texto + `Visibility` según vacío) usado por `LoadSource`, `SetStatus` y `Reset`; `SourceStatusText` nace `Collapsed` en XAML. Se elimina el hueco muerto de 12 px bajo "Arrastra aquí…" en reposo, en las 6 páginas.
+2. **Docs** — esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — Normalización: franja gratuita compacta
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **`InfoBar` → fila compacta** — badge verde (letra 10) + texto en letra 11, mismo patrón que Edición Rápida; la franja pasa de ~50 px a ~20 px. Texto desde `AppLimits` (`FreeBadgeText` + `NormalizationInfoBarTitle`), sin referencias residuales a `LimitInfoBar`.
+2. **Docs** — `AGENTS.md` (fila de Normalización) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — Cuenta: popup de actualización centrado y teal
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **Rediseño** — tarjeta centrada en la ventana (`Center`, `MaxWidth=400`, `Opacity=1`), icono `Gift` teal sobre fondo teal suave (fuera el naranja), chip de versión `vX.Y.Z` (`UpdatePopupVersionText`, subtítulo acortado). Entrada espontánea con `BounceEase` conservada; lógica (una vez por versión, Descargar/Ahora no/velo) intacta.
+2. **Docs** — `AGENTS.md` (fila de Cuenta) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.
+
+---
+
+## 2026-09-24 — Duplicados: franja gratuita compacta
+
+**Agente:** opencode
+
+### Cambios realizados
+1. **`InfoBar` → fila compacta** — badge verde (letra 10) + texto en letra 11 (`DuplicatesInfoBarMessage`; se usa el mensaje descriptivo para no duplicar el "Versión gratuita" del badge), mismo patrón que Normalización. Sin referencias residuales a `LimitInfoBar`.
+2. **Docs** — `AGENTS.md` + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni build.

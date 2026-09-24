@@ -723,6 +723,34 @@
         "Cancelar durante el escaneo conserva prioridad"
       ],
       "status": "done"
+    },
+    {
+      "id": 50,
+      "name": "quickrename_add_pattern",
+      "title": "Edición Rápida: agregar patrón a los nombres",
+      "description": "Botón '+ Patrón' (Icon.Add) en el header que abre un popup (velo + tarjeta con BounceEase): input de texto máx. 15 caracteres (AppLimits.QuickRenameMaxPatternLength) + posición Inicio/Centro/Final + vista previa con la canción guía. El centro se inserta en límite entre palabras (índice palabras/2, nunca dentro de una palabra; 0-1 palabras equivale al final). Al aceptar pre-llena los nombres en la lista (reversible con Restaurar); lo definitivo es Aplicar cambios. Lógica pura en PatternInserter.cs.",
+      "acceptance": [
+        "Popup con input (MaxLength 15 + contador), 3 posiciones y preview en vivo",
+        "Inicio/Final con espacio; centro solo entre palabras",
+        "Aceptar pre-llena sin tocar disco; Restaurar lo revierte",
+        "Validación de vacío y caracteres inválidos con aviso en el popup",
+        "Botón deshabilitado sin lista o durante el proceso"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 51,
+      "name": "quickrename_clean_button_placement",
+      "title": "Edición Rápida: Limpiar encima de Aplicar + lista de éxitos + Recargar",
+      "description": "Botón 'Limpiar' (CleanButton, fantasma) en la parte baja justo encima de Aplicar cambios; visible siempre que haya lista cargada (igual que el CleanButton de Duplicados, deshabilitado durante el proceso) y resetea ruta/lista/resultado. Lista de éxitos (viejo → nuevo, capada a 20 + 'y N más') + scroll a resultados al terminar. Botón 'Recargar' (ArrowClockwise) junto a Restaurar: relee del disco conservando ediciones pendientes y suelta filas sin archivo.",
+      "acceptance": [
+        "Limpiar visible con lista cargada, encima de Aplicar cambios",
+        "Deshabilitado durante el proceso (Cancelar cubre la cancelación)",
+        "Apply limpio muestra lista de cambios y baja la vista",
+        "Recargar conserva pendientes y avisa archivos desaparecidos",
+        "Fallo parcial deja Aplicar para reintentar"
+      ],
+      "status": "done"
     }
   ]
 }

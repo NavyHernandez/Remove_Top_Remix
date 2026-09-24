@@ -12,6 +12,20 @@
 
     <Page.Resources>
         <local:ChipBackgroundConverter x:Key="ChipBackgroundConverter" />
+
+        <!-- Entrada del popup de patrón: la tarjeta sube con rebote y el velo aparece con fundido. -->
+        <Storyboard x:Name="PatternPopupShowStoryboard">
+            <DoubleAnimation Storyboard.TargetName="PatternPopupCard"
+                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                             From="160" To="0" Duration="0:0:0.7">
+                <DoubleAnimation.EasingFunction>
+                    <BounceEase Bounces="3" Bounciness="2" EasingMode="EaseOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="PatternPopupOverlay"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.25" />
+        </Storyboard>
     </Page.Resources>
 
     <controls:DropTargetControl
@@ -22,6 +36,7 @@
         AccentColor="#E67E22">
 
         <controls:DropTargetControl.Host>
+        <Grid>
         <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -66,8 +81,9 @@
                     AccentColor="#E67E22"
                     ScanRecursive="True"
                     ShowBrandSite="True"
+                    ShowClearButton="False"
                     StateChanged="Source_StateChanged" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,-8,0,0">
                     <Border CornerRadius="4" Padding="8,2" Background="#70AD47">
                         <TextBlock x:Name="FreeBadgeText"
                                    Text=""
@@ -94,7 +110,7 @@
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         Visibility="Collapsed">
                     <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12">
                             <TextBlock Text="Nombres editables"
                                        FontSize="16" FontWeight="SemiBold" />
                             <TextBlock Grid.Column="1"
@@ -144,6 +160,17 @@
                                 </DropDownButton.Flyout>
                             </DropDownButton>
                             <Button Grid.Column="4"
+                                     x:Name="RefreshButton"
+                                    Click="RefreshButton_Click"
+                                    CornerRadius="4"
+                                    Padding="6"
+                                    IsEnabled="False"
+                                    Background="Transparent"
+                                    BorderBrush="#E67E22"
+                                    Foreground="#E67E22"
+                                    BorderThickness="1.5"
+                                    ToolTipService.ToolTip="Volver a leer los archivos cargados" />
+                            <Button Grid.Column="5"
                                      x:Name="ResetButton"
                                     Content="Restaurar originales"
                                     Click="ResetButton_Click"
@@ -153,6 +180,16 @@
                                     BorderBrush="#E67E22"
                                     Foreground="#E67E22"
                                     BorderThickness="1.5" />
+                            <Button Grid.Column="6"
+                                     x:Name="AddPatternButton"
+                                    Click="AddPatternButton_Click"
+                                    CornerRadius="4"
+                                    IsEnabled="False"
+                                    Background="Transparent"
+                                    BorderBrush="#E67E22"
+                                    Foreground="#E67E22"
+                                    BorderThickness="1.5"
+                                    ToolTipService.ToolTip="Agregar un texto al inicio, centro o final de todos los nombres" />
                         </Grid>
                         <ListView x:Name="FilesListView"
                                   SelectionMode="None"
@@ -336,8 +373,19 @@
                 </Border>
 
                 <!-- ==================================================== -->
-                <!-- BOTÓN DE ACCIÓN                                       -->
+                <!-- BOTONES DE ACCIÓN: Limpiar (tras aplicar) + Aplicar -->
                 <!-- ==================================================== -->
+                <Button x:Name="CleanButton"
+                        Click="CleanButton_Click"
+                        CornerRadius="4"
+                        HorizontalAlignment="Center"
+                        MinWidth="220"
+                        Margin="0,0,0,8"
+                        Visibility="Collapsed"
+                        Background="Transparent"
+                        BorderBrush="#E67E22"
+                        Foreground="#E67E22"
+                        BorderThickness="1.5" />
                 <Button x:Name="StartButton"
                         FontSize="16"
                         FontWeight="SemiBold"
@@ -376,6 +424,37 @@
                                            Foreground="White" />
                             </Border>
                         </Grid>
+                        <TextBlock x:Name="ResultSuccessTitle"
+                                   Text="Archivos renombrados:"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Visibility="Collapsed" />
+                        <ListView x:Name="ResultSuccessList"
+                                  SelectionMode="None"
+                                  MaxHeight="160"
+                                  Visibility="Collapsed">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                        <ic:FluentIcon Icon="CheckmarkCircle"
+                                                       IconVariant="Regular" IconSize="Size16"
+                                                       Foreground="#70AD47"
+                                                       VerticalAlignment="Center" />
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding OriginalName}"
+                                                       FontSize="12" FontWeight="SemiBold" />
+                                            <TextBlock FontSize="11"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       TextWrapping="Wrap"><Run Text="→ " /><Run Text="{Binding NewName}" /></TextBlock>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="ResultSuccessMore"
+                                   FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Visibility="Collapsed" />
                         <TextBlock x:Name="ResultErrorsTitle"
                                    Text="Archivos que no se pudieron renombrar:"
                                    FontSize="13" FontWeight="SemiBold"
@@ -404,23 +483,115 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                        <Button x:Name="RestartButton"
-                                Content="Limpiar"
-                                Click="RestartButton_Click"
-                                CornerRadius="4"
-                                HorizontalAlignment="Center"
-                                MinWidth="220"
-                                Margin="0,4,0,0"
-                                Visibility="Collapsed"
-                                Background="Transparent"
-                                BorderBrush="#E67E22"
-                                Foreground="#E67E22"
-                                BorderThickness="1.5" />
                     </StackPanel>
                 </Border>
 
             </StackPanel>
         </ScrollViewer>
+        </Grid>
+
+        <!-- Popup Agregar patrón: velo + tarjeta que sube rebotando.
+             Pre-llena los nombres en la lista; lo definitivo es "Aplicar cambios". -->
+        <Border x:Name="PatternPopupOverlay"
+                Background="#66000000"
+                Visibility="Collapsed"
+                Tapped="PatternPopupOverlay_Tapped">
+            <Border x:Name="PatternPopupCard"
+                    MaxWidth="420"
+                    CornerRadius="16"
+                    Padding="24"
+                    BorderThickness="1"
+                    BorderBrush="#E67E22"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Border.RenderTransform>
+                    <TranslateTransform Y="160" />
+                </Border.RenderTransform>
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Agregar patrón"
+                               FontSize="20" FontWeight="Bold"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Este texto se agregará a todos los nombres cargados."
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBox x:Name="PatternTextBox"
+                                 PlaceholderText="Ej. REMIX"
+                                 TextChanged="PatternTextBox_TextChanged" />
+                        <TextBlock Grid.Column="1"
+                                   x:Name="PatternCountText"
+                                   Text="0/15"
+                                   FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock x:Name="PatternErrorText"
+                               FontSize="12"
+                               Foreground="#E74C3C"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                        <RadioButton x:Name="PatternStartRadio"
+                                     Content="Al inicio"
+                                     IsChecked="True"
+                                     Checked="PatternPosition_Checked"
+                                     FontSize="13"
+                                     MinWidth="0"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center" />
+                        <RadioButton Grid.Column="1"
+                                     x:Name="PatternMiddleRadio"
+                                     Content="Al centro"
+                                     Checked="PatternPosition_Checked"
+                                     FontSize="13"
+                                     MinWidth="0"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center" />
+                        <RadioButton Grid.Column="2"
+                                     x:Name="PatternEndRadio"
+                                     Content="Al final"
+                                     Checked="PatternPosition_Checked"
+                                     FontSize="13"
+                                     MinWidth="0"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock x:Name="PatternPreviewText"
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button x:Name="PatternAcceptButton"
+                                Content="Agregar"
+                                Click="PatternAcceptButton_Click"
+                                CornerRadius="6"
+                                HorizontalAlignment="Stretch"
+                                Height="40"
+                                Background="#E67E22"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontWeight="SemiBold" />
+                        <Button Grid.Column="1"
+                                x:Name="PatternCancelButton"
+                                Content="Cancelar"
+                                Click="PatternCancelButton_Click"
+                                CornerRadius="6"
+                                HorizontalAlignment="Stretch"
+                                Height="40"
+                                Background="Transparent"
+                                BorderBrush="#E67E22"
+                                Foreground="#E67E22"
+                                BorderThickness="1.5" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Border>
         </Grid>
         </controls:DropTargetControl.Host>
     </controls:DropTargetControl>

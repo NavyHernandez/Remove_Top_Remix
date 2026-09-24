@@ -63,12 +63,12 @@ namespace Remove_Top.Features.Normalization
             PageSubtitleText.Text = AppLimits.NormalizationPageSubtitle;
             BrandText.Text = AppLimits.AppName;
 
-            // Muestra el límite de la versión gratuita. El texto (título y
-            // mensaje) se genera a partir de AppLimits: usa el límite publicitado
+            // Muestra el límite de la versión gratuita en la fila compacta.
+            // El texto se genera a partir de AppLimits: usa el límite publicitado
             // (NormalizationFreeLimitDisplay); el procesamiento real sigue el de
             // NormalizationMaxFilesToScan.
-            LimitInfoBar.Title = AppLimits.NormalizationInfoBarTitle;
-            LimitInfoBar.Message = AppLimits.NormalizationInfoBarMessage;
+            FreeBadgeText.Text = AppLimits.FreeBadgeText;
+            LimitInfoText.Text = AppLimits.NormalizationInfoBarTitle;
 
             PopulateIntensityOptions();
             UpdateStartButtonText();

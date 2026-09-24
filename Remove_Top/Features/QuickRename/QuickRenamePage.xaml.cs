@@ -1,4 +1,5 @@
 using FluentIcons.Common;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -41,9 +42,13 @@ namespace Remove_Top.Features.QuickRename
             FilesListView.ItemsSource = _items;
             ResetButton.Content = UiHelpers.Content(Icon.ArrowUndo, "Restaurar", semibold: false, foreground: ResetButton.Foreground);
             StartButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar cambios", foreground: StartButton.Foreground);
-            RestartButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: RestartButton.Foreground);
             ReorderButton.Content = UiHelpers.Content(Icon.ArrowSwap, "Reordenar", semibold: false, foreground: ReorderButton.Foreground);
             CaseButton.Content = UiHelpers.Icon(Icon.TextChangeCase, foreground: CaseButton.Foreground);
+            RefreshButton.Content = UiHelpers.Icon(Icon.ArrowClockwise, foreground: RefreshButton.Foreground);
+            AddPatternButton.Content = UiHelpers.Content(Icon.Add, "Patrón", semibold: false, foreground: AddPatternButton.Foreground);
+            CleanButton.Content = UiHelpers.Content(Icon.Broom, "Limpiar", semibold: false, foreground: CleanButton.Foreground);
+            PatternTextBox.MaxLength = AppLimits.QuickRenameMaxPatternLength;
+            PatternCountText.Text = $"0/{AppLimits.QuickRenameMaxPatternLength}";
             ApplyReorderButton.Content = UiHelpers.Content(Icon.Checkmark, "Aplicar a todos", foreground: ApplyReorderButton.Foreground, textSize: 13);
             UndoReorderButton.Content = UiHelpers.Icon(Icon.ArrowUndo, foreground: UndoReorderButton.Foreground);
             FreeBadgeText.Text = AppLimits.FreeBadgeText;
@@ -122,8 +127,9 @@ namespace Remove_Top.Features.QuickRename
 
             ResultSection.Visibility = Visibility.Collapsed;
             CompleteBadge.Visibility = Visibility.Collapsed;
-            RestartButton.Visibility = Visibility.Collapsed;
             ShowResultErrors([]);
+            ShowResultSuccess([], 0);
+            HidePatternPopup();
             CancelReorder();
 
             if (Source.HasFiles)
@@ -190,6 +196,113 @@ namespace Remove_Top.Features.QuickRename
             UpdateUI();
         }
 
+        // ================================================================
+        // AGREGAR PATRÓN
+        // ================================================================
+
+        /// <summary>
+        /// Abre el popup de "Agregar patrón": pide un texto (máx. 15) y la
+        /// posición (inicio/centro/final). Al aceptar pre-llena los nombres en
+        /// la lista; lo definitivo es "Aplicar cambios" (flujo existente).
+        /// </summary>
+        private void AddPatternButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_items.Count == 0 || _isProcessing) return;
+
+            PatternTextBox.Text = "";
+            PatternErrorText.Visibility = Visibility.Collapsed;
+            PatternStartRadio.IsChecked = true;
+            UpdatePatternPreview();
+            PatternPopupOverlay.Visibility = Visibility.Visible;
+            PatternPopupShowStoryboard.Begin();
+        }
+
+        /// <summary>Tocar el velo (fuera de la tarjeta) cierra el popup.</summary>
+        private void PatternPopupOverlay_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            if (ReferenceEquals(e.OriginalSource, PatternPopupOverlay))
+                HidePatternPopup();
+        }
+
+        private void PatternCancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            HidePatternPopup();
+        }
+
+        private void HidePatternPopup()
+        {
+            PatternPopupOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void PatternTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            PatternCountText.Text = $"{PatternTextBox.Text.Length}/{AppLimits.QuickRenameMaxPatternLength}";
+            PatternErrorText.Visibility = Visibility.Collapsed;
+            UpdatePatternPreview();
+        }
+
+        private void PatternPosition_Checked(object sender, RoutedEventArgs e)
+        {
+            UpdatePatternPreview();
+        }
+
+        private PatternPosition SelectedPatternPosition()
+        {
+            if (PatternMiddleRadio.IsChecked == true) return PatternPosition.Middle;
+            if (PatternEndRadio.IsChecked == true) return PatternPosition.End;
+            return PatternPosition.Start;
+        }
+
+        /// <summary>
+        /// Vista previa en vivo con la canción guía: muestra cómo quedaría su
+        /// nombre con el patrón y la posición elegidos.
+        /// </summary>
+        private void UpdatePatternPreview()
+        {
+            if (_items.Count == 0) return;
+
+            var guide = _items.FirstOrDefault(i => i.IsGuide) ?? _items[0];
+            var pattern = PatternTextBox.Text.Trim();
+            PatternPreviewText.Text = string.IsNullOrEmpty(pattern)
+                ? $"Ej: {guide.CurrentName}"
+                : PatternInserter.InsertFileName(guide.CurrentName, pattern, SelectedPatternPosition());
+        }
+
+        /// <summary>
+        /// Acepta el patrón: pre-llena el CurrentName de TODOS los ítems (solo
+        /// donde cambie) y devuelve el control a la página. No toca disco.
+        /// </summary>
+        private void PatternAcceptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing) return;
+
+            var pattern = PatternTextBox.Text.Trim();
+            if (string.IsNullOrEmpty(pattern))
+            {
+                PatternErrorText.Text = $"Escribe el texto del patrón (máx. {AppLimits.QuickRenameMaxPatternLength} caracteres).";
+                PatternErrorText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (pattern.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                PatternErrorText.Text = "El patrón contiene caracteres no válidos para un nombre de archivo.";
+                PatternErrorText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            var position = SelectedPatternPosition();
+            foreach (var item in _items)
+            {
+                var updated = PatternInserter.InsertFileName(item.CurrentName, pattern, position);
+                if (!string.Equals(updated, item.CurrentName, StringComparison.Ordinal))
+                    item.CurrentName = updated;
+            }
+
+            HidePatternPopup();
+            UpdateUI();
+        }
+
         /// <summary>
         /// Cambia el caso de la base (sin extensión) de TODOS los nombres
         /// cargados según la opción del menú (upper/lower/title). Es solo
@@ -252,6 +365,15 @@ namespace Remove_Top.Features.QuickRename
             int dirty = _items.Count(i => i.IsDirty);
             DirtyCountText.Text = dirty > 0 ? $"{dirty} modificado(s)" : "Sin cambios";
             ResetButton.IsEnabled = dirty > 0;
+            RefreshButton.IsEnabled = _items.Count > 0 && !_isProcessing;
+            AddPatternButton.IsEnabled = _items.Count > 0 && !_isProcessing;
+
+            // Limpiar (encima de Aplicar) vive mientras haya lista cargada,
+            // haya o no resultados — igual que el CleanButton de Duplicados.
+            // Se deshabilita durante el proceso: la cancelación ya la cubre
+            // el botón principal ("Cancelar").
+            CleanButton.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            CleanButton.IsEnabled = !_isProcessing;
             StartButton.IsEnabled = _items.Count > 0 && dirty > 0 && !_isProcessing;
             StartButton.Content = UiHelpers.Content(Icon.Checkmark,
                 dirty > 0 ? $"Aplicar cambios ({dirty})" : "Aplicar cambios",
@@ -604,6 +726,8 @@ namespace Remove_Top.Features.QuickRename
             StartButton.Content = UiHelpers.Content(Icon.Dismiss, "Cancelar", foreground: StartButton.Foreground);
             Source.SetEnabled(false);
             ResetButton.IsEnabled = false;
+            RefreshButton.IsEnabled = false;
+            AddPatternButton.IsEnabled = false;
             CaseButton.IsEnabled = false;
             ReorderButton.IsEnabled = false;
 
@@ -639,9 +763,14 @@ namespace Remove_Top.Features.QuickRename
                     ? $"Se cambiaron {changed} de {pending} archivo(s). {failed.Length} no se pudieron renombrar."
                     : $"Se cambiaron {changed} de {pending} archivo(s).";
                 ShowResultErrors(failed);
+                ShowResultSuccess(results.Where(r => r.Success).ToArray(), changed);
 
                 ResultSection.Visibility = Visibility.Visible;
-                RestartButton.Visibility = Visibility.Visible;
+                // La lista se re-renderiza al actualizar los ítems y devuelve
+                // el scroll arriba: se aterriza en Limpiar (encima de Aplicar)
+                // encolado en baja prioridad, cuando el layout ya se asentó.
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low,
+                    () => CleanButton.StartBringIntoView());
             }
             catch (OperationCanceledException)
             {
@@ -650,8 +779,10 @@ namespace Remove_Top.Features.QuickRename
                 CompleteBadge.Visibility = Visibility.Visible;
                 ResultSummaryText.Text = "Proceso cancelado por el usuario.";
                 ShowResultErrors([]);
+                ShowResultSuccess([], 0);
                 ResultSection.Visibility = Visibility.Visible;
-                RestartButton.Visibility = Visibility.Visible;
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low,
+                    () => CleanButton.StartBringIntoView());
             }
             finally
             {
@@ -676,22 +807,103 @@ namespace Remove_Top.Features.QuickRename
         }
 
         /// <summary>
+        /// Rellena y muestra/oculta la lista de archivos renombrados con éxito
+        /// (origen → nuevo). Muestra hasta 20 y resume el resto en una línea,
+        /// para que un apply limpio también deje constancia visible.
+        /// </summary>
+        private void ShowResultSuccess(QuickRenameResult[] succeeded, int totalChanged)
+        {
+            const int MaxShown = 20;
+            var shown = succeeded.Take(MaxShown).ToArray();
+            ResultSuccessList.ItemsSource = shown;
+            bool has = shown.Length > 0;
+            ResultSuccessTitle.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+            ResultSuccessList.Visibility = has ? Visibility.Visible : Visibility.Collapsed;
+            int hidden = totalChanged - shown.Length;
+            ResultSuccessMore.Text = hidden > 0 ? $"…y {hidden} más." : "";
+            ResultSuccessMore.Visibility = hidden > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
         /// "Limpiar": vuelve la página a su estado inicial tras el renombrado.
         /// Limpia el origen, la lista editable y el resultado.
         /// </summary>
-        private void RestartButton_Click(object sender, RoutedEventArgs e)
+        private void CleanButton_Click(object sender, RoutedEventArgs e)
+        {
+            ResetAll();
+        }
+
+        private void ResetAll()
         {
             if (_isProcessing) return;
 
             Source.Reset();
             ClearItems();
             ShowResultErrors([]);
+            ShowResultSuccess([], 0);
             CancelReorder();
 
             ResultSection.Visibility = Visibility.Collapsed;
             CompleteBadge.Visibility = Visibility.Collapsed;
-            RestartButton.Visibility = Visibility.Collapsed;
 
+            UpdateUI();
+        }
+
+        /// <summary>
+        /// "Recargar": vuelve a leer del disco los archivos cargados, sin
+        /// perder la carpeta de origen. Conserva las ediciones pendientes cuyo
+        /// archivo no cambió por fuera y suelta las filas cuyo archivo ya no
+        /// existe (renombrado/borrado externo). No toca la sección de resultados.
+        /// </summary>
+        private void RefreshButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isProcessing || _items.Count == 0) return;
+
+            var snapshot = _items.Select(i => new
+            {
+                i.OriginalPath,
+                i.CurrentName,
+                i.OriginalName,
+                i.LoadedName,
+                i.IsGuide
+            }).ToArray();
+
+            foreach (var item in _items)
+                item.PropertyChanged -= Item_PropertyChanged;
+            _items.Clear();
+
+            int missing = 0;
+            foreach (var s in snapshot)
+            {
+                if (!File.Exists(s.OriginalPath)) { missing++; continue; }
+
+                var diskName = Path.GetFileName(s.OriginalPath);
+                var item = new QuickRenameItem
+                {
+                    OriginalPath = s.OriginalPath,
+                    LoadedName = s.LoadedName,
+                    OriginalName = diskName,
+                    CurrentName = diskName,
+                    IsGuide = s.IsGuide
+                };
+
+                // Conserva la edición pendiente solo si el disco no cambió por fuera.
+                if (!string.Equals(s.CurrentName, s.OriginalName, StringComparison.Ordinal) &&
+                    string.Equals(s.OriginalName, diskName, StringComparison.Ordinal))
+                    item.CurrentName = s.CurrentName;
+
+                item.PropertyChanged += Item_PropertyChanged;
+                _items.Add(item);
+            }
+
+            if (_items.Count > 0 && !_items.Any(i => i.IsGuide))
+                _items[0].IsGuide = true;
+
+            FileCountText.Text = missing > 0
+                ? $"{_items.Count} archivo(s) .mp3/.wav ({missing} ya no existen en disco)"
+                : $"{_items.Count} archivo(s) .mp3/.wav encontrado(s)";
+            FileCountText.Visibility = Visibility.Visible;
+            ListSection.Visibility = _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             UpdateUI();
         }
     }

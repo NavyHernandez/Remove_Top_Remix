@@ -487,33 +487,34 @@
         </ScrollViewer>
     </Grid>
 
-        <!-- Popup de nueva actualización: velo + tarjeta que sube rebotando.
-             Se eleva al entrar a Cuenta cuando hay update pendiente (una vez
-             por versión); Aceptar inicia la descarga directa. -->
+        <!-- Popup de nueva actualización: tarjeta sólida centrada que entra
+             espontáneamente con rebote al abrir Cuenta con update pendiente
+             (una vez por versión); Aceptar inicia la descarga directa. -->
         <Border x:Name="UpdatePopupOverlay"
                 Background="#66000000"
                 Visibility="Collapsed"
                 Tapped="UpdatePopupOverlay_Tapped">
             <Border x:Name="UpdatePopupCard"
-                    MaxWidth="420"
+                    MaxWidth="400"
                     CornerRadius="16"
                     Padding="24"
                     BorderThickness="1"
                     BorderBrush="#00A88F"
                     Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    Opacity="1"
                     HorizontalAlignment="Center"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,0,48">
+                    VerticalAlignment="Center"
+                    Margin="0">
                 <Border.RenderTransform>
                     <TranslateTransform Y="160" />
                 </Border.RenderTransform>
                 <StackPanel Spacing="12">
                     <Border Width="64" Height="64"
                             CornerRadius="32"
-                            Background="#33E67E22"
+                            Background="#3300A88F"
                             HorizontalAlignment="Center">
                         <ic:FluentIcon Icon="Gift" IconVariant="Regular" IconSize="Size28"
-                                       Foreground="#E67E22"
+                                       Foreground="#00A88F"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                     </Border>
@@ -522,6 +523,14 @@
                                TextWrapping="Wrap"
                                TextAlignment="Center"
                                HorizontalAlignment="Center" />
+                    <Border CornerRadius="12" Padding="10,2"
+                            Background="#3300A88F"
+                            HorizontalAlignment="Center">
+                        <TextBlock x:Name="UpdatePopupVersionText"
+                                   Text=""
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="#00A88F" />
+                    </Border>
                     <TextBlock x:Name="UpdatePopupSubtitle"
                                FontSize="13"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"

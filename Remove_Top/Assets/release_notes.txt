@@ -1,11 +1,18 @@
-=== One Dj App v0.3.9 ===
+=== One Dj App v0.4.0 ===
 
-DUPLICADOS: PREVISUALIZA TUS DOCUMENTOS
-✓ Nuevo: verifica documentos antes de borrar (texto, Word, Excel,
-  PowerPoint y PDF) directamente en la lista de duplicados
-✓ PDF con visor integrado y textos con scroll y selección
-✓ Solo se muestra una vista rápida y liviana del contenido
+EDICIÓN RÁPIDA: AGREGA PATRÓN
+✓ Nuevo botón "+ Patrón": inserta un texto (máx. 15 letras) al inicio,
+  centro o final de todos los nombres cargados
+✓ El centro se coloca solo entre palabras, nunca las parte
+✓ Vista previa con tu canción guía antes de aceptar
 
-DUPLICADOS: LIMPIEZA MÁS CÓMODA
-✓ Si no hay duplicados, el botón pasa a "Limpiar" para soltar
-  la carpeta de origen sin rodeos
+EDICIÓN RÁPIDA: MÁS CLARIDAD
+✓ "Limpiar" siempre visible encima de "Aplicar cambios"
+✓ Al terminar ves la lista de archivos renombrados y la vista baja sola
+✓ Nuevo botón "Recargar" para releer los archivos del disco
+
+DISEÑO MÁS COMPACTO
+✓ Avisos de "Versión Gratuita" más pequeños en Normalización
+  y Eliminación de duplicados
+✓ Encabezado "Origen" igual en todas las funcionalidades
+✓ Popup de actualización centrado, con rebote y color de la app

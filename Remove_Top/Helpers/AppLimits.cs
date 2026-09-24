@@ -101,6 +101,12 @@ namespace Remove_Top.Helpers
         /// </summary>
         public const int QuickRenameMaxFilesToScan = 1000;
 
+        /// <summary>
+        /// Máximo de caracteres del texto en "Agregar patrón" (Edición Rápida).
+        /// Se aplica al TextBox del popup (MaxLength + contador).
+        /// </summary>
+        public const int QuickRenameMaxPatternLength = 15;
+
         // ====================================================================
         // EXTRACCIÓN DE STEMS (Features/VocalRemoval)
         // ====================================================================

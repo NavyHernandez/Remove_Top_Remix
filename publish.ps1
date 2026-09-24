@@ -18,6 +18,7 @@
       1. Lee la versión del .csproj (o usa la del parámetro)
       2. dotnet publish (Release, win-x64, self-contained)
       3. vpk pack (crea el paquete .nupkg en releases/)
+      3b. Borra los .nupkg de versiones anteriores (solo queda la ultima)
       4. vpk upload github (sube a GitHub Releases)
 #>
 
@@ -91,6 +92,23 @@ if ($LASTEXITCODE -ne 0) {
 $nupkg = Get-ChildItem -Path $ReleaseDir -Filter "*.nupkg" | 
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 Write-Host "    Paquete creado: $($nupkg.FullName)" -ForegroundColor Green
+
+# ─── 3b. Limpieza de artefactos antiguos en releases/ ───────────
+# En releases/ SOLO queda la ÚLTIMA versión: se borran los .nupkg (full
+# y delta) de versiones anteriores.
+# Va DESPUÉS de vpk pack a propósito: el delta de la versión actual se
+# calcula contra el full anterior, así que borrar antes impediría el delta.
+# No se tocan: Setup.exe, Portable.zip, RELEASES ni los manifiestos del
+# feed (se regeneran/sobrescriben en cada pack).
+Write-Host "`n==> Limpiando artefactos antiguos (solo queda $Version)..." -ForegroundColor Yellow
+
+Get-ChildItem -Path $ReleaseDir -File | Where-Object {
+    if ($_.Name -match "^$AppId-(\d+\.\d+\.\d+)-(full|delta)\.nupkg$") { $Matches[1] -ne $Version }
+    else { $false }
+} | ForEach-Object {
+    Remove-Item $_.FullName -Force
+    Write-Host "    Borrado: $($_.Name)" -ForegroundColor DarkYellow
+}
 
 # ─── 4. vpk upload github ───────────────────────────────────────
 if ($SkipUpload) {

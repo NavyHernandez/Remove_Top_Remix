@@ -660,8 +660,9 @@ namespace Remove_Top.Features.Account
                 return;
 
             _updatePopupShownFor = version;
+            UpdatePopupVersionText.Text = $"v{version}";
             UpdatePopupSubtitle.Text =
-                $"La versión v{version} ya está disponible. Actualiza para recibir las últimas mejoras.";
+                "Ya está disponible. Actualiza para recibir las últimas mejoras.";
             UpdatePopupOverlay.Visibility = Visibility.Visible;
             UpdatePopupShowStoryboard.Begin();
         }

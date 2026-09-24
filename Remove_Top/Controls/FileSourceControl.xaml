@@ -83,7 +83,8 @@
             <TextBlock x:Name="SourceStatusText"
                        FontSize="12"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       TextWrapping="Wrap" />
+                       TextWrapping="Wrap"
+                       Visibility="Collapsed" />
         </StackPanel>
     </Border>
 </UserControl>

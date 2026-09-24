@@ -85,11 +85,11 @@ namespace Remove_Top.Features.DuplicateRemoval
             BrandText.Text = AppLimits.AppName;
             BrandSiteRun.Text = AppLimits.AppBrandSite;
 
-            // Muestra el límite de la versión gratuita. El texto se genera a
-            // partir de AppLimits para que coincida siempre con el límite real
-            // de escaneo (DuplicatesMaxFilesToScan).
-            LimitInfoBar.Title = AppLimits.DuplicatesInfoBarTitle;
-            LimitInfoBar.Message = AppLimits.DuplicatesInfoBarMessage;
+            // Muestra el límite de la versión gratuita en la fila compacta.
+            // El texto se genera a partir de AppLimits para que coincida
+            // siempre con el límite real de escaneo (DuplicatesMaxFilesToScan).
+            FreeBadgeText.Text = AppLimits.FreeBadgeText;
+            LimitInfoText.Text = AppLimits.DuplicatesInfoBarMessage;
 
             // Previsualizador: timer de playhead (100 ms), evento de fin de
             // reproducción y acento de la onda (naranja, el color de la feature).
