@@ -13,6 +13,7 @@
     <NavigationView x:Name="NavView"
                     PaneDisplayMode="LeftCompact"
                     IsSettingsVisible="False"
+                    IsBackButtonVisible="Collapsed"
                     ItemInvoked="NavView_ItemInvoked"
                     Loaded="NavView_Loaded">
 
@@ -109,6 +110,16 @@
                 </NavigationViewItem.Resources>
                 <NavigationViewItem.Icon>
                     <ic:FluentIcon Icon="ArrowDownload" IconVariant="Regular" IconSize="Size20" Foreground="White" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem x:Name="NavConverter" Tag="converter" Content="Convertir formatos"
+                                 ToolTipService.ToolTip="Convertir OGG/MPEG a WAV o MP3 320 kbps">
+                <NavigationViewItem.Resources>
+                    <SolidColorBrush x:Key="NavigationViewItemForeground" Color="#607D8B"/>
+                    <SolidColorBrush x:Key="NavigationViewItemForegroundSelected" Color="#607D8B"/>
+                </NavigationViewItem.Resources>
+                <NavigationViewItem.Icon>
+                    <ic:FluentIcon Icon="ArrowSync" IconVariant="Regular" IconSize="Size20" />
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem x:Name="NavAccount" Tag="account" Content="Cuenta"

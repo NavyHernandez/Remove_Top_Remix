@@ -412,14 +412,20 @@ namespace Remove_Top.Features.Normalization
         /// Procesa múltiples archivos de audio de forma asíncrona.
         /// Reporta progreso mediante IProgress y soporta cancelación via CancellationToken.
         /// Cada archivo se procesa en una tarea separada (Task.Run) para no bloquear la UI.
+        ///
+        /// Devuelve la lista autoritativa de resultados. (El <c>IProgress</c> solo
+        /// sirve para la UI en vivo: sus reportes llegan de forma asíncrona y NO
+        /// están garantizados al terminar el await — por eso la limpieza de
+        /// Descargas usa esta lista y no una foto del callback.)
         /// </summary>
-        public async Task ProcessFilesAsync(
+        public async Task<IReadOnlyList<NormalizationResult>> ProcessFilesAsync(
             string[] files,
             double targetDbFs,
             MasteringIntensity intensity,
             IProgress<NormalizationProgress> progress,
             CancellationToken cancellationToken = default)
         {
+            var collected = new List<NormalizationResult>(files.Length);
             int total = files.Length;
             for (int i = 0; i < total; i++)
             {
@@ -447,6 +453,7 @@ namespace Remove_Top.Features.Normalization
                     };
                 }
 
+                collected.Add(result);
                 progress.Report(new NormalizationProgress
                 {
                     CurrentIndex = i + 1,
@@ -455,6 +462,7 @@ namespace Remove_Top.Features.Normalization
                     Result = result
                 });
             }
+            return collected;
         }
 
         /// <summary>Ganancia máxima (dB) aplicada por la normalización por loudness.</summary>

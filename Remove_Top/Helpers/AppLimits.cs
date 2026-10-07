@@ -227,6 +227,31 @@ namespace Remove_Top.Helpers
             "Conecta tu cuenta de YouTube para este tipo de videos.";
 
         // ====================================================================
+        // CONVERTIDOR VOZ (Features/Converter)
+        // ====================================================================
+
+        /// <summary>
+        /// Límite REAL y PUBLICADO de archivos por lote en el Convertidor Voz
+        /// (AudioConverter). A diferencia de otras páginas, aquí ambos coinciden:
+        /// 50 archivos por ejecución; el resto se omite.
+        /// </summary>
+        public const int ConverterMaxFilesToScan = 50;
+
+        /// <summary>Nombre de la subcarpeta donde quedan los archivos convertidos.</summary>
+        public const string ConverterOutputFolderName = "OneDj_Convertidos";
+
+        /// <summary>Título del encabezado de la página de Convertir Formatos.</summary>
+        public const string ConverterPageTitle = "Convertir Formatos";
+
+        /// <summary>Subtítulo del encabezado de la página de Convertir Formatos.</summary>
+        public const string ConverterPageSubtitle =
+            "Convierte OGG/MPEG a WAV o MP3 320 kbps en estéreo, con reducción de ruido y mejora de voz.";
+
+        /// <summary>Aviso de límite del Convertidor Voz (junto al badge "Versión Gratuita").</summary>
+        public static string ConverterLimitMessage =>
+            $"Versión gratuita: hasta {N0(ConverterMaxFilesToScan)} archivos por lote.";
+
+        // ====================================================================
         // TEXTOS DE LA UI (generados a partir de las constantes)
         // ====================================================================
 

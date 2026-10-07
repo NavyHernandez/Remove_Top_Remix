@@ -373,6 +373,10 @@ namespace Remove_Top.Features.Downloader
             const double targetDb = -1.0;
             const MasteringIntensity intensity = MasteringIntensity.HardLimiter;
             var masterize = MasterizeCheckBox.IsChecked == true;
+            // Limpieza de intermedios (Fase 2 → resumen en Fase 3): contadores
+            // en scope del método para informar lo borrado/conservado.
+            bool keepOriginal = KeepOriginalCheckBox.IsChecked == true;
+            int cleanDeleted = 0, cleanKeptFailed = 0, cleanDeleteFailed = 0;
 
             // Sesión de YouTube vigente: se usa automáticamente en cada descarga.
             string? cookiesPath = YouTubeSession.HasFreshCookies() ? YouTubeSession.CookiesPath : null;
@@ -460,9 +464,18 @@ namespace Remove_Top.Features.Downloader
 
                     DownloadResult result;
                     var attemptStartedAt = DateTime.UtcNow;
+                    // Tope total por enlace (~6 min): si yt-dlp se queda girando
+                    // en reintentos, se corta con mensaje claro en vez de colgar.
+                    // Distingue cancelar-usuario (ct) de timeout (linkCts).
+                    using var linkCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    linkCts.CancelAfter(TimeSpan.FromMinutes(6));
                     try
                     {
-                        result = await _service.DownloadAsync(item.Url, folder, useFfmpeg, ffmpegPath, progress, ct, cookiesPath);
+                        result = await _service.DownloadAsync(item.Url, folder, useFfmpeg, ffmpegPath, progress, linkCts.Token, cookiesPath);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        result = new DownloadResult { Success = false, Message = "ERROR: download-timeout" };
                     }
                     catch (OperationCanceledException)
                     {
@@ -547,9 +560,16 @@ namespace Remove_Top.Features.Downloader
 
                         if (p.Result != null)
                         {
-                            _masterResults.Add(p.Result);
-                            ResultsListView.ScrollIntoView(p.Result);
-                            UpdateSummary();
+                            // Guardia anti-duplicado: los reportes tardíos pueden
+                            // llegar después de la reconciliación con la lista
+                            // autoritativa (ver abajo). Misma instancia = mismo objeto.
+                            bool isNew = !_masterResults.Contains(p.Result);
+                            if (isNew)
+                            {
+                                _masterResults.Add(p.Result);
+                                ResultsListView.ScrollIntoView(p.Result);
+                                UpdateSummary();
+                            }
 
                             var match = downloaded.FirstOrDefault(d => string.Equals(
                                 Path.GetFileNameWithoutExtension(d.Path),
@@ -566,7 +586,18 @@ namespace Remove_Top.Features.Downloader
                         }
                     });
 
-                    await normalizer.ProcessFilesAsync(files, targetDb, intensity, masterProgress, ct);
+                    // Lista autoritativa (no la foto del callback de progreso:
+                    // los reportes IProgress llegan asíncronos y podían faltar
+                    // los últimos, dejando intermedios sin borrar).
+                    var mastered = await normalizer.ProcessFilesAsync(files, targetDb, intensity, masterProgress, ct);
+
+                    // Reconciliación: agrega los que el callback aún no entregó.
+                    foreach (var r in mastered)
+                    {
+                        if (!_masterResults.Contains(r))
+                            _masterResults.Add(r);
+                    }
+                    UpdateSummary();
 
                     // Corrige tildes en los nombres de salida y refresca la lista.
                     AudioNormalizer.CorrectOutputNames(_masterResults);
@@ -590,25 +621,58 @@ namespace Remove_Top.Features.Downloader
                     // para no confundir al usuario (solo si se masterizó bien y
                     // el usuario no pidió conservar el original). Se borra por la
                     // ruta exacta del resultado (InputPath), nunca por nombre.
+                    // Con reintento único ante bloqueo transitorio (antivirus) y
+                    // reporte por archivo: lo que no se pudo borrar se informa
+                    // en el resumen en vez de quedarse en silencio.
                     ProgressText.Text = "Limpiando archivos temporales...";
-                    bool keepOriginal = KeepOriginalCheckBox.IsChecked == true;
                     if (!keepOriginal)
                     {
                         var folderFull = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar)
                             + Path.DirectorySeparatorChar;
-                        foreach (var r in corrected.Where(r => r.Success && !string.IsNullOrEmpty(r.InputPath)))
+                        foreach (var r in corrected)
                         {
+                            if (!r.Success || string.IsNullOrEmpty(r.InputPath))
+                            {
+                                // Fallo al normalizar: se conserva a propósito
+                                // para no perder nada, pero se informa.
+                                if (!r.Success)
+                                {
+                                    cleanKeptFailed++;
+                                    App.Log("DownloaderPage.Cleanup", (r.InputPath ?? r.FileName) + " :: omitido (fallo al normalizar, se conserva)");
+                                }
+                                continue;
+                            }
+                            string full;
                             try
                             {
-                                var full = Path.GetFullPath(r.InputPath);
-                                if (full.StartsWith(folderFull, StringComparison.OrdinalIgnoreCase) &&
-                                    File.Exists(full))
-                                {
-                                    File.Delete(full);
-                                }
+                                full = Path.GetFullPath(r.InputPath);
                             }
-                            catch (Exception ex) { App.Log("DownloaderPage.Cleanup", ex.Message); }
+                            catch (Exception ex)
+                            {
+                                cleanDeleteFailed++;
+                                App.Log("DownloaderPage.Cleanup", r.InputPath + " :: ruta inválida: " + ex.Message);
+                                continue;
+                            }
+                            if (!full.StartsWith(folderFull, StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
+                            {
+                                cleanDeleteFailed++;
+                                App.Log("DownloaderPage.Cleanup", r.InputPath + " :: omitido (fuera de la carpeta destino o inexistente)");
+                                continue;
+                            }
+                            if (await TryDeleteIntermediateAsync(full))
+                            {
+                                cleanDeleted++;
+                                App.Log("DownloaderPage.Cleanup", r.InputPath + " :: borrado OK");
+                            }
+                            else
+                            {
+                                cleanDeleteFailed++;
+                            }
                         }
+                    }
+                    else
+                    {
+                        App.Log("DownloaderPage.Cleanup", $"conservados por el usuario: {corrected.Count(r => r.Success)} intermedio(s)");
                     }
                 }
                 else
@@ -642,7 +706,15 @@ namespace Remove_Top.Features.Downloader
                 if (fail > 0)
                     message += $", {fail} con error";
                 if (masterize && _masterResults.Count > 0)
-                    message += $" \u00b7 {_masterResults.Count} normalizado(s)";
+                    message += $" · {_masterResults.Count} normalizado(s)";
+                if (masterize && downloaded.Count > 0 && !keepOriginal)
+                {
+                    message += $" · {cleanDeleted} intermedio(s) eliminado(s)";
+                    if (cleanKeptFailed > 0)
+                        message += $", {cleanKeptFailed} conservado(s) por fallo al normalizar";
+                    if (cleanDeleteFailed > 0)
+                        message += $", {cleanDeleteFailed} no se pudieron borrar";
+                }
                 ProgressText.Text = message;
 
                 ShowEndActions();
@@ -700,6 +772,37 @@ namespace Remove_Top.Features.Downloader
                 _cts?.Dispose();
                 _cts = null;
             }
+        }
+
+        /// <summary>
+        /// Borra un WAV intermedio con un reintento único ante bloqueo
+        /// transitorio (antivirus/indexación): espera 400 ms y reintenta una
+        /// vez. Devuelve si el archivo quedó borrado (o ya no existía).
+        /// Todo resultado se registra en crash.log (salvaguarda diagnóstica).
+        /// </summary>
+        private static async Task<bool> TryDeleteIntermediateAsync(string fullPath)
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                try
+                {
+                    if (!File.Exists(fullPath))
+                        return true;
+                    File.Delete(fullPath);
+                    return true;
+                }
+                catch (Exception ex) when (attempt == 0)
+                {
+                    App.Log("DownloaderPage.Cleanup", fullPath + " :: bloqueo transitorio, reintento: " + ex.Message);
+                    try { await Task.Delay(400); } catch { }
+                }
+                catch (Exception ex)
+                {
+                    App.Log("DownloaderPage.Cleanup", fullPath + " :: ERROR tras reintento: " + ex.Message);
+                    return false;
+                }
+            }
+            return false;
         }
 
         private void UpdateSummary()

@@ -1,18 +1,19 @@
-=== One Dj App v0.4.0 ===
+=== One Dj App v0.4.1 ===
 
-EDICIÓN RÁPIDA: AGREGA PATRÓN
-✓ Nuevo botón "+ Patrón": inserta un texto (máx. 15 letras) al inicio,
-  centro o final de todos los nombres cargados
-✓ El centro se coloca solo entre palabras, nunca las parte
-✓ Vista previa con tu canción guía antes de aceptar
+NUEVO: CONVERTIR FORMATOS
+✓ Nueva funcionalidad: convierte OGG/MPEG a WAV o MP3 320 kbps
+  en estéreo, con reducción de ruido y mejora de voz
+✓ Elige el formato en un menú: MP3 320 o WAV 16-bit
+✓ Tus notas de voz (.ogg de WhatsApp) también se convierten
+✓ Al terminar ves Pico y LUFS reales de cada archivo
 
-EDICIÓN RÁPIDA: MÁS CLARIDAD
-✓ "Limpiar" siempre visible encima de "Aplicar cambios"
-✓ Al terminar ves la lista de archivos renombrados y la vista baja sola
-✓ Nuevo botón "Recargar" para releer los archivos del disco
+DESCARGAS DE YOUTUBE MÁS RÁPIDAS Y CLARAS
+✓ Motor de verificación más rápido (menos espera antes de descargar)
+✓ Mensajes de error honestos: sabrás qué pasó realmente
+✓ Si YouTube solo ofrece cierto formato, se intenta por otra vía
+✓ Al normalizar se borran los temporales y se te informa cuántos
 
-DISEÑO MÁS COMPACTO
-✓ Avisos de "Versión Gratuita" más pequeños en Normalización
-  y Eliminación de duplicados
-✓ Encabezado "Origen" igual en todas las funcionalidades
-✓ Popup de actualización centrado, con rebote y color de la app
+DISEÑO MÁS LIMPIO
+✓ Checks con el color de cada funcionalidad
+✓ Botón Convertir a todo el ancho
+✓ Menú sin flecha innecesaria

@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Remove_Top.Features.FormatConverter.FormatConverterPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Remove_Top.Features.FormatConverter"
+    xmlns:ic="using:FluentIcons.WinUI"
+    xmlns:audiopreview="using:Remove_Top.Features.AudioPreview"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Unloaded="Page_Unloaded">
+
+    <!-- Estilo compacto propio para los checks de "Mejora de salida":
+         caja de 16 px (la plantilla de WinUI fija 20 px y no responde a
+         FontSize) con el acento pizarra de la funcionalidad. Solo esta página. -->
+    <!-- Estilo compacto propio para los checks de "Mejora de salida": -->
+    <Page.Resources>
+        <Style x:Key="CompactCheckStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="10,4,0,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid x:Name="RootGrid" Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Opacity">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.85" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Opacity">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.7" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid" Storyboard.TargetProperty="Opacity">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.5" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Checked">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#607D8B" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="BorderBrush">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#607D8B" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckGlyph" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Indeterminate">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#607D8B" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="IndeterminateGlyph" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid x:Name="CheckBoxGrid" Width="16" Height="16" VerticalAlignment="Center">
+                                <Border x:Name="CheckBoxBorder"
+                                        Background="Transparent"
+                                        BorderBrush="#607D8B"
+                                        BorderThickness="1.5"
+                                        CornerRadius="3" />
+                                <FontIcon x:Name="CheckGlyph"
+                                          FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                          Glyph="&#xE73E;"
+                                          FontSize="11"
+                                          Foreground="White"
+                                          Visibility="Collapsed"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                                <Border x:Name="IndeterminateGlyph"
+                                        Background="White"
+                                        Width="6" Height="6"
+                                        CornerRadius="1"
+                                        Visibility="Collapsed" />
+                            </Grid>
+                            <ContentPresenter Grid.Column="1"
+                                              Content="{TemplateBinding Content}"
+                                              FontSize="{TemplateBinding FontSize}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              Margin="10,3,0,3"
+                                              VerticalAlignment="Center" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+
+    <!-- Zona de arrastre de la página (carpetas y canciones sueltas).
+         El Grid externo recibe el drop; el overlay avisa mientras se arrastra.
+         El fondo transparente es requisito para que el área sea válida. -->
+    <Grid Background="Transparent"
+          AllowDrop="True"
+          DragEnter="Root_DragEnter"
+          DragOver="Root_DragOver"
+          DragLeave="Root_DragLeave"
+          Drop="Root_Drop">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- HEADER: Branding + Título y descripción                     -->
+        <!-- ============================================================ -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <Border Style="{StaticResource BrandBadgeBorderStyle}" Background="#607D8B">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                    <ic:FluentIcon Icon="ArrowSync" IconVariant="Regular" IconSize="Size12"
+                                   Foreground="White" />
+                    <TextBlock x:Name="BrandText" Text="" Style="{StaticResource BrandTextStyle}" />
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="PageTitleText"
+                       Text=""
+                       FontSize="28" FontWeight="SemiBold" />
+            <TextBlock x:Name="PageSubtitleText"
+                       Text=""
+                       FontSize="14"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- ============================================================ -->
+        <!-- CONTENT: Scrollable con todas las secciones                  -->
+        <!-- ============================================================ -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="16">
+
+                <!-- ==================================================== -->
+                <!-- AVISO: Límite de la versión gratuita (fila compacta) -->
+                <!-- ==================================================== -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border CornerRadius="4" Padding="6,2" Background="#70AD47">
+                        <TextBlock x:Name="FreeBadgeText"
+                                   Text=""
+                                   FontSize="10" FontWeight="SemiBold" Foreground="White" />
+                    </Border>
+                    <TextBlock x:Name="LimitInfoText"
+                               Text=""
+                               FontSize="11"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Origen (carpeta, archivos o arrastre)        -->
+                <!-- ==================================================== -->
+                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Origen"
+                                   FontSize="16" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="BrowseFolderButton"
+                                    Content="Carpeta..."
+                                    Click="BrowseFolderButton_Click"
+                                    CornerRadius="4"
+                                    Background="Transparent"
+                                    BorderBrush="#607D8B"
+                                    Foreground="#607D8B"
+                                    BorderThickness="1.5" />
+                            <Button x:Name="BrowseFilesButton"
+                                    Content="Archivos..."
+                                    Click="BrowseFilesButton_Click"
+                                    CornerRadius="4"
+                                    Background="Transparent"
+                                    BorderBrush="#607D8B"
+                                    Foreground="#607D8B"
+                                    BorderThickness="1.5" />
+                        </StackPanel>
+                        <TextBlock x:Name="FileCountText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Visibility="Collapsed" />
+                        <TextBlock FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="…o arrastra aquí una carpeta o canciones sueltas (OGG, MPEG, MP3, WAV)." />
+                    </StackPanel>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Formato de salida y mejoras de voz          -->
+                <!-- En dos columnas para ocupar menos alto vertical.     -->
+                <!-- ==================================================== -->
+                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Formato de salida"
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <!-- Menú desplegable del formato (mismo patrón que el
+                                 selector de intensidad de Normalización). -->
+                            <ComboBox x:Name="FormatComboBox"
+                                      MinWidth="260" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Text="Mejora de salida"
+                                       FontSize="16" FontWeight="SemiBold" />
+                            <CheckBox x:Name="RemoveNoiseCheck" Style="{StaticResource CompactCheckStyle}" Content="Quitar ruido de fondo (afftdn o puerta de ruido)" IsChecked="True" />
+                            <CheckBox x:Name="EnhanceVoiceCheck" Style="{StaticResource CompactCheckStyle}" Content="Mejorar voz (presencia + compresión + nivel −16 LUFS)" IsChecked="True" />
+                            <TextBlock FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="Corte 80 Hz · compresor 3:1 · techo −1.0 dBTP · salida siempre estéreo en OneDj_Convertidos." />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ==================================================== -->
+                <!-- SECCIÓN: Conversión (cola, preview, progreso)         -->
+                <!-- ==================================================== -->
+                <Border BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Conversión"
+                                   FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock x:Name="QueueSummaryText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="Sin archivos. Carga una carpeta o canciones para empezar." />
+
+                        <!-- Cola de archivos con estado por fila. -->
+                        <ListView x:Name="QueueListView" SelectionMode="None" MaxHeight="320">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:ConverterItem">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <!-- Escuchar el original: solo antes de convertir. -->
+                                        <Button Tag="{x:Bind FilePath}"
+                                                Click="PreviewRowButton_Click"
+                                                Visibility="{x:Bind PreviewVisibility, Mode=OneWay}"
+                                                ToolTipService.ToolTip="Escuchar original"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="4,0">
+                                            <ic:FluentIcon Icon="Play" IconVariant="Regular" IconSize="Size16"
+                                                           Foreground="#607D8B" />
+                                        </Button>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{x:Bind FileName}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind Detail, Mode=OneWay}" FontSize="11"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <!-- Estado corto: En cola / Revisando / Listo / Error. -->
+                                        <TextBlock Grid.Column="2" Text="{x:Bind Status, Mode=OneWay}" FontSize="11"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <!-- Quitar de la lista (no toca el disco). -->
+                                        <Button Grid.Column="3"
+                                                Tag="{x:Bind FilePath}"
+                                                Click="RemoveQueueItem_Click"
+                                                ToolTipService.ToolTip="Quitar de la lista"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                Padding="4,0">
+                                            <ic:FluentIcon Icon="DismissCircle" IconVariant="Regular" IconSize="Size16"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+
+                        <!-- Mini reproductor del original (onda + transporte). -->
+                        <Border x:Name="PreviewSection"
+                                BorderBrush="{ThemeResource ControlElevationBorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="12"
+                                Visibility="Collapsed">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock x:Name="PreviewFileNameText" FontSize="13" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <Button Grid.Column="1" x:Name="PreviewCloseButton"
+                                            Content="✕" Click="PreviewClose_Click"
+                                            Background="Transparent" BorderThickness="0" Padding="4,0" />
+                                </Grid>
+                                <audiopreview:WaveformView x:Name="PreviewWaveform" Height="88" />
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Button x:Name="PreviewPlayButton" Click="PreviewPlayPause_Click"
+                                            Background="Transparent" BorderThickness="1" CornerRadius="4" />
+                                    <Button x:Name="PreviewStopButton" Click="PreviewStop_Click"
+                                            Background="Transparent" BorderThickness="1" CornerRadius="4" />
+                                    <TextBlock x:Name="PreviewTimeText" FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Progreso y estado final (mismo patrón que Normalización:
+                             loader durante el trabajo, "Completado" con icono). -->
+                        <StackPanel x:Name="ProgressSection" Spacing="8" Visibility="Collapsed">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="10">
+                                <ProgressRing x:Name="WorkingRing"
+                                              IsActive="False"
+                                              IsIndeterminate="True"
+                                              Width="22"
+                                              Height="22"
+                                              Foreground="#607D8B"
+                                              VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           x:Name="ProgressTitleText"
+                                           Text="Convirtiendo..."
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                                <ic:FluentIcon Grid.Column="2"
+                                               x:Name="CompletedIcon"
+                                               Icon="CheckmarkCircle"
+                                               IconVariant="Filled"
+                                               IconSize="Size20"
+                                               Foreground="#27AE60"
+                                               Visibility="Collapsed"
+                                               VerticalAlignment="Center" />
+                            </Grid>
+                            <ProgressBar x:Name="ProgressBar" Minimum="0" Maximum="100" Value="0" />
+                            <TextBlock x:Name="ProgressText" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+
+                        <!-- Acciones (práctica de la app): Convertir sólido a todo el
+                             ancho + Limpiar/Cancelar fantasma con borde del acento. -->
+                        <Button x:Name="ConvertButton"
+                                Content="Convertir"
+                                Click="ConvertButton_Click"
+                                IsEnabled="False"
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Height="44"
+                                HorizontalAlignment="Stretch"
+                                CornerRadius="6"
+                                Background="#607D8B"
+                                Foreground="White"
+                                BorderThickness="0" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                            <Button x:Name="CleanButton"
+                                    Content="Limpiar"
+                                    Click="CleanButton_Click"
+                                    CornerRadius="4"
+                                    Background="Transparent"
+                                    BorderBrush="#607D8B"
+                                    Foreground="#607D8B"
+                                    BorderThickness="1.5"
+                                    Visibility="Collapsed" />
+                            <Button x:Name="CancelButton"
+                                    Content="Cancelar"
+                                    Click="CancelButton_Click"
+                                    CornerRadius="4"
+                                    Background="Transparent"
+                                    BorderBrush="#607D8B"
+                                    Foreground="#607D8B"
+                                    BorderThickness="1.5"
+                                    Visibility="Collapsed" />
+                        </StackPanel>
+                        <TextBlock x:Name="ResultSummaryText" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed" />
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+
+    <!-- Overlay de arrastre: oscurece la página y avisa que se suelte. -->
+    <Border x:Name="Overlay"
+            Background="#AA000000"
+            BorderBrush="#607D8B"
+            BorderThickness="2"
+            CornerRadius="12"
+            Margin="16"
+            Visibility="Collapsed">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+            <TextBlock Text="Suelta para cargar"
+                       FontSize="22" FontWeight="SemiBold" Foreground="White"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Carpeta o canciones sueltas (hasta 50)"
+                       FontSize="13" Foreground="White"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+    </Border>
+    </Grid>
+</Page>

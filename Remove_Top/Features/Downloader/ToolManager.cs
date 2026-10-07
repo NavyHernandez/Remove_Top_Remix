@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
@@ -99,12 +100,40 @@ namespace Remove_Top.Features.Downloader
         }
 
         /// <summary>
+        /// Motor ya verificado en esta sesión: evita re-verificar PyPI/GitHub y
+        /// recalentar en cada clic ("Intentar de nuevo" y 2.º enlace van rápido).
+        /// Solo cubre la verificación; el servidor PO se chequea aparte (ping).
+        /// </summary>
+        private static bool _sessionEnsured;
+
+        /// <summary>Puerto loopback del servidor bgutil de PO tokens (modo HTTP).</summary>
+        public const int BgUtilServerPort = 4416;
+
+        /// <summary>URL base del servidor bgutil (proveedor `bgutil:http` del plugin).</summary>
+        public static string BgUtilServerUrl => $"http://127.0.0.1:{BgUtilServerPort}";
+
+        /// <summary>Proceso del servidor bgutil (uno por sesión, loopback).</summary>
+        private static Process? _bgUtilServer;
+        private static readonly object _serverLock = new();
+
+        /// <summary>
         /// Asegura que Python + yt-dlp estén instalados y actualizados, y que deno
         /// y ffmpeg existan. Reporta el progreso global (0-100) con el paso actual.
         /// </summary>
         public async Task EnsureToolsAsync(IProgress<ToolProgress>? progress = null, CancellationToken ct = default)
         {
             Directory.CreateDirectory(ToolsRoot);
+
+            // Vía rápida de sesión: si ya se verificó todo una vez y los
+            // archivos siguen en su sitio, solo se asegura el servidor PO
+            // (ping barato) sin tocar la red (PyPI/GitHub) ni recalentar.
+            if (_sessionEnsured && IsPythonReady && IsDenoReady && IsBgUtilReady && FfmpegExe != null)
+            {
+                progress?.Report(new ToolProgress { Status = "Verificando verificador local...", Percentage = 50 });
+                await EnsureBgUtilServerAsync(null, ct).ConfigureAwait(false);
+                progress?.Report(new ToolProgress { Status = "Motor listo", Percentage = 100 });
+                return;
+            }
 
             // Reparto de progreso por peso (los binarios grandes aportan más).
             const double wPython = 22, wYtDlp = 10, wEjs = 2, wDeno = 28, wFfmpeg = 30, wBgUtil = 8;
@@ -172,6 +201,14 @@ namespace Remove_Top.Features.Downloader
             await EnsureBgUtilAsync(p => Step("Actualizando proveedor anti-bot...", wBgUtil * p / 100.0), ct);
             done += wBgUtil;
 
+            // 7) Servidor local de PO tokens (modo HTTP, persistente): atiende
+            // los tokens en milisegundos sin arrancar deno en frío por llamada
+            // (ese era el timeout de 15 s del modo script). Si no levanta, se
+            // sigue con el modo script como antes.
+            Step("Iniciando verificador local...", 0);
+            await EnsureBgUtilServerAsync(null, ct).ConfigureAwait(false);
+
+            _sessionEnsured = true;
             progress?.Report(new ToolProgress { Status = "Motor listo", Percentage = 100 });
         }
 
@@ -249,6 +286,12 @@ namespace Remove_Top.Features.Downloader
                 // Sin esto, el proveedor queda mudo ("Did you forget to run deno install?").
                 // En Task.Run porque puede tardar minutos (descarga paquetes npm).
                 await Task.Run(() => RunDenoInstall(p => progress?.Invoke(90 + p * 0.05), ct), ct);
+
+                // 3.5) Precompilación de los scripts (deno cache --no-check):
+                // deja el transpile y los npm en la caché UNA vez aquí, para que
+                // ni el servidor ni el modo script paguen ese costo por llamada.
+                // Idempotente por sello (versión deno + versión bgutil).
+                await Task.Run(() => EnsureDenoCache(ct), ct);
 
                 // 4) Precalentamiento del script generador: el primer `deno run`
                 // compila el TS y carga el módulo nativo canvas, superando los
@@ -371,11 +414,19 @@ namespace Remove_Top.Features.Downloader
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
+                // Diagnóstico: cuánto tarda el arranque en frío (si supera los
+                // 15 s del plugin, el modo script falla y conviene el servidor).
+                var sw = Stopwatch.StartNew();
                 var done = process.WaitForExit(120000);
+                sw.Stop();
                 if (!done)
                 {
                     try { process.Kill(entireProcessTree: true); } catch { }
                     App.Log("ToolManager.BgUtil", "warm-up del script superó los 2 minutos.");
+                }
+                else
+                {
+                    App.Log("ToolManager.BgUtil", $"warm-up del script en {(int)sw.Elapsed.TotalSeconds}s (código {process.ExitCode}).");
                 }
             }
             catch (Exception ex)
@@ -383,6 +434,226 @@ namespace Remove_Top.Features.Downloader
                 App.Log("ToolManager.BgUtil", ex.Message, ex.StackTrace);
             }
             progress?.Invoke(100);
+        }
+
+        /// <summary>
+        /// Precompila los scripts bgutil (`main.ts` del servidor + `generate_once.ts`)
+        /// en la caché de deno, una sola vez por combinación (versión deno +
+        /// versión bgutil, sello en `deno.cache.stamp`). Sin esto cada `deno run`
+        /// paga el type-check y la resolución npm (más de 15 s en equipos lentos).
+        /// Nunca lanza excepción.
+        /// </summary>
+        private static void EnsureDenoCache(CancellationToken ct)
+        {
+            try
+            {
+                if (!File.Exists(DenoExe) || !Directory.Exists(BgUtilServerDir))
+                    return;
+                if (!Directory.Exists(Path.Combine(BgUtilServerDir, "node_modules")))
+                    return;
+
+                string stampFile = Path.Combine(BgUtilDir, "deno.cache.stamp");
+                string bgutilVersion = File.Exists(BgUtilVersionFile) ? File.ReadAllText(BgUtilVersionFile).Trim() : "";
+                string want = GetDenoVersion() + "|" + bgutilVersion;
+                if (!string.IsNullOrEmpty(want) && want != "|" &&
+                    File.Exists(stampFile) && File.ReadAllText(stampFile).Trim() == want)
+                    return;
+
+                Directory.CreateDirectory(DenoCacheDir);
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = DenoExe,
+                        Arguments = "cache --no-check \"src/main.ts\" \"src/generate_once.ts\"",
+                        WorkingDirectory = BgUtilServerDir,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.StartInfo.Environment["DENO_DIR"] = DenoCacheDir;
+                process.StartInfo.Environment["DENO_NO_UPDATE_CHECK"] = "1";
+                process.StartInfo.Environment["DENO_NO_PROMPT"] = "1";
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                var sw = Stopwatch.StartNew();
+                var done = process.WaitForExit(600000);
+                sw.Stop();
+                if (!done)
+                {
+                    try { process.Kill(entireProcessTree: true); } catch { }
+                    App.Log("ToolManager.BgUtil", "deno cache superó los 10 minutos.");
+                    return;
+                }
+                if (process.ExitCode == 0)
+                {
+                    try { File.WriteAllText(stampFile, want); } catch { }
+                    App.Log("ToolManager.BgUtil", $"deno cache OK en {(int)sw.Elapsed.TotalSeconds}s.");
+                }
+                else
+                {
+                    App.Log("ToolManager.BgUtil", $"deno cache salió con código {process.ExitCode}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                App.Log("ToolManager.BgUtil", ex.Message, ex.StackTrace);
+            }
+        }
+
+        /// <summary>Versión de deno (`deno --version`, primera línea) o vacío.</summary>
+        private static string GetDenoVersion()
+        {
+            try
+            {
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = DenoExe,
+                        Arguments = "--version",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.StartInfo.Environment["DENO_NO_UPDATE_CHECK"] = "1";
+                process.Start();
+                string? first = process.StandardOutput.ReadLine();
+                process.WaitForExit(15000);
+                return (first ?? "").Trim();
+            }
+            catch { return ""; }
+        }
+
+        /// <summary>
+        /// Ping TCP al servidor bgutil (loopback). Rápido: true en ms si está
+        /// arriba; false tras ~1.5 s si no hay nada escuchando.
+        /// </summary>
+        public static async Task<bool> IsBgUtilServerUpAsync()
+        {
+            try
+            {
+                using var tcp = new TcpClient();
+                var connect = tcp.ConnectAsync("127.0.0.1", BgUtilServerPort);
+                var done = await Task.WhenAny(connect, Task.Delay(1500)).ConfigureAwait(false);
+                if (done != connect || !tcp.Connected)
+                    return false;
+                try { await connect.ConfigureAwait(false); } catch { return false; }
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Asegura el servidor local de PO tokens (modo HTTP persistente): si
+        /// responde al ping se reutiliza; si no, se arranca `deno run` con
+        /// `src/main.ts` y se espera hasta 90 s a que escuche. Devuelve la URL
+        /// base para el plugin (`bgutil:http`) o null (seguir en modo script).
+        /// Nunca lanza excepción.
+        /// </summary>
+        public static async Task<string?> EnsureBgUtilServerAsync(IProgress<ToolProgress>? progress, CancellationToken ct)
+        {
+            try
+            {
+                if (await IsBgUtilServerUpAsync().ConfigureAwait(false))
+                    return BgUtilServerUrl;
+
+                var mainTs = Path.Combine(BgUtilServerDir, "src", "main.ts");
+                if (!File.Exists(DenoExe) || !File.Exists(mainTs))
+                    return null;
+
+                lock (_serverLock)
+                {
+                    try
+                    {
+                        if (_bgUtilServer != null && !_bgUtilServer.HasExited)
+                            return BgUtilServerUrl; // arrancando en otro hilo: el ping dirá
+                    }
+                    catch { _bgUtilServer = null; }
+                }
+
+                Directory.CreateDirectory(DenoCacheDir);
+                var psi = new ProcessStartInfo
+                {
+                    FileName = DenoExe,
+                    WorkingDirectory = BgUtilServerDir,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+                // --no-check: el transpile ya quedó en caché (EnsureDenoCache).
+                psi.ArgumentList.Add("run");
+                psi.ArgumentList.Add("--allow-all");
+                psi.ArgumentList.Add("--no-check");
+                psi.ArgumentList.Add(mainTs);
+                psi.ArgumentList.Add("-p");
+                psi.ArgumentList.Add(BgUtilServerPort.ToString());
+                psi.Environment["DENO_DIR"] = DenoCacheDir;
+                psi.Environment["DENO_NO_UPDATE_CHECK"] = "1";
+                psi.Environment["DENO_NO_PROMPT"] = "1";
+
+                var server = new Process { StartInfo = psi, EnableRaisingEvents = true };
+                server.OutputDataReceived += (_, __) => { };
+                server.ErrorDataReceived += (_, __) => { };
+                server.Start();
+                server.BeginOutputReadLine();
+                server.BeginErrorReadLine();
+                lock (_serverLock) { _bgUtilServer = server; }
+
+                var sw = Stopwatch.StartNew();
+                while (sw.Elapsed < TimeSpan.FromSeconds(90))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try { if (server.HasExited) break; } catch { break; }
+                    if (await IsBgUtilServerUpAsync().ConfigureAwait(false))
+                    {
+                        sw.Stop();
+                        App.Log("ToolManager.BgUtil", $"servidor PO arriba en {(int)sw.Elapsed.TotalSeconds}s.");
+                        progress?.Report(new ToolProgress { Status = "Verificador local listo", Percentage = 100 });
+                        return BgUtilServerUrl;
+                    }
+                    await Task.Delay(1000, ct).ConfigureAwait(false);
+                }
+
+                try { if (!server.HasExited) server.Kill(entireProcessTree: true); } catch { }
+                lock (_serverLock) { if (_bgUtilServer == server) _bgUtilServer = null; }
+                App.Log("ToolManager.BgUtil", "el servidor PO no respondió en 90 s; se sigue en modo script.");
+                return null;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                App.Log("ToolManager.BgUtil", ex.Message, ex.StackTrace);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Detiene el servidor bgutil de la sesión (al cerrar la app). Best-effort.
+        /// </summary>
+        public static void StopBgUtilServer()
+        {
+            try
+            {
+                lock (_serverLock)
+                {
+                    try
+                    {
+                        if (_bgUtilServer != null && !_bgUtilServer.HasExited)
+                            _bgUtilServer.Kill(entireProcessTree: true);
+                    }
+                    catch { }
+                    _bgUtilServer = null;
+                }
+            }
+            catch { }
         }
 
         /// <summary>

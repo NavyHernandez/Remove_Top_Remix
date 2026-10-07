@@ -16,6 +16,17 @@ namespace Remove_Top.Features.Downloader
             if (text.StartsWith("ERROR:", StringComparison.OrdinalIgnoreCase))
                 text = text["ERROR:".Length..].Trim();
 
+            // El verificador local de PO tokens (deno) tardó demasiado: NO es
+            // un problema de conexión. Va primero porque el texto contiene
+            // "timed out" y el genérico de red lo taparía (mensaje engañoso).
+            if (Contains(text, "generate_once"))
+                return "YouTube pidi\u00f3 una verificaci\u00f3n que tard\u00f3 demasiado en este equipo. Cierra otras aplicaciones e intenta de nuevo.";
+
+            // Tope total por enlace agotado (ver RunFlowAsync): la descarga no
+            // terminó en el tiempo razonable.
+            if (Contains(text, "download-timeout"))
+                return "La descarga tard\u00f3 demasiado. Revisa tu conexi\u00f3n e intenta de nuevo.";
+
             // Causas definitivas primero (reintentar no ayuda): el orden importa
             // porque "login required" también aparece en videos con restricción.
             if (Contains(text, "private video") || Contains(text, "video unavailable") ||

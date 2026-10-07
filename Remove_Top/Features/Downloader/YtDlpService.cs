@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -35,6 +36,45 @@ namespace Remove_Top.Features.Downloader
 
         /// <summary>Cadenas de respaldo si la principal cae en bloqueo anti-bot.</summary>
         private static readonly string[] FallbackClientChains = ["tv,web_safari,mweb", "android"];
+
+        /// <summary>Caché breve del modo PO (evita el ping TCP en cada llamada).</summary>
+        private static string? _potServerCache;
+        private static DateTime _potServerCacheAt;
+        private static bool _potModeLogged;
+
+        /// <summary>
+        /// URL del servidor PO si está arriba (ping TCP barato, cacheado 60 s).
+        /// Null si no hay servidor: se usa el modo script del plugin.
+        /// </summary>
+        private static string? PotServerUrlFast()
+        {
+            if (_potServerCache != null && (DateTime.UtcNow - _potServerCacheAt) < TimeSpan.FromSeconds(60))
+                return _potServerCache;
+            string? url = null;
+            try
+            {
+                using var tcp = new TcpClient();
+                var connect = tcp.ConnectAsync("127.0.0.1", ToolManager.BgUtilServerPort);
+                if (connect.Wait(TimeSpan.FromMilliseconds(800))) // hilo de fondo: bloqueo breve OK
+                {
+                    try { connect.GetAwaiter().GetResult(); } catch { }
+                    if (tcp.Connected)
+                        url = ToolManager.BgUtilServerUrl;
+                }
+            }
+            catch { }
+            _potServerCache = url;
+            _potServerCacheAt = DateTime.UtcNow;
+            return url;
+        }
+
+        /// <summary>Registra una vez por sesión qué modo PO se usa (servidor/script).</summary>
+        private static void LogOncePotMode(string mode)
+        {
+            if (_potModeLogged) return;
+            _potModeLogged = true;
+            App.Log("YtDlpService.PotMode", "proveedor PO: " + mode);
+        }
 
         private static readonly Regex PercentRegex =
             new(@"\[download\]\s+(\d+(?:\.\d+)?)%", RegexOptions.Compiled);
@@ -115,7 +155,29 @@ namespace Remove_Top.Features.Downloader
         {
             var result = await RunOnceAsync(
                 url, outputDir, convertToWav, ffmpegLocation, PrimaryClientChain, progress, cancellationToken);
-            if (result.Success || !result.IsBotCheck)
+            if (result.Success)
+                return result;
+
+            // Límite de velocidad (429): una sola espera larga y reintento de la
+            // principal antes de la cascada (reintentar de inmediato no ayuda).
+            if (IsRateLimited(result.Message))
+            {
+                progress?.Report(new DownloadProgress
+                {
+                    Title = "",
+                    Percentage = 0,
+                    Message = "Límite de velocidad de YouTube, esperando 60 s..."
+                });
+                App.Log("YtDlpService.RateLimit", "429: pausa de 60 s y reintento de la cadena principal.");
+                try { await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken); }
+                catch (OperationCanceledException) { throw; }
+                result = await RunOnceAsync(
+                    url, outputDir, convertToWav, ffmpegLocation, PrimaryClientChain, progress, cancellationToken);
+                if (result.Success || !result.IsBotCheck)
+                    return result;
+            }
+
+            if (!result.IsBotCheck)
                 return result;
 
             foreach (var chain in FallbackClientChains)
@@ -133,6 +195,23 @@ namespace Remove_Top.Features.Downloader
                     url, outputDir, convertToWav, ffmpegLocation, chain, progress, cancellationToken);
                 if (result.Success || !result.IsBotCheck)
                     return result;
+            }
+
+            // Pata HLS: si YouTube solo ofrece SABR (sin URLs https directas),
+            // web_safari entrega HLS (m3u8) que no exige PO token GVS y ffmpeg
+            // lo convierte igual. Solo con ffmpeg disponible.
+            if (!result.Success && convertToWav && !string.IsNullOrEmpty(ffmpegLocation) && IsFormatUnavailable(result.Message))
+            {
+                App.Log("YtDlpService.HlsFallback", "solo SABR disponible; reintento con web_safari (HLS).");
+                progress?.Report(new DownloadProgress
+                {
+                    Title = "",
+                    Percentage = 0,
+                    Message = "Probando formato alternativo (HLS)..."
+                });
+                result = await RunOnceAsync(
+                    url, outputDir, convertToWav, ffmpegLocation, "web_safari", progress, cancellationToken,
+                    allowPotRetry: false);
             }
 
             return result;
@@ -211,12 +290,22 @@ namespace Remove_Top.Features.Downloader
             Arg("--sleep-requests"); Arg("1");
 
             // Proveedor de PO tokens (bgutil + deno): hace que las peticiones
-            // parezcan originadas en un navegador real. Si no está aprovisionado,
-            // yt-dlp simplemente trabaja sin PO tokens (como antes).
-            if (ToolManager.IsBgUtilReady)
+            // parezcan originadas en un navegador real.
+            // - Servidor HTTP persistente (rápido, ms por token): si está arriba.
+            // - Modo script (deno en frío, ~15 s por llamada): respaldo.
+            // - Sin bgutil: yt-dlp trabaja sin PO tokens (como antes).
+            string? potServer = PotServerUrlFast();
+            if (!string.IsNullOrEmpty(potServer))
+            {
+                Arg("--extractor-args");
+                Arg($"youtubepot-bgutilhttp:base_url={potServer}");
+                LogOncePotMode("http (servidor persistente)");
+            }
+            else if (ToolManager.IsBgUtilReady)
             {
                 Arg("--extractor-args");
                 Arg($"youtubepot-bgutilscript:server_home={ToolManager.BgUtilServerDir}");
+                LogOncePotMode("script (deno por llamada)");
             }
 
             // Caché propia de deno (paquetes del generador de PO tokens) y caché
@@ -361,6 +450,30 @@ namespace Remove_Top.Features.Downloader
                      e.Contains("too many requests", StringComparison.OrdinalIgnoreCase)) &&
                     !e.Contains("age", StringComparison.OrdinalIgnoreCase));
             }
+        }
+
+        /// <summary>
+        /// Detecta el límite de velocidad de YouTube (429): conviene esperar
+        /// antes de reintentar, no insistir de inmediato.
+        /// </summary>
+        private static bool IsRateLimited(string? message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return false;
+            return message.Contains("429", StringComparison.Ordinal) ||
+                message.Contains("too many requests", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Detecta "Requested format is not available" (YouTube solo ofrece
+        /// SABR sin URLs https): habilita la pata HLS con web_safari.
+        /// </summary>
+        private static bool IsFormatUnavailable(string? message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return false;
+            return message.Contains("requested format is not available", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("format is not available", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

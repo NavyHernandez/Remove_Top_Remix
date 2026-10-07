@@ -27,6 +27,107 @@
         <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="White" />
         <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
 
+        <!-- Estilo compacto propio para los checks de opciones (mismo patrón
+             que Convertir Formatos): caja de 16 px con el azul marino de la
+             funcionalidad. La plantilla de WinUI fija 20 px y no responde a
+             FontSize. Solo esta página. -->
+        <Style x:Key="DownloaderCheckStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="10,4,0,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid x:Name="RootGrid" Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Opacity">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.85" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Opacity">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.7" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="RootGrid" Storyboard.TargetProperty="Opacity">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="0.5" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Checked">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#19376D" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="BorderBrush">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#19376D" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckGlyph" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                    <VisualState x:Name="Indeterminate">
+                                        <Storyboard>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="CheckBoxBorder" Storyboard.TargetProperty="Background">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="#19376D" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="IndeterminateGlyph" Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Visible" />
+                                            </ObjectAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid x:Name="CheckBoxGrid" Width="16" Height="16" VerticalAlignment="Center">
+                                <Border x:Name="CheckBoxBorder"
+                                        Background="Transparent"
+                                        BorderBrush="#19376D"
+                                        BorderThickness="1.5"
+                                        CornerRadius="3" />
+                                <FontIcon x:Name="CheckGlyph"
+                                          FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                          Glyph="&#xE73E;"
+                                          FontSize="11"
+                                          Foreground="White"
+                                          Visibility="Collapsed"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                                <Border x:Name="IndeterminateGlyph"
+                                        Background="White"
+                                        Width="6" Height="6"
+                                        CornerRadius="1"
+                                        Visibility="Collapsed" />
+                            </Grid>
+                            <ContentPresenter Grid.Column="1"
+                                              Content="{TemplateBinding Content}"
+                                              FontSize="{TemplateBinding FontSize}"
+                                              Foreground="{TemplateBinding Foreground}"
+                                              Margin="10,3,0,3"
+                                              VerticalAlignment="Center" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Entrada del popup de error: la tarjeta sube con rebote y el velo aparece con fundido. -->
         <Storyboard x:Name="ErrorPopupShowStoryboard">
             <DoubleAnimation Storyboard.TargetName="ErrorPopupCard"
@@ -93,23 +194,17 @@
                 <StackPanel Orientation="Horizontal" Spacing="24">
                     <!-- Normalizar al descargar: la única opción de procesado. -->
                     <CheckBox x:Name="MasterizeCheckBox"
+                              Style="{StaticResource DownloaderCheckStyle}"
                               Content="Normalizar al descargar (masterización Hard Limiter)"
                               FontSize="12"
-                              IsChecked="True">
-                        <CheckBox.RenderTransform>
-                            <ScaleTransform ScaleX="0.9" ScaleY="0.9" />
-                        </CheckBox.RenderTransform>
-                    </CheckBox>
+                              IsChecked="True" />
 
                     <!-- Conservar el WAV descargado además del normalizado (apagado por defecto). -->
                     <CheckBox x:Name="KeepOriginalCheckBox"
+                              Style="{StaticResource DownloaderCheckStyle}"
                               Content="Conservar archivo original descargado"
                               FontSize="11"
-                              IsChecked="False">
-                        <CheckBox.RenderTransform>
-                            <ScaleTransform ScaleX="0.9" ScaleY="0.9" />
-                        </CheckBox.RenderTransform>
-                    </CheckBox>
+                              IsChecked="False" />
                 </StackPanel>
 
                 <!-- CUENTA DE YOUTUBE (opcional): desbloquea videos con restricción. -->

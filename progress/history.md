@@ -499,3 +499,154 @@ Al instalar la app en otra PC aparecía el error "Required components of the Win
 - Verificar siempre la línea del run: `csproj=… | último tag=… -> publica …`.
 - **NUNCA re-etiquetar** una release publicada sin re-builderar (`releases.win.json` quedaría viejo).
 - Versiones en GitHub: conservar solo **≥ 0.3.6**.
+
+---
+
+## 2026-10-07 — Convertidor Voz (Feature 52): OGG/MPEG → WAV o MP3 320 estéreo
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Nueva feature `Features/Converter/`** — `ConverterModels.cs` (formato/opciones/cola/resultado/progreso), `VoiceChain.cs` (cadena de voz: HPF 80 Hz → gate → EQ 250/4k/de-ess 6.5k → shelf 15k → compresor 3:1 → clipper → TruePeak −1.0 dBTP, objetivo −16 LUFS + `NoiseGateSampleProvider` fallback), `VoiceDenoiser.cs` (pre-paso `highpass=80,lowpass=15000,afftdn=nf=-25:nr=12:tn=1` solo si `ToolManager.FfmpegExe` ya existe + rescate de decode vía ffmpeg), `AudioConverter.cs` (WAV temporal estándar estéreo 44.1 kHz q60 → ganancia por sonoridad en 2 pasadas → WAV o MP3 320k con `MediaFoundationEncoder` + fallback libmp3lame; mide Pico/LUFS reales de salida).
+2. **`ConverterPage.xaml/.cs`** — flujo en 3 pasos (patrón propio, no clon de Normalización): origen carpeta/archivos/arrastre nativo con overlay (acumula hasta 50, sonda de legibilidad 10 s), salida con RadioCards WAV/MP3-320 + checks ruido/voz, cola con estados + play por fila (`AudioPreview`) + "x" + progreso + resumen.
+3. **`AppLimits.cs`** — `ConverterMaxFilesToScan=50` (real y publicado), `ConverterOutputFolderName="OneDj_VozLimpia"`, título/subtítulo/mensaje de límite.
+4. **`MainWindow.xaml/.cs`** — ítem "Convertidor" (`MusicNote2`, acento `#1ABC9C`, Tag `converter`) + case de navegación. `OneDj_VozLimpia` ya queda fuera de Duplicados por el filtro `OneDj_*`.
+5. **Docs** — `feature_list.json` id 52 (done) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni push (el usuario no lo pidió). Build Debug|x64: 0 errores.
+
+---
+
+## 2026-10-07 — Convertidor Voz: fixes UI + bug "Revisando" + Limpiar siempre visible
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Sin wizard** — secciones `Origen` / `Formato de salida` / `Conversión` (práctica de la app).
+2. **Menú de formato** — `FormatComboBox` (MP3 320 recomendado / WAV) + descripción por formato, mismo patrón que `IntensityComboBox` (`PopulateFormatOptions`/`GetSelectedFormat`).
+3. **Fix "Revisando" eterno** — sondas de legibilidad en paralelo (4 a la vez), `UpdateQueueState()` al iniciar la carga (bloquea Convertir mientras hay sondas) y generación de carga (`_loadGeneration`) que descarta sondas huérfanas tras limpiar/recargar.
+4. **Limpiar siempre visible** — botón fantasma `Limpiar` junto a Convertir desde el inicio y tras convertir (cancela lo en curso y resetea); `CancelButton` solo durante el trabajo. Se eliminó `ClearSourceButton`.
+5. **Comentarios** — banners por sección en el XAML + XML-docs en español en todos los métodos.
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores.
+
+---
+
+## 2026-10-07 — Convertidor Voz: icono, bordes, fix real "Revisando", Completado, 2 columnas
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Icono** — menú + badge pasan de `MusicNote2` a `ArrowSync` (verificado en el DLL de FluentIcons; `ArrowSwap` ya lo usa Edición Rápida).
+2. **Bordes con el acento** — `Limpiar`/`Cancelar` fantasma con `BorderBrush/Foreground #1ABC9C 1.5` (patrón del Limpiar de Normalización); filas con iconos `Play` (acento) + `DismissCircle` en vez de ▶/✕ en texto.
+3. **Fix real del "Revisando"** — la causa era que `ConverterItem` no notificaba cambios (el `x:Bind` nunca refrescaba): ahora implementa `INotifyPropertyChanged` + bindings `Mode=OneWay` en Estado/Detalle.
+4. **"Completado"** — la sección de progreso muestra loader + "Convirtiendo..." durante el trabajo y al terminar "Completado" con check verde (o "Completado con errores" ámbar con Warning).
+5. **2 columnas** — la tarjeta de formato divide Formato de salida | Mejora de voz en un Grid de 2 columnas (menos alto vertical).
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.
+
+---
+
+## 2026-10-07 — Renombre a "Convertir Formatos" (código + UI)
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Código** — carpeta `Features/Converter/` → `Features/FormatConverter/`, namespace `Remove_Top.Features.FormatConverter`, clase `ConverterPage` → `FormatConverterPage` (xaml/cs + case en `MainWindow`).
+2. **UI** — ítem de menú "Convertir formatos", título de página "Convertir Formatos", salida `OneDj_VozLimpia` → `OneDj_Convertidos` (`AppLimits.ConverterOutputFolderName` + textos).
+3. **Docs** — `AGENTS.md` (fila, árbol, arquitectura, color), `feature_list.json` id 52 + esta bitácora (entradas anteriores intactas).
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias (hubo que cerrar `OneDjApp.exe`, que bloqueaba el `.exe`).
+
+---
+
+## 2026-10-07 — Convertir Formatos: acento pizarra, checks compactos, preview y Limpiar
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Acento `#1ABC9C` → `#607D8B` (pizarra)** en menú, badge, botones, anillo, overlay y filas (se confundía con el teal `#00A88F` de Cuenta).
+2. **Checks compactos** — estilo propio `CompactCheckStyle` en `Page.Resources`: caja 16 px con borde/relleno pizarra y glifo blanco, texto 12 px. Solo esta página.
+3. **Preview solo pre-conversión** — flag `_hasConverted`: al terminar se cierra el preview del original y el play por fila queda deshabilitado; se rehabilita con Limpiar o carpeta nueva.
+4. **Limpiar condicional** — `UpdateCleanButtonVisibility()`: solo visible con cola o resumen; oculto con la página vacía.
+5. **Docs** — `AGENTS.md` (color) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.
+
+---
+
+## 2026-10-07 — Descargas: fix borrado intermedio + checks navy; Convertir: botón ancho completo
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Causa del bug "Conservar OFF pero el WAV queda"** — condición de carrera: la limpieza usaba una foto de `_masterResults` alimentada por `IProgress` (entrega asíncrona; los últimos reportes no habían llegado) → intermedios omitidos en silencio, sin log.
+2. **`AudioNormalizer.ProcessFilesAsync` devuelve `IReadOnlyList<NormalizationResult>`** (lista autoritativa); el progreso queda solo para UI. Descargas reconcilia (anti-duplicados por referencia) y limpia sobre esa lista. Normalización ignora el retorno (compila igual).
+3. **Salvaguarda de limpieza** — reintento único tras 400 ms ante bloqueo (antivirus); lo fallido al normalizar se conserva a propósito pero se informa; resumen con eliminados/conservados/pendientes + log por archivo (`borrado OK` / `omitido (motivo)` / `ERROR tras reintento`).
+4. **Checks navy** — `DownloaderCheckStyle` 16 px en `#19376D` (mismo patrón compacto que Convertir Formatos); fuera el `ScaleTransform 0.9`.
+5. **Convertir Formatos** — botón Convertir a todo el ancho (FontSize 16, Height 44, espejo del Normalizar); Limpiar/Cancelar fantasma centrados debajo.
+6. **Docs** — `AGENTS.md` (fila Descargas) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.
+
+---
+
+## 2026-10-07 — Descargas: servidor PO persistente + matriz por causa + HLS + tope por enlace
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Causa de la demora/error engañoso** — el log mostraba `generate_once --version timed out after 15s` (deno en frío por llamada, modo script) mapeado a "problema de conexión". Mismo fallo en otros enlaces desde el 18-sep: sistémico, no del enlace.
+2. **Servidor bgutil persistente** (`ToolManager`: `EnsureBgUtilServerAsync` puerto 4416, ping TCP, hasta 90 s de espera, `StopBgUtilServer` al cerrar la app desde `MainWindow.Closed`); `YtDlpService` usa `youtubepot-bgutilhttp:base_url` si responde (ping cacheado 60 s) o `server_home` si no.
+3. **`deno cache --no-check`** en el provisioning (sello `deno.cache.stamp` por versión deno+bgutil) + verificación por sesión (`_sessionEnsured`, sin PyPI/GitHub en cada clic) + cronómetro del warmup en el log.
+4. **Matriz por causa** — PO-timeout con mensaje honesto (`generate_once` primero en `DownloadErrorText`); 429 con pausa 60 s + reintento; definitivos en fail fast; pata HLS (`web_safari`, solo con ffmpeg) ante SABR-only; tope 6 min por enlace (`download-timeout`).
+5. **Docs** — `AGENTS.md` (fila Descargas) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.
+
+---
+
+## 2026-10-07 — Convertir Formatos: play solo antes de convertir
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Play por fila solo pre-conversión** (como el análisis de Normalización) — `ConverterItem.CanPreview/PreviewVisibility` (solo "En cola"/"Revisando…") con binding `OneWay`: tras convertir la fila es solo resultado (estado + detalle), sin botón play. (WinUI 3 no trae `BooleanToVisibilityConverter`: se expone `Visibility` directo.)
+2. **Docs** — esta bitácora.
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.
+
+---
+
+## 2026-10-07 — Convertir Formatos: sin bloqueo en sonda (fix Opus-en-OGG "No legible")
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **Causa** — `Hola chicos Hombre.ogg` (11 KB, Downloads) es Opus-dentro-de-OGG (`OggS` + `OpusHead`, típico nota de voz): MediaFoundation no lo decodifica y la sonda lo marcaba "No legible", excluyéndolo del lote aunque ffmpeg sí lo lee (verificado: 11 KB → 785 KB WAV 44.1 kHz estéreo con el ffmpeg on-demand).
+2. **Sin sonda previa** — todo formato soportado entra "En cola"; si algo falla se informa al convertir con su motivo (el rescate `DecodeViaFfmpegAsync` ya existía). Se eliminaron `ProbeOneAsync/ProbeReadabilityAsync`, `_loadGeneration` y el `using NAudio.Wave` de la página.
+3. **Mensaje con pista** — si no hay ffmpeg, el error sugiere abrir Descargas una vez para activar el motor.
+4. **Docs** — `AGENTS.md` (fila Convertir Formatos) + esta bitácora.
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.
+
+---
+
+## 2026-10-07 — Menú: fuera la flecha "Atrás" sin uso
+
+**Agente:** opencode (muse-spark)
+
+### Cambios realizados
+1. **`MainWindow.xaml`** — `IsBackButtonVisible="Collapsed"` en el `NavigationView`: la flecha sobre la hamburguesa no hacía nada (navegación directa por `ItemInvoked`, sin pila `GoBack`).
+
+### Notas
+- Sin cambio de versión ni push. Build Debug|x64: 0 errores, 0 advertencias.

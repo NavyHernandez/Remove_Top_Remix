@@ -751,6 +751,21 @@
         "Fallo parcial deja Aplicar para reintentar"
       ],
       "status": "done"
+    },
+    {
+      "id": 52,
+      "name": "converter_voz",
+      "title": "Convertir Formatos: OGG/MPEG → WAV o MP3 320 estéreo con reducción de ruido",
+      "description": "Nueva página 'Convertir Formatos': convierte OGG/MPEG/MP3/WAV a WAV 16-bit o MP3 320 kbps, siempre estéreo 44.1 kHz. Reducción de ruido afftdn (highpass 80 + lowpass 15k + afftdn nf=-25 con tracking) si ffmpeg on-demand ya está, si no puerta de ruido managed. Mejora de voz: EQ presencia, de-esser, compresor 3:1 y sonoridad a -16 LUFS con techo -1.0 dBTP. Límite 50 archivos (AppLimits.ConverterMaxFilesToScan), salida en OneDj_Convertidos.",
+      "acceptance": [
+        "Salida seleccionable WAV o MP3 320, siempre estéreo 44.1 kHz",
+        "Quitar ruido con afftdn (ffmpeg) o gate (sin ffmpeg)",
+        "Mejorar voz con cadena propia (-16 LUFS, techo -1.0 dBTP)",
+        "Límite 50 archivos desde AppLimits",
+        "Cola con estados, preview del original y resumen con Pico/LUFS",
+        "Build 0 errores"
+      ],
+      "status": "done"
     }
   ]
 }

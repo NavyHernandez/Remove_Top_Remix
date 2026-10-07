@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Remove_Top.Features.Account;
 using Remove_Top.Features.BatchRename;
+using Remove_Top.Features.FormatConverter;
 using Remove_Top.Features.DuplicateRemoval;
 using Remove_Top.Features.Downloader;
 using Remove_Top.Features.Normalization;
@@ -48,12 +49,22 @@ namespace Remove_Top
                 // Fondo glass (Acrílico) para el menú lateral. El panel queda
                 // translúcido gracias a NavigationViewPaneBackground transparente.
                 SystemBackdrop = new DesktopAcrylicBackdrop();
+
+                // Al cerrar la app se detiene el servidor local de PO tokens
+                // (deno) que usa Descargas; no debe quedar colgado.
+                Closed += MainWindow_Closed;
             }
             catch (Exception ex)
             {
                 WriteLog($"MainWindow.InitializeComponent: {ex.Message}");
                 throw;
             }
+        }
+
+        /// <summary>Al cerrar la ventana, detiene el servidor PO de Descargas.</summary>
+        private void MainWindow_Closed(object sender, WindowEventArgs args)
+        {
+            try { ToolManager.StopBgUtilServer(); } catch { }
         }
 
         /// <summary>Escribe un mensaje en el log de errores. Nunca lanza excepciones.</summary>
@@ -148,6 +159,7 @@ namespace Remove_Top
                         "duplicates" => typeof(DuplicateRemovalPage),
                         "tags" => typeof(TagRemovalPage),
                         "download" => typeof(DownloaderPage),
+                        "converter" => typeof(FormatConverterPage),
                         "account" => typeof(AccountPage),
                         _ => throw new InvalidOperationException($"Unknown tag: {tag}")
                     };
